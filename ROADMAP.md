@@ -5,45 +5,42 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ---
 
 ### Core UX & Stability
-* [x] Responsive UI layout
-* [x] Web frontend embedded using `embed.FS`
+* [x] *(Planned)* Responsive UI layout
+* [x] *(Planned)* Web frontend embedded using `embed.FS`
 * [ ] Add loading state or skeleton UI while games load
-* [ ] Improve mobile spacing and responsive typography
-* [ ] Add micro-animations for hover and card transitions
+* [ ] *(Planned)* Improve mobile spacing and responsive typography
+* [ ] Add theme support (drop-in CSS files)
+* [ ] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
-* [ ] Add visible UI feedback during refresh (spinner or toast)
-* [ ] Display “Last refreshed at…” timestamp
+* [ ] *(Planned)* Add grid/list view toggle
+* [ ] *(Planned)* Add visible UI feedback during refresh (spinner or toast)
+* [ ] *(Planned)* Display “Last refreshed at…” timestamp
 * [ ] Add graceful fallback UI when `/api/games` fails
 
 ### Artwork Enhancements
-* [x] Placeholder artwork fallback
+* [x] *(Planned)* Placeholder artwork fallback
 * [ ] Add slight blur to placeholder backgrounds
 * [ ] Ensure user-supplied artwork always overrides auto-detected art
 * [ ] Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
 * [ ] Cache fetched artwork locally
 
 ### Metadata & Sorting
-* [x] Manual refresh button
+* [x] *(Planned)* Manual refresh button
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
-* [ ] Add sorting options (name, size, date added)
+* [ ] *(Planned)* Add sorting options (name, size, date added)
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
 
 ### Downloads & File Handling
-* [x] ZIP download streaming
-* [x] Display file size calculation on game card
-* [x] Folder autodiscovery
+* [x] *(Planned)* ZIP download streaming
+* [x] *(Planned)* Display file size calculation on game card
+* [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders
 
-## 4. Administration, Security & LAN Features
+### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
-* [ ] Store analytics in local JSON (never external)
 * [ ] Add `/api/stats` for UI integrations
 
 ### Docker / GHCR
 * [ ] Add multi-arch builds (amd64 + arm64)
-* [x] Environment variable configuration
-
-### Stretch Features
-* [ ] Add theme support (drop-in CSS files)
-* [ ] Add grid/list view toggle
+* [x] *(Planned)* Environment variable configuration
