@@ -24,7 +24,7 @@ Point it at a directory and GameShelf automatically:
 - Generates downloadable ZIP archives on demand
 - Serves a clean, modern UI over your local network
 
-There are no databases, logins, analytics, or external dependencies unless you choose to enable optional cover-fetching (see roadmap). Drop your games into a folder, run GameShelf, and enjoy a clean local library.
+There are no databases, logins, analytics, or external dependencies unless you choose to enable optional cover-fetching (see [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md#artwork-enhancements)). Drop your games into a folder, run GameShelf, and enjoy a clean local library.
 
 ## Features
 - Automatic folder indexing
