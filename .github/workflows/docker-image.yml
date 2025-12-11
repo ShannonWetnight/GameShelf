@@ -48,4 +48,6 @@ jobs:
       - name: Also push :latest on release
         if: ${{ github.ref_type == 'tag' }}
         run: |
-          docker tag ghcr.io/${{ github.repository_owner }}/gameshelf:${{ steps.vars.ou_
+          docker tag ghcr.io/${{ github.repository_owner }}/gameshelf:${{ steps.vars.outputs.tag }} \
+                     ghcr.io/${{ github.repository_owner }}/gameshelf:latest
+          docker push ghcr.io/${{ github.repository_owner }}/gameshelf:latest
