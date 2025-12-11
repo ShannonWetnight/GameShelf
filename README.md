@@ -6,7 +6,7 @@
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
-- [Prerequisites]{#prerequisites}
+- [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
     + [Docker Run](#docker-run)
     + [Docker Compose](#docker-compose)
