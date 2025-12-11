@@ -170,7 +170,7 @@ High-quality artwork is recommended. A resolution around 600×900 (3:4) works we
 
 #### How GameShelf Chooses an Image
 When loading a game entry:
-1. GameShelf checks for cover.jpg, then cover.jpeg, cover.png, and finally cover.webp.
+1. GameShelf checks for `cover.jpg`, `cover.jpeg`, `cover.png`, and `cover.webp`.
 2. The first matching file found is used as the game’s cover art.
 3. If no cover image is provided, GameShelf will fall back to:
 4. `planned feature` Attempting automatic artwork retrieval (if enabled), or
