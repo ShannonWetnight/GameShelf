@@ -86,7 +86,8 @@ body {
 
 .gs-card-cover {
   position: relative;
-  padding-top: 140%;
+  width: 100%;
+  aspect-ratio: 2 / 3;   /* Standard portrait game cover ratio */
   background: radial-gradient(circle at top, #374785, #141b2f);
   overflow: hidden;
 }
