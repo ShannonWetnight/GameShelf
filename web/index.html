@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>GameShelf</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="gs-header">
+    <div class="gs-logo">GameShelf</div>
+    <div class="gs-subtitle">Local Games Library</div>
+
+    <!-- Live Reload Button -->
+    <button id="gs-reload" class="gs-reload-button">Refresh</button>
+  </header>
+
+  <main class="gs-main">
+    <section id="games-container" class="gs-grid">
+      <!-- Cards inserted by app.js -->
+    </section>
+
+    <section id="empty-state" class="gs-empty hidden">
+      <h2>No games found!</h2>
+      <p>Drop folders into your <code>GAMESHELF_ROOT</code> directory and refresh.</p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
