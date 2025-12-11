@@ -71,10 +71,6 @@ func main() {
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
-fileServer := http.FileServer(http.FS(sub))
-mux.Handle("/", fileServer)
-
-
 	// Static frontend
 	sub, err := embedSubFS(webFS, "web")
 	if err != nil {
