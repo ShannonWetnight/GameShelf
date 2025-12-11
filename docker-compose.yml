@@ -1,7 +1,7 @@
 ---
 services:
   gameshelf:
-    image: ghcr.io/ShannonWetnight/gameshelf:latest
+    image: ghcr.io/shannonwetnight/gameshelf:latest
     container_name: gameshelf
     restart: unless-stopped
     ports:
