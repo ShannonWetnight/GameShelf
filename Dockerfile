@@ -3,7 +3,7 @@ FROM golang:1.22-alpine AS build
 
 WORKDIR /app
 
-# Copy only what Go needs to build
+# Copy only what Go needs to build, leave out go.sum as it's not used
 COPY go.mod ./
 RUN go mod download
 
@@ -18,5 +18,7 @@ WORKDIR /app
 
 COPY --from=build /app/gameshelf .
 
+# Default internal port, can be overridden with -p flag or environment variable
 EXPOSE 8080
+
 ENTRYPOINT ["/app/gameshelf"]
