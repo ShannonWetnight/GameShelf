@@ -13,7 +13,7 @@
     + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
     + [Reverse Proxy](#reverse-proxy)
-      + [Traefik](#traefik)
+      + [Traefik Example](#traefik-example)
     + [Single Sign-On](#single-sign-on)
 - [Usage](#usage)
 
@@ -91,7 +91,7 @@ services:
 ### Reverse Proxy
 For ease of use, it is recommended to use a reverse proxy for accessing GameShelf, such as `games.mydomain.com`. Use the service of your choice to accomplish this. The below configuration is a working example from [Traefik](https://doc.traefik.io/traefik/).
 
-#### Traefik
+#### Traefik Example
 ```yaml
 http:
   routers:
