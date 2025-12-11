@@ -71,11 +71,26 @@ func main() {
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
+fileServer := http.FileServer(http.FS(sub))
+mux.Handle("/", fileServer)
+
+
 	// Static frontend
 	sub, err := embedSubFS(webFS, "web")
 	if err != nil {
 		log.Fatalf("static FS error: %v", err)
 	}
+	// DEBUG: list everything inside the embedded "web" directory
+	log.Println("DEBUG: Embedded files:")
+	fs.WalkDir(sub, ".", func(path string, d fs.DirEntry, err error) error {
+    	if err != nil {
+        	log.Println("  [ERR]", err)
+        	return nil
+    	}
+    	log.Println("  ", path)
+    	return nil
+	})
+
 	fileServer := http.FileServer(http.FS(sub))
 	mux.Handle("/", fileServer)
 
