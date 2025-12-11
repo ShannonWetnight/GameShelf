@@ -47,9 +47,10 @@ There are no databases, logins, analytics, or external dependencies unless you c
 ```bash
 docker run -d \
   --name gameshelf \
+  --restart unless-stopped \
   -p 8080:8080 \
   -e GAMESHELF_ROOT=/games \
-  -v /path/to/your/library:/games \
+  -v /path/to/your/library:/games:ro \
   ghcr.io/shannonwetnight/gameshelf:latest
 ```
 ### Docker Compose
@@ -66,7 +67,7 @@ services:
     environment:
       # Working directory for indexing folders
       - GAMESHELF_ROOT=/games
-      # GameShelf port
+      # GameShelf internal bind address
       - GAMESHELF_ADDR=:8080
       # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
       # - GAMESHELF_REFRESH_INTERVAL= 12h
