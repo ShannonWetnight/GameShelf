@@ -1,0 +1,19 @@
+---
+services:
+  gameshelf:
+    image: ghcr.io/ShannonWetnight/gameshelf:latest
+    container_name: gameshelf
+    restart: unless-stopped
+    ports:
+      - 8080:8080 # Increment if in-use
+    environment:
+      # Working directory for indexing folders
+      - GAMESHELF_ROOT=/games
+      # GameShelf port
+      - GAMESHELF_ADDR=:8080
+      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable)
+      # - GAMESHELF_REFRESH_INTERVAL= 5m
+    volumes:
+      - /path/to/games:/games:ro
+    security_opt:
+      - no-new-privileges:true
