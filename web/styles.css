@@ -61,7 +61,7 @@ body {
 
 .gs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
   align-items: stretch;
 }
@@ -86,8 +86,7 @@ body {
 
 .gs-card-cover {
   position: relative;
-  width: 100%;
-  aspect-ratio: 2 / 3;   /* Standard portrait game cover ratio */
+  padding-top: 140%;
   background: radial-gradient(circle at top, #374785, #141b2f);
   overflow: hidden;
 }
