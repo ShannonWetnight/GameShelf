@@ -10,6 +10,7 @@
 - [Quick Start](#quick-start)
     + [Docker Run](#docker-run)
     + [Docker Compose](#docker-compose)
+    + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
     + [Reverse Proxy](#reverse-proxy)
       + [Traefik](#traefik)
@@ -68,14 +69,22 @@ services:
       - GAMESHELF_ROOT=/games
       # GameShelf port
       - GAMESHELF_ADDR=:8080
-      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable)
-      # - GAMESHELF_REFRESH_INTERVAL= 5m
+      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
+      # - GAMESHELF_REFRESH_INTERVAL= 12h
     volumes:
       - /path/to/games:/games:ro
     security_opt:
       - no-new-privileges:true
 ```
-After successful installation, navigate to GameShelf's `IP:8080` to view the indexed content.
+
+### Environment Variables
+| Variable                     | Default  | Description                                               |
+| ---------------------------- | -------- | --------------------------------------------------------- |
+| `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                   |
+| `GAMESHELF_ADDR`             | `:8080`  | Bind address for the server.                              |
+| `GAMESHELF_REFRESH_INTERVAL` | `12h`    | Optional: auto-scan interval (`0` disables auto-refresh). |
+
+**After successful installation, navigate to GameShelf's `IP:8080` address to view the indexed content.**
 
 ## Optional Installation Steps
 
