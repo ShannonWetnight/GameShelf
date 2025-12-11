@@ -81,7 +81,7 @@ services:
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                                         |
 | `GAMESHELF_ADDR`             | `:8080`  | Bind address for the server.                                                    |
-| `GAMESHELF_REFRESH_INTERVAL` | `0`    | Optional: auto-scan interval (`1d`, `1h`,`1m`, `1s`, | `0` disables auto-refresh) |
+| `GAMESHELF_REFRESH_INTERVAL` | `0`    | Optional: auto-scan interval (`1d`, `1h`,`1m`, `1s`, - `0` disables auto-refresh) |
 
 **After successful installation, navigate to GameShelf's `IP:8080` address to view the indexed content.**
 
