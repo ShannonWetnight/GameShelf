@@ -50,7 +50,7 @@ docker run -d \
   -p 8080:8080 \
   -e GAMESHELF_ROOT=/games \
   -v /path/to/your/library:/games \
-  ghcr.io/ShannonWetnight/gameshelf:latest
+  ghcr.io/shannonwetnight/gameshelf:latest
 ```
 ### Docker Compose
 
