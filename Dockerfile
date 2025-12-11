@@ -6,7 +6,9 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Copy source including web folder for embedding
 COPY . .
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o gameshelf main.go
 
 # Runtime stage
@@ -17,16 +19,8 @@ WORKDIR /app
 # Copy binary
 COPY --from=build /app/gameshelf /app/gameshelf
 
-# Copy static frontend assets
-COPY index.html /app/index.html
-COPY styles.css /app/styles.css
-COPY app.js /app/app.js
-COPY placeholder.png /app/placeholder.png
-
-# Environment
-ENV GAMESHELF_ROOT=/games
-ENV GAMESHELF_ADDR=:8080
-ENV GAMESHELF_REFRESH_INTERVAL=5m
+# Copy static assets into container
+COPY web/ /app/web/
 
 EXPOSE 8080
 
