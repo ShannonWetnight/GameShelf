@@ -21,7 +21,7 @@
 GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections.  
 Point it at a directory and GameShelf automatically:
 - Indexes game folders
-- Detects and displays cover art (`cover.jpg`, `folder.png`, etc.)
+- Detects and displays cover art, such as `cover.jpg`, `folder.png`, etc.
 - Generates downloadable ZIP archives on demand
 - Serves a clean, modern UI over your local network
 
