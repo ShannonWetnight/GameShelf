@@ -3,8 +3,6 @@
 > **AI Workflow Notice**  
 > Parts of GameShelf are developed with the assistance of AI tools to accelerate boilerplate generation, UI layout, and documentation drafting. All logic, architecture decisions, and final code have been reviewed and curated by the project maintainers. GameShelf is fully open-source (MIT licensed), and all contributors are welcome.
 
----
-
 ## Overview
 
 GameShelf is a lightweight, no-nonsense LAN game library designed for offline storage collections.  
@@ -18,8 +16,6 @@ There are no databases, logins, analytics, or external dependencies unless you c
 
 Just drop your games into a folder, run GameShelf, and enjoy a clean local library.
 
----
-
 ## Features
 - Automatic folder indexing
 - Local cover art detection
@@ -28,8 +24,6 @@ Just drop your games into a folder, run GameShelf, and enjoy a clean local libra
 - Zero-config outside of the indexing directory
 - Go backend and static web UI
 - Easy deployment with Docker or Compose
-
----
 
 ## Quick Start
 
@@ -41,11 +35,10 @@ docker run -d \
   -e GAMESHELF_ROOT=/games \
   -v /path/to/your/library:/games \
   ghcr.io/ShannonWetnight/gameshelf:latest
-
 ```
-
 ### Docker Compose
-```
+
+```yaml
 ---
 services:
   gameshelf:
@@ -66,16 +59,13 @@ services:
     security_opt:
       - no-new-privileges:true
 ```
-
 After successful installation, navigate to GameShelf's `IP:8080` to view the indexed content.
-
----
 
 ## Reverse-proxy
 For ease of use, it is recommended to use a reverse proxy for accessing GameShelf. Personally, I use `games.mydomain.com` with Traefik.
 
 ### Traefik:
-```
+```yaml
 http:
   routers:
 
@@ -88,7 +78,8 @@ http:
       tls: {}
       service: gameshelf
 ```
-```
+
+```yaml
 services:
 
     gameshelf:
@@ -97,7 +88,8 @@ services:
           - url: "http://gameshelf:8086"
         passHostHeader: true
 ```
-```
+
+```yaml
 middlewares:
 
     https-redirectscheme:
@@ -124,8 +116,6 @@ middlewares:
         - https-redirectscheme
         - default-headers
 ```
-
----
 
 ## Single Sign-On
 You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and more, by using forward Auth.
