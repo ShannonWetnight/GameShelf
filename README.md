@@ -13,8 +13,11 @@
     + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
     + [Reverse Proxy](#reverse-proxy)
-      + [Traefik Example](#traefik-example)
+        + [Traefik Example](#traefik-example)
     + [Single Sign-On](#single-sign-on)
+    + [Cover Art](#cover-art)
+        + [Recommended Resolution](#recommended-resolution)
+        + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
 - [Usage](#usage)
 
 ## Overview
@@ -149,7 +152,30 @@ middlewares:
 
 ### Single Sign-On
 You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and more, by using forward Auth.
+> [!NOTE]
 > GameShelf was not created to natively support SSO, user creation, mapping, or profiles. The purpose of GameShelf is to offer a frictionless library of DRM-free games to a local network, typically between 1-10 users in size. Using SSO or branching and adding profile functionality can be done but extends beyond the scope of GameShelf's intended purpose.
+
+### Cover Art
+GameShelf supports custom cover images for any game folder. To add your own artwork, place a cover image in the game’s directory using one of the supported file types:
+- `cover.jpg`
+- `cover.jpeg`
+- `cover.png`
+- `cover.webp`
+> [!IMPORTANT]
+> Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
+
+#### Recommended Resolution
+High-quality artwork is recommended. A resolution around 600×900 (3:4) works well; however, GameShelf automatically crops and scales the artwork into a portrait format and ratio of 2:3, so the final appearance will be vertically oriented regardless of the original aspect ratio.
+- File size may be a performance factor to consider for libraries that include many games.
+
+#### How GameShelf Chooses an Image
+When loading a game entry:
+1. GameShelf checks for cover.jpg, then cover.jpeg, cover.png, and finally cover.webp.
+2. The first matching file found is used as the game’s cover art.
+3. If no cover image is provided, GameShelf will fall back to:
+4. `planned feature` Attempting automatic artwork retrieval (if enabled), or
+5. `current behavior` Displaying the placeholder.png cover if nothing is available.
+This allows users to fully override auto-fetched artwork simply by placing their own cover.* image into the game’s folder.
 
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
