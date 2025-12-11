@@ -21,6 +21,7 @@ COPY --from=build /app/gameshelf /app/gameshelf
 COPY index.html /app/index.html
 COPY styles.css /app/styles.css
 COPY app.js /app/app.js
+COPY placeholder.png /app/placeholder.png
 
 # Environment
 ENV GAMESHELF_ROOT=/games
