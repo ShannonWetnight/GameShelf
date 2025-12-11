@@ -9,10 +9,10 @@ services:
     environment:
       # Working directory for indexing folders
       - GAMESHELF_ROOT=/games
-      # GameShelf port
-      - GAMESHELF_ADDR=:8080
+      # Optional: Change GameShelf's default (8080) internal bind address
+      #- GAMESHELF_ADDR=:8080
       # Optional: Set a refresh interval to override library refresh (default unless uncommented: 0) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
-      # - GAMESHELF_REFRESH_INTERVAL= 12h
+      #- GAMESHELF_REFRESH_INTERVAL= 12h
     volumes:
       - /path/to/games:/games:ro
     security_opt:
