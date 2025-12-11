@@ -247,9 +247,6 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
         refreshGames()
     }
 
-    gamesMu.RLock()
-    defer gamesMu.RUnlock()
-
 	gamesMu.RLock()
 	defer gamesMu.RUnlock()
 
@@ -327,24 +324,40 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCover(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	id := strings.TrimPrefix(r.URL.Path, "/covers/")
-	id = strings.TrimSpace(id)
-	if id == "" {
-		http.NotFound(w, r)
-		return
-	}
+    if r.Method != http.MethodGet {
+        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
 
-	entry := getGameEntryByID(id)
-	if entry == nil || entry.CoverPath == "" {
-		http.NotFound(w, r)
-		return
-	}
+    id := strings.TrimPrefix(r.URL.Path, "/covers/")
+    id = strings.TrimSpace(id)
+    if id == "" {
+        http.NotFound(w, r)
+        return
+    }
 
-	http.ServeFile(w, r, entry.CoverPath)
+    entry := getGameEntryByID(id)
+    if entry == nil {
+        http.NotFound(w, r)
+        return
+    }
+
+    // If no cover found, serve placeholder instead of 404
+    if entry.CoverPath == "" {
+        f, err := webFS.Open("web/placeholder.png")
+        if err != nil {
+            http.NotFound(w, r)
+            return
+        }
+        defer f.Close()
+
+        w.Header().Set("Content-Type", "image/png")
+        io.Copy(w, f)
+        return
+    }
+
+    // Normal cover path
+    http.ServeFile(w, r, entry.CoverPath)
 }
 
 func getGameEntryByID(id string) *gameEntry {

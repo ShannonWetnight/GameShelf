@@ -24,15 +24,17 @@ function createGameCard(game) {
   const cover = document.createElement('div');
   cover.className = 'gs-card-cover';
 
-  if (game.hasCover) {
+if (game.hasCover) {
     const img = document.createElement('img');
     img.src = `/covers/${encodeURIComponent(game.id)}`;
     img.alt = `${game.name} cover`;
     cover.appendChild(img);
-  } else {
-    cover.classList.add('gs-card-cover--placeholder');
-    cover.textContent = game.name[0]?.toUpperCase() || '?';
-  }
+} else {
+    const img = document.createElement('img');
+    img.src = `/covers/${encodeURIComponent(game.id)}`; // server will auto-fallback
+    img.alt = `${game.name} cover placeholder`;
+    cover.appendChild(img);
+}
 
   const body = document.createElement('div');
   body.className = 'gs-card-body';
