@@ -68,7 +68,7 @@ services:
     ports:
       - 8080:8080 # Increment if in-use
     environment:
-      # Working directory for indexing folders
+      # Directory containing indexable folders. 
       - GAMESHELF_ROOT=/games
       # Optional: v
       #- GAMESHELF_ADDR=:8080
