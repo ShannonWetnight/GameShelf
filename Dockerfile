@@ -3,7 +3,7 @@ FROM golang:1.22-alpine AS build
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod ./
 RUN go mod download
 
 # Copy source including web folder for embedding
