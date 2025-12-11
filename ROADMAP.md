@@ -21,7 +21,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Placeholder artwork fallback
 * [ ] Add slight blur to placeholder backgrounds
 * [ ] Ensure user-supplied artwork always overrides auto-detected art
-* [ ] Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
+* [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
 * [ ] Cache fetched artwork locally
 
 ### Metadata & Sorting
