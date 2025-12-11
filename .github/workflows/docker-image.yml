@@ -2,7 +2,9 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - "main"
+      - "edge"
   release:
     types: [published]
 
@@ -28,11 +30,22 @@ jobs:
       - name: Determine image tag
         id: vars
         run: |
+          # If this is a release, tag = release version (ex: v1.2)
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            # Use the tag name from the release (ex: v1.0)
             echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-          else
+            exit 0
+          fi
+
+          # Otherwise check branch name
+          BRANCH="${GITHUB_REF_NAME}"
+
+          if [[ "$BRANCH" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "edge" ]]; then
+            echo "tag=edge" >> $GITHUB_OUTPUT
+          else
+            # Fallback (should not occur)
+            echo "tag=unknown" >> $GITHUB_OUTPUT
           fi
 
       - name: Build the Docker image
