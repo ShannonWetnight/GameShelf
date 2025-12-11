@@ -11,8 +11,8 @@ services:
       - GAMESHELF_ROOT=/games
       # GameShelf port
       - GAMESHELF_ADDR=:8080
-      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable)
-      # - GAMESHELF_REFRESH_INTERVAL= 5m
+      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
+      # - GAMESHELF_REFRESH_INTERVAL= 0
     volumes:
       - /path/to/games:/games:ro
     security_opt:
