@@ -47,10 +47,12 @@ There are no databases, logins, analytics, or external dependencies unless you c
 ```bash
 docker run -d \
   --name gameshelf \
+  --restart unless-stopped \
+  --security-opt no-new-privileges:true \
   -p 8080:8080 \
   -e GAMESHELF_ROOT=/games \
-  -v /path/to/your/library:/games \
-  ghcr.io/ShannonWetnight/gameshelf:latest
+  -v /path/to/your/library:/games:ro \
+  ghcr.io/shannonwetnight/gameshelf:latest
 ```
 ### Docker Compose
 
@@ -66,10 +68,10 @@ services:
     environment:
       # Working directory for indexing folders
       - GAMESHELF_ROOT=/games
-      # GameShelf port
-      - GAMESHELF_ADDR=:8080
-      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 12h) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
-      # - GAMESHELF_REFRESH_INTERVAL= 12h
+      # Optional: v
+      #- GAMESHELF_ADDR=:8080
+      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 0) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
+      #- GAMESHELF_REFRESH_INTERVAL= 12h
     volumes:
       - /path/to/games:/games:ro
     security_opt:
@@ -80,7 +82,7 @@ services:
 | Variable                     | Default  | Description                                                                     |
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                                         |
-| `GAMESHELF_ADDR`             | `:8080`  | Bind address for the server.                                                    |
+| `GAMESHELF_ADDR`             | `:8080`  | Optional: Change GameShelf's default (`8080`) internal bind address.                                           |
 | `GAMESHELF_REFRESH_INTERVAL` | `0`    | Optional: auto-scan interval (`1d`, `1h`,`1m`, `1s`, - `0` disables auto-refresh) |
 
 **After successful installation, navigate to GameShelf's `IP:8080` address to view the indexed content.**
