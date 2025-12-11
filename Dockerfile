@@ -22,6 +22,9 @@ COPY --from=build /app/gameshelf /app/gameshelf
 # Copy static assets into container
 COPY web/ /app/web/
 
+# Disable auto-refresh by default
+ENV GAMESHELF_REFRESH_INTERVAL=0
+
 EXPOSE 8080
 
 ENTRYPOINT ["/app/gameshelf"]
