@@ -41,7 +41,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - [Docker](https://docs.docker.com/engine/install/) or
 - [Docker Compose](https://docs.docker.com/compose/install/)
 - A mountable directory for GameShelf to index
-- 10-15 minutes of free-time
+- 10-15 minutes of free time
 
 ## Quick Start
 
