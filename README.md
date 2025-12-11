@@ -17,9 +17,9 @@
 - [Usage](#usage)
 
 ## Overview
-GameShelf is a lightweight, no-nonsense LAN game library designed for offline storage collections.  
+GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections.  
 Point it at a directory and GameShelf automatically:
-- Indexes game folders  
+- Indexes game folders
 - Detects and displays cover art (`cover.jpg`, `folder.png`, etc.)
 - Generates downloadable ZIP archives on demand
 - Serves a clean, modern UI over your local network
@@ -152,3 +152,6 @@ You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
 2. View and/or download zipped folders from the web UI.
+
+## Roadmap
+View the [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md) for a list of features worth considering for GameShelf.
