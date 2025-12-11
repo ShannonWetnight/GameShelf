@@ -4,7 +4,7 @@ FROM golang:1.22-alpine AS build
 WORKDIR /app
 
 # Copy only what Go needs to build
-COPY go.mod go.sum ./
+COPY go.mod ./
 RUN go mod download
 
 COPY main.go .
