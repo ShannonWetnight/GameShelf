@@ -15,6 +15,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] *(Planned)* Add grid/list view toggle
 * [ ] *(Planned)* Add visible UI feedback during refresh (spinner or toast)
 * [ ] *(Planned)* Display “Last refreshed at…” timestamp
+* [ ] Add a toggle UI effects option
+* [ ] Add a dark/light mode toggle
 * [ ] Add graceful fallback UI when `/api/games` fails
 
 ### Artwork Enhancements
@@ -38,6 +40,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
+* [ ] Add support for multiple directories
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
