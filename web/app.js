@@ -95,66 +95,47 @@ async function init() {
 document.addEventListener('DOMContentLoaded', () => {
   init();
 
-  const brand = document.getElementById('gs-refresh-trigger');
+  const trigger = document.getElementById('gs-refresh-trigger');
   const logoText = document.getElementById('gs-logo-text');
 
-  let originalText = "GameShelf";
-  let hoverText = "Refresh Library";
-  let doneText = "Finished";
+  const originalText = "GAMESHELF";
+  const hoverText = "Refresh";
+  const refreshingText = "Refreshing...";
+  const doneText = "Refreshed";
 
-  let refreshLock = false;  // prevents hover changes during refresh
+  let refreshLock = false;
 
-  // Smooth text swap helper with safety checks
-  function swapText(newText, temporary = false) {
-    if (logoText.textContent === newText) return;
-
-    logoText.style.opacity = 0;
-
-    setTimeout(() => {
-      logoText.textContent = newText;
-      logoText.style.opacity = 1;
-
-      if (temporary) {
-        // lock during temporary status
-        refreshLock = true;
-
-        setTimeout(() => {
-          logoText.style.opacity = 0;
-
-          setTimeout(() => {
-            logoText.textContent = originalText;
-            logoText.style.opacity = 1;
-            refreshLock = false; // release lock
-          }, 250);
-
-        }, 1100);
-      }
-    }, 250);
-  }
-
-  // Hover preview
-  brand.addEventListener('mouseenter', () => {
-    if (!refreshLock) swapText(hoverText);
+  // Hover → show "Refresh"
+  trigger.addEventListener('mouseenter', () => {
+    if (refreshLock) return;
+    logoText.textContent = hoverText;
   });
 
-  // Leave → restore
-  brand.addEventListener('mouseleave', () => {
-    if (!refreshLock) swapText(originalText);
+  // Leave → restore "GAMESHELF"
+  trigger.addEventListener('mouseleave', () => {
+    if (refreshLock) return;
+    logoText.textContent = originalText;
   });
 
-  // Click → refresh manually
-  brand.addEventListener('click', async () => {
-    if (refreshLock) return; // ignore clicks mid-refresh
-
+  // Click → refresh library
+  trigger.addEventListener('click', async () => {
+    if (refreshLock) return;   // ignore extra clicks mid-refresh
     refreshLock = true;
 
-    // Trigger backend refresh
-    await fetch('/api/games?forceRefresh=1');
+    logoText.textContent = refreshingText;
+    trigger.classList.add('refreshing');
 
-    // Re-render UI
+    // Ask backend to rescan + rebuild UI
+    await fetch('/api/games?forceRefresh=1');
     await init();
 
-    // Show "Finished"
-    swapText(doneText, true);
+    // Brief "Refreshed" state, then back to GAMESHELF
+    logoText.textContent = doneText;
+
+    setTimeout(() => {
+      logoText.textContent = originalText;
+      trigger.classList.remove('refreshing');
+      refreshLock = false;
+    }, 1000);
   });
 });
