@@ -149,23 +149,21 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--accent), #ffdd7f);
+  background: linear-gradient(135deg, var(--accent), #f69500);
   border: none;
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.12s ease;
 }
 
 .gs-icon-button:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.10);
   transform: translateY(-1px);
 }
 
 .gs-icon-button svg {
   width: 54px;
   height: 36px;
-  fill: #f69500;
-  align-items: center;
-  justify-content: center; 
+  fill: #1a1304;
 }
 
 
