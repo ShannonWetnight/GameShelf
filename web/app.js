@@ -95,14 +95,66 @@ async function init() {
 document.addEventListener('DOMContentLoaded', () => {
   init();
 
-  const reloadBtn = document.getElementById('gs-reload');
-  if (reloadBtn) {
-    reloadBtn.addEventListener('click', async () => {
-      const container = document.getElementById('games-container');
-      container.innerHTML = '<p style="color: var(--text-muted);">Refreshing...</p>';
+  const brand = document.getElementById('gs-refresh-trigger');
+  const logoText = document.getElementById('gs-logo-text');
 
-      await fetch('/api/games?forceRefresh=1');
-      init();
-    });
+  let originalText = "GameShelf";
+  let hoverText = "Refresh Library";
+  let doneText = "Finished";
+
+  let refreshLock = false;  // prevents hover changes during refresh
+
+  // Smooth text swap helper with safety checks
+  function swapText(newText, temporary = false) {
+    if (logoText.textContent === newText) return;
+
+    logoText.style.opacity = 0;
+
+    setTimeout(() => {
+      logoText.textContent = newText;
+      logoText.style.opacity = 1;
+
+      if (temporary) {
+        // lock during temporary status
+        refreshLock = true;
+
+        setTimeout(() => {
+          logoText.style.opacity = 0;
+
+          setTimeout(() => {
+            logoText.textContent = originalText;
+            logoText.style.opacity = 1;
+            refreshLock = false; // release lock
+          }, 250);
+
+        }, 1100);
+      }
+    }, 250);
   }
+
+  // Hover preview
+  brand.addEventListener('mouseenter', () => {
+    if (!refreshLock) swapText(hoverText);
+  });
+
+  // Leave → restore
+  brand.addEventListener('mouseleave', () => {
+    if (!refreshLock) swapText(originalText);
+  });
+
+  // Click → refresh manually
+  brand.addEventListener('click', async () => {
+    if (refreshLock) return; // ignore clicks mid-refresh
+
+    refreshLock = true;
+
+    // Trigger backend refresh
+    await fetch('/api/games?forceRefresh=1');
+
+    // Re-render UI
+    await init();
+
+    // Show "Finished"
+    swapText(doneText, true);
+  });
 });
