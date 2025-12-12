@@ -46,7 +46,6 @@ body {
 .gs-brand {
   display: flex;
   align-items: center;
-  cursor: pointer;
 }
 
 /* Animated text */
@@ -76,12 +75,6 @@ body {
 .gs-logo.refreshing {
   color: #f69500;
   text-shadow: 0 0 14px #f69500;
-}
-
-/* Hover effect: soft shrink + fade for smooth text swap */
-.gs-brand:hover .gs-logo {
-  opacity: 0.4;
-  transform: scale(0.96);
 }
 
 .gs-subtitle {
@@ -205,7 +198,6 @@ body {
   height: 36px;
   fill: #1a1304;
 }
-
 
 .gs-footer {
   padding: 0.75rem 3vw 1rem;
