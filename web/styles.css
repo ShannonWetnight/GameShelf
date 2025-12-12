@@ -42,28 +42,35 @@ body {
   gap: 0.35rem;
 }
 
-/* Brand area */
+/* Brand container (not clickable) */
 .gs-brand {
   display: flex;
   align-items: center;
 }
 
-/* Animated text */
+/* Clickable element – logo */
 .gs-logo {
   display: inline-block;
+  font-size: 2rem;                /* restore original size */
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 6px;
   transition:
     color 0.2s ease,
-    text-shadow 0.2s ease,
+    text-shadow 0.25s ease,
     transform 0.1s ease;
 }
 
-/* Glow on hover – text-only */
+/* Text glow on hover (no background-box) */
 .gs-logo:hover {
   color: #f69500;
-  text-shadow: 0 0 8px #f69500;
+  text-shadow:
+    0 0 6px #f69500,
+    0 0 12px #f69500,
+    0 0 18px #f69500aa;
 }
 
 /* Gentle press effect on click */
@@ -74,7 +81,10 @@ body {
 /* Stronger glow while actively refreshing */
 .gs-logo.refreshing {
   color: #f69500;
-  text-shadow: 0 0 14px #f69500;
+  text-shadow:
+    0 0 8px #f69500,
+    0 0 16px #f69500,
+    0 0 26px #f69500cc;
 }
 
 .gs-subtitle {
