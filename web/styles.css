@@ -161,9 +161,11 @@ body {
 }
 
 .gs-icon-button svg {
-  width: 18px;
-  height: 18px;
-  fill: #1a1304;
+  width: 54px;
+  height: 36px;
+  fill: #f69500;
+  align-items: center;
+  justify-content: center; 
 }
 
 
