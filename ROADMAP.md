@@ -36,6 +36,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Display file size calculation on game card
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders
+* [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
