@@ -55,7 +55,26 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  display: inline-block;
+  cursor: pointer;
+  padding: 4px 8px; /* small padding so glow looks good */
+  border-radius: 6px;
+  transition:
+    opacity 0.25s ease,
+    transform 0.15s ease,
+    box-shadow 0.25s ease,
+    color 0.25s ease;
+}
+
+/* Glow effect on hover */
+.gs-logo:hover {
+  color: #f69500;
+  box-shadow: 0 0 12px #f69500aa;
+}
+
+/* Gentle press animation */
+.gs-logo:active {
+  transform: scale(0.94);
 }
 
 /* Hover effect: soft shrink + fade for smooth text swap */
