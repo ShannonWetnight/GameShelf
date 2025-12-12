@@ -105,37 +105,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let refreshLock = false;
 
-  // Hover → show "Refresh"
+  // ----- FIX 1: Lock width to prevent hover spazzing -----
+  // measure original width before any text changes
+  const originalWidth = logoText.offsetWidth;
+  trigger.style.width = `${originalWidth}px`;
+
+  // ----- Hover -----
   trigger.addEventListener('mouseenter', () => {
-    if (refreshLock) return;
-    logoText.textContent = hoverText;
+    if (!refreshLock) logoText.textContent = hoverText;
   });
 
-  // Leave → restore "GAMESHELF"
   trigger.addEventListener('mouseleave', () => {
-    if (refreshLock) return;
-    logoText.textContent = originalText;
+    if (!refreshLock) logoText.textContent = originalText;
   });
 
-  // Click → refresh library
+  // ----- Click → Refresh -----
   trigger.addEventListener('click', async () => {
-    if (refreshLock) return;   // ignore extra clicks mid-refresh
+    if (refreshLock) return;
+
     refreshLock = true;
+    trigger.classList.add("refreshing");
 
     logoText.textContent = refreshingText;
-    trigger.classList.add('refreshing');
 
-    // Ask backend to rescan + rebuild UI
     await fetch('/api/games?forceRefresh=1');
     await init();
 
-    // Brief "Refreshed" state, then back to GAMESHELF
     logoText.textContent = doneText;
 
     setTimeout(() => {
       logoText.textContent = originalText;
-      trigger.classList.remove('refreshing');
+      trigger.classList.remove("refreshing");
       refreshLock = false;
-    }, 1000);
+    }, 1200);
   });
 });
+
