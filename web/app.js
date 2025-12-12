@@ -97,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const trigger = document.getElementById('gs-refresh-trigger');
   const logoText = document.getElementById('gs-logo-text');
-
   const originalText = "GAMESHELF";
   const hoverText = "REFRESH";
   const refreshingText = "REFRESHING";
@@ -105,12 +104,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let refreshLock = false;
 
-  // ----- FIX 1: Lock width to prevent hover spazzing -----
-  // measure original width before any text changes
+  // Measure text width only (not the icon)
   const originalWidth = logoText.offsetWidth;
-  trigger.style.width = `${originalWidth}px`;
+  trigger.style.width = `${originalWidth + 20}px`; // small padding
 
-  // ----- Hover -----
   trigger.addEventListener('mouseenter', () => {
     if (!refreshLock) logoText.textContent = hoverText;
   });
@@ -119,25 +116,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!refreshLock) logoText.textContent = originalText;
   });
 
-  // ----- Click → Refresh -----
   trigger.addEventListener('click', async () => {
     if (refreshLock) return;
 
     refreshLock = true;
     trigger.classList.add("refreshing");
-
     logoText.textContent = refreshingText;
 
     await fetch('/api/games?forceRefresh=1');
     await init();
 
+    // Bounce animation + done text
     logoText.textContent = doneText;
+    logoText.classList.add("bounce");
 
+    // Remove bounce after animation ends
     setTimeout(() => {
+      logoText.classList.remove("bounce");
       logoText.textContent = originalText;
       trigger.classList.remove("refreshing");
       refreshLock = false;
-    }, 1200);
+    }, 1000);
   });
 });
-
