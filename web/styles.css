@@ -51,30 +51,31 @@ body {
 
 /* Animated text */
 .gs-logo {
-  font-size: 1.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   display: inline-block;
   cursor: pointer;
-  padding: 4px 8px; /* small padding so glow looks good */
+  padding: 4px 8px;
   border-radius: 6px;
   transition:
-    opacity 0.25s ease,
-    transform 0.15s ease,
-    box-shadow 0.25s ease,
-    color 0.25s ease;
+    color 0.2s ease,
+    text-shadow 0.2s ease,
+    transform 0.1s ease;
 }
 
-/* Glow effect on hover */
+/* Glow on hover – text-only */
 .gs-logo:hover {
   color: #f69500;
-  box-shadow: 0 0 12px #f69500aa;
+  text-shadow: 0 0 8px #f69500;
 }
 
-/* Gentle press animation */
+/* Gentle press effect on click */
 .gs-logo:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
+}
+
+/* Stronger glow while actively refreshing */
+.gs-logo.refreshing {
+  color: #f69500;
+  text-shadow: 0 0 14px #f69500;
 }
 
 /* Hover effect: soft shrink + fade for smooth text swap */
