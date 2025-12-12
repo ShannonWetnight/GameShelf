@@ -207,19 +207,3 @@ body {
 .hidden {
   display: none;
 }
-
-#gs-reload.gs-reload-button {
-  margin-top: 0.5rem;
-  width: 120px;
-  padding: 0.45rem 0.85rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-  color: var(--text);
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-#gs-reload:hover {
-  border-color: var(--accent-soft);
-}
