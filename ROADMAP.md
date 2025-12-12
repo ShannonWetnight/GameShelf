@@ -26,6 +26,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Metadata & Sorting
 * [x] *(Planned)* Manual refresh button
+* [ ] Integrate refresh button into GAMESHELF header text and remove button
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
 * [ ] *(Planned)* Add sorting options (name, size, date added)
 * [ ] Add client-side filtering (genre, developer, year)
