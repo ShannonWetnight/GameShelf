@@ -50,3 +50,4 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add multi-arch builds (amd64 + arm64)
 * [x] *(Planned)* Environment variable configuration
 * [ ] Add a responsible distribution use/disclaimer statement
+* [ ] Substantial features added that go beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)
