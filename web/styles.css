@@ -42,16 +42,36 @@ body {
   gap: 0.35rem;
 }
 
+/* Brand area */
+.gs-brand {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* Animated text */
 .gs-logo {
   font-size: 1.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* Hover effect: soft shrink + fade for smooth text swap */
+.gs-brand:hover .gs-logo {
+  opacity: 0.4;
+  transform: scale(0.96);
 }
 
 .gs-subtitle {
   font-size: 0.9rem;
   color: var(--text-muted);
+}
+
+/* Temporary status text styling */
+.gs-logo.status {
+  color: var(--accent);
 }
 
 .gs-main {
