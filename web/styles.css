@@ -42,13 +42,13 @@ body {
   gap: 0.35rem;
 }
 
-/* Hover glow (outline only) */
+/* Hover glow (outline only, text stays white) */
 .gs-refresh:hover .gs-logo-text {
-  color: #f69500;
+  color: #f5f7ff; /* KEEP TEXT WHITE */
   text-shadow:
-    0 0 2px #f69500,
-    0 0 4px #f69500,
-    0 0 6px #f6950077;
+    0 0 1px #f69500,
+    0 0 3px #f69500,
+    0 0 6px #f69500aa;
 }
 
 .gs-refresh:hover .gs-logo-icon {
@@ -77,7 +77,7 @@ body {
 }
 
 .gs-logo-text.refreshing {
-  color: #f69500;
+  color: #f5f7ff; /* WHITE TEXT */
   text-shadow:
     0 0 2px #f69500,
     0 0 4px #f69500aa,
