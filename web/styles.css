@@ -73,6 +73,19 @@ body {
     0 0 6px #f6950077; /* soft outer edge */
 }
 
+.gs-logo-icon {
+  width: 32px;
+  height: 32px;
+  margin-right: 10px;
+  opacity: 0.9;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.gs-brand:hover .gs-logo-icon {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
 /* Gentle press effect on click */
 .gs-logo:active {
   transform: scale(0.96);
