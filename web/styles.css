@@ -42,63 +42,57 @@ body {
   gap: 0.35rem;
 }
 
-/* Brand container (not clickable) */
-.gs-brand {
-  display: flex;
-  align-items: center;
-}
-
-/* Clickable element – logo */
-.gs-logo {
-  display: inline-block;
-  font-size: 2rem;                /* restore original size */
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition:
-    color 0.2s ease,
-    text-shadow 0.25s ease,
-    transform 0.1s ease;
-}
-
-/* Text glow on hover (no background-box, light outline glow) */
-.gs-logo:hover {
+/* Hover glow (outline only) */
+.gs-refresh:hover .gs-logo-text {
   color: #f69500;
   text-shadow:
     0 0 2px #f69500,
     0 0 4px #f69500,
-    0 0 6px #f6950077; /* soft outer edge */
+    0 0 6px #f6950077;
 }
 
-.gs-logo-icon {
-  width: 32px;
-  height: 32px;
-  margin-right: 10px;
-  opacity: 0.9;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.gs-brand:hover .gs-logo-icon {
+.gs-refresh:hover .gs-logo-icon {
   opacity: 1;
   transform: scale(1.05);
 }
 
-/* Gentle press effect on click */
-.gs-logo:active {
-  transform: scale(0.96);
+/* Icon styling */
+.gs-logo-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  opacity: 0.9;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-/* Stronger glow while actively refreshing */
-.gs-logo.refreshing {
+/* Text styling */
+.gs-logo-text {
+  min-width: 11ch;
+  display: inline-block;
+  font-size: 2rem;                     /* matches original header size */
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.2s ease, text-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.gs-logo-text.refreshing {
   color: #f69500;
   text-shadow:
     0 0 2px #f69500,
-    0 0 4px #f69500aa;
+    0 0 4px #f69500aa,
+    0 0 6px #f6950055;
 }
 
+/* The clickable area */
+.gs-refresh {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+/* Micro-bounce animation for “Refreshed” */
 @keyframes micro-bounce {
   0%   { transform: scale(1); }
   40%  { transform: scale(1.08); }
@@ -107,18 +101,13 @@ body {
   100% { transform: scale(1); }
 }
 
-.gs-logo.bounce {
+.gs-logo-text.bounce {
   animation: micro-bounce 350ms ease-out;
 }
 
 .gs-subtitle {
   font-size: 0.9rem;
   color: var(--text-muted);
-}
-
-/* Temporary status text styling */
-.gs-logo.status {
-  color: var(--accent);
 }
 
 .gs-main {
