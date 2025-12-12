@@ -64,13 +64,13 @@ body {
     transform 0.1s ease;
 }
 
-/* Text glow on hover (no background-box) */
+/* Text glow on hover (no background-box, light outline glow) */
 .gs-logo:hover {
   color: #f69500;
   text-shadow:
-    0 0 6px #f69500,
-    0 0 12px #f69500,
-    0 0 18px #f69500aa;
+    0 0 2px #f69500,
+    0 0 4px #f69500,
+    0 0 6px #f6950077; /* soft outer edge */
 }
 
 /* Gentle press effect on click */
@@ -82,9 +82,20 @@ body {
 .gs-logo.refreshing {
   color: #f69500;
   text-shadow:
-    0 0 8px #f69500,
-    0 0 16px #f69500,
-    0 0 26px #f69500cc;
+    0 0 2px #f69500,
+    0 0 4px #f69500aa;
+}
+
+@keyframes micro-bounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  60%  { transform: scale(0.96); }
+  80%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.gs-logo.bounce {
+  animation: micro-bounce 350ms ease-out;
 }
 
 .gs-subtitle {
