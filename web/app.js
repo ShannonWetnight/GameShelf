@@ -99,9 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const logoText = document.getElementById('gs-logo-text');
 
   const originalText = "GAMESHELF";
-  const hoverText = "Refresh";
-  const refreshingText = "Refreshing...";
-  const doneText = "Refreshed";
+  const hoverText = "REFRESH";
+  const refreshingText = "REFRESHING";
+  const doneText = "REFRESHED";
 
   let refreshLock = false;
 
