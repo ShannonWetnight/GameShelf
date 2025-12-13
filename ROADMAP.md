@@ -9,6 +9,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
 * [ ] Add loading state or skeleton UI while games load
 * [ ] *(Planned)* Improve mobile spacing and responsive typography
+* [x] *(Planned)* Manual refresh button
+* [x] Integrate refresh button into GAMESHELF header text and remove button
 * [ ] Add theme support (drop-in CSS files)
 * [ ] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
@@ -29,8 +31,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Cache fetched artwork locally
 
 ### Metadata & Sorting
-* [x] *(Planned)* Manual refresh button
-* [ ] Integrate refresh button into GAMESHELF header text and remove button
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
 * [ ] *(Planned)* Add sorting options (name, size, date added)
 * [ ] Add client-side filtering (genre, developer, year)
