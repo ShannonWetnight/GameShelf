@@ -17,6 +17,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] *(Planned)* Display “Last refreshed at…” timestamp
 * [ ] Add a toggle UI effects option
 * [ ] Add a dark/light mode toggle
+* [x] *(Planned)*Integrate refresh button into GameShelf header text
+* [ ] Integrate download button into card main body
 * [ ] Add graceful fallback UI when `/api/games` fails
 
 ### Artwork Enhancements
