@@ -22,6 +22,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)*Integrate refresh button into GameShelf header text
 * [ ] Integrate download button into card main body
 * [ ] Add graceful fallback UI when `/api/games` fails
+* [ ] Toggle for "Game card is download button"
 
 ### Artwork Enhancements
 * [x] *(Planned)* Placeholder artwork fallback
