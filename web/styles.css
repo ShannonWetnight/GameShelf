@@ -132,7 +132,7 @@ body {
   display: flex;
   flex-direction: column;
 
-  height: 420px; /* Force locked height */
+  height: 550px; /* Force locked height */
   backdrop-filter: blur(16px);
 
   transition: transform 0.16s ease,
@@ -180,8 +180,6 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  line-height: 1.25;
   min-height: 2.5em; /* Always reserve 2 lines */
 }
 
