@@ -22,7 +22,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Integrate download button into card main body
 * [ ] Add graceful fallback UI when `/api/games` fails
 * [ ] Toggle for "Game card is download button"
-* [ ] Fix zoom scaling cutoff beyond 100%
 
 ### Artwork Enhancements
 * [x] *(Planned)* Placeholder artwork fallback
