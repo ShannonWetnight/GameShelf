@@ -19,6 +19,7 @@
         + [Recommended Resolution](#recommended-resolution)
         + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
 - [Usage](#usage)
+- [Legal Disclaimer](#responsible-use-&-distribution)
 
 ## Overview
 GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections.  
@@ -185,3 +186,22 @@ This allows users to fully override auto-fetched artwork simply by placing their
 
 ## Roadmap
 View the [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md) for a list of features worth considering for GameShelf.
+
+## Responsible Use & Distribution
+GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.
+
+By installing, configuring, or using GameShelf, you accept full legal responsibility for how the software is used and for any content made available through it.
+
+### User Responsibility
+- Use GameShelf only with content you own, are licensed to distribute, or are otherwise legally permitted to share
+- Comply with all applicable local, national, and international laws, including but not limited to copyright and intellectual property laws
+- Do not use GameShelf to knowingly facilitate illegal distribution, piracy, or unauthorized sharing of copyrighted material
+
+### No Liability
+The GameShelf project, its contributors, and maintainers:
+- Do not provide content
+- Do not monitor or control user deployments
+- Assume no responsibility or liability for how the software is used or what files are distributed through it
+GameShelf is provided “as is”, without warranty of any kind, and is intended for personal, lawful, and responsible use only.
+> [!WARNING]
+> If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
