@@ -132,7 +132,8 @@ body {
   display: flex;
   flex-direction: column;
 
-  height: 520px; /* Force locked height */
+  height: 32.5rem;
+  min-height: 32.5rem; /* Lock uniform height */
   backdrop-filter: blur(16px);
 
   transition: transform 0.16s ease,
@@ -149,6 +150,7 @@ body {
 .gs-card-cover {
   position: relative;
   padding-top: 140%;
+  flex-shrink: 0; /* Prevent compression */
   background: radial-gradient(circle at top, #374785, #141b2f);
   overflow: hidden;
 }
@@ -168,12 +170,15 @@ body {
   gap: 0.4rem;
   flex: 1; /* Fill remaining card height */
   position: relative;
+  overflow: hidden; /* Prevent internal spillage */
 }
 
 .gs-card-title {
   margin: 0;
   font-size: 0.98rem;
   font-weight: 600;
+
+  text-align: center;
 
   display: -webkit-box;
   -webkit-line-clamp: 2; /* Introduce maximum 2-line logic */
