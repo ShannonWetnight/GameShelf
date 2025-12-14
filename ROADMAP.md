@@ -35,6 +35,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] *(Planned)* Add sorting options (name, size, date added)
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
+* [ ] Functional search bar with rotating games list (derived from parsed library)
 
 ### Downloads & File Handling
 * [x] *(Planned)* ZIP download streaming
