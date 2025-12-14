@@ -110,6 +110,73 @@ body {
   color: var(--text-muted);
 }
 
+.gs-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gs-sort {
+  position: relative;
+}
+
+.gs-sort-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  opacity: 0.85;
+
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.gs-sort-button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gs-sort-button svg {
+  width: 22px;
+  height: 22px;
+  fill: var(--text-muted);
+}
+
+.gs-sort-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+
+  min-width: 140px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+  padding: 6px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+}
+
+.gs-sort-menu button {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+
+  transition: background 0.12s ease;
+}
+
+.gs-sort-menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .gs-main {
   flex: 1;
   padding: 1.5rem 3vw 2.5rem;
@@ -188,7 +255,6 @@ body {
   min-height: 2.5em; /* Always reserve 2 lines */
 }
 
-
 .gs-card-meta {
   position: absolute;
   left: 0.95rem; /* Same as body horizontal padding */
@@ -248,7 +314,6 @@ body {
     transform 0.12s ease,
     box-shadow 0.15s ease;
 }
-
 
 .gs-icon-button:hover {
   filter: brightness(1.10);
