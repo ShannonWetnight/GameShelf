@@ -8,11 +8,29 @@
 </head>
 <body>
   <header class="gs-header">
+    <div class="gs-header-row">
       <div id="gs-refresh-trigger" class="gs-refresh">
-          <img src="gameshelf_icon.png" class="gs-logo-icon" alt="GameShelf icon">
-          <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
+        <img src="gameshelf_icon.png" class="gs-logo-icon" alt="GameShelf icon">
+        <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
       </div>
 
+      <!-- Sort control -->
+      <div class="gs-sort">
+        <button id="sort-button" class="gs-sort-button" aria-label="Sort games">
+          <!-- Lines + arrow icon -->
+          <svg viewBox="0 0 24 24">
+            <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
+          </svg>
+        </button>
+
+        <div id="sort-menu" class="gs-sort-menu hidden">
+          <button data-sort="az">A → Z</button>
+          <button data-sort="za">Z → A</button>
+          <button data-sort="size-desc">Size ↓</button>
+          <button data-sort="size-asc">Size ↑</button>
+        </div>
+      </div>
+    </div>
   </header>
 
   <div class="gs-toolbar">
