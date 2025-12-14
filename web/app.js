@@ -1,3 +1,13 @@
+/* =============================
+   Global state
+   ============================= */
+
+let currentSort = 'az';
+
+/* =============================
+   Data fetching
+   ============================= */
+
 async function fetchGames() {
   try {
     const res = await fetch('/api/games');
@@ -9,6 +19,10 @@ async function fetchGames() {
   }
 }
 
+/* =============================
+   Helpers
+   ============================= */
+
 function formatSize(bytes) {
   if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -17,6 +31,10 @@ function formatSize(bytes) {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
+/* =============================
+   Card creation
+   ============================= */
+
 function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
@@ -24,17 +42,10 @@ function createGameCard(game) {
   const cover = document.createElement('div');
   cover.className = 'gs-card-cover';
 
-if (game.hasCover) {
-    const img = document.createElement('img');
-    img.src = `/covers/${encodeURIComponent(game.id)}`;
-    img.alt = `${game.name} cover`;
-    cover.appendChild(img);
-} else {
-    const img = document.createElement('img');
-    img.src = `/covers/${encodeURIComponent(game.id)}`; // server will auto-fallback
-    img.alt = `${game.name} cover placeholder`;
-    cover.appendChild(img);
-}
+  const img = document.createElement('img');
+  img.src = `/covers/${encodeURIComponent(game.id)}`; // server auto-fallbacks
+  img.alt = `${game.name} cover`;
+  cover.appendChild(img);
 
   const body = document.createElement('div');
   body.className = 'gs-card-body';
@@ -58,7 +69,6 @@ if (game.hasCover) {
       <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
     </svg>
   `;
-actions.appendChild(dl);
 
   actions.appendChild(dl);
   body.appendChild(title);
@@ -71,8 +81,12 @@ actions.appendChild(dl);
   return card;
 }
 
-function sortGames(games, mode) {
-  switch (mode) {
+/* =============================
+   Sorting
+   ============================= */
+
+function sortGames(games) {
+  switch (currentSort) {
     case 'za':
       return games.sort((a, b) => b.name.localeCompare(a.name));
     case 'size-desc':
@@ -85,11 +99,14 @@ function sortGames(games, mode) {
   }
 }
 
+/* =============================
+   Rendering
+   ============================= */
+
 async function init() {
   const games = await fetchGames();
   const container = document.getElementById('games-container');
   const empty = document.getElementById('empty-state');
-  const sortMode = document.getElementById('sort-select')?.value || 'az';
 
   container.innerHTML = '';
 
@@ -100,28 +117,32 @@ async function init() {
 
   empty.classList.add('hidden');
 
-  sortGames(games, sortMode).forEach(game => {
+  sortGames(games).forEach(game => {
     container.appendChild(createGameCard(game));
   });
 }
 
-document.getElementById('sort-select')?.addEventListener('change', init);
+/* =============================
+   DOM bindings
+   ============================= */
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
 
+  /* -------- Refresh header logic -------- */
+
   const trigger = document.getElementById('gs-refresh-trigger');
   const logoText = document.getElementById('gs-logo-text');
-  const originalText = "GAMESHELF";
-  const hoverText = "REFRESH";
-  const refreshingText = "REFRESHING";
-  const doneText = "REFRESHED";
+
+  const originalText = 'GAMESHELF';
+  const hoverText = 'REFRESH';
+  const refreshingText = 'REFRESHING';
+  const doneText = 'REFRESHED';
 
   let refreshLock = false;
 
-  // Measure text width only (not the icon)
   const originalWidth = logoText.offsetWidth;
-  trigger.style.width = `${originalWidth + 20}px`; // small padding
+  trigger.style.width = `${originalWidth + 20}px`;
 
   trigger.addEventListener('mouseenter', () => {
     if (!refreshLock) logoText.textContent = hoverText;
@@ -135,22 +156,46 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refreshLock) return;
 
     refreshLock = true;
-    trigger.classList.add("refreshing");
+    trigger.classList.add('refreshing');
     logoText.textContent = refreshingText;
 
     await fetch('/api/games?forceRefresh=1');
     await init();
 
-    // Bounce animation + done text
     logoText.textContent = doneText;
-    logoText.classList.add("bounce");
+    logoText.classList.add('bounce');
 
-    // Remove bounce after animation ends
     setTimeout(() => {
-      logoText.classList.remove("bounce");
+      logoText.classList.remove('bounce');
       logoText.textContent = originalText;
-      trigger.classList.remove("refreshing");
+      trigger.classList.remove('refreshing');
       refreshLock = false;
     }, 1000);
+  });
+
+  /* -------- Sort menu logic -------- */
+
+  const sortButton = document.getElementById('sort-button');
+  const sortMenu = document.getElementById('sort-menu');
+
+  if (!sortButton || !sortMenu) return;
+
+  sortButton.addEventListener('click', e => {
+    e.stopPropagation();
+    sortMenu.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.gs-sort')) {
+      sortMenu.classList.add('hidden');
+    }
+  });
+
+  document.querySelectorAll('.gs-sort-menu button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSort = btn.dataset.sort;
+      sortMenu.classList.add('hidden');
+      init();
+    });
   });
 });
