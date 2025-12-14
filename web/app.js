@@ -71,26 +71,41 @@ actions.appendChild(dl);
   return card;
 }
 
+function sortGames(games, mode) {
+  switch (mode) {
+    case 'za':
+      return games.sort((a, b) => b.name.localeCompare(a.name));
+    case 'size-desc':
+      return games.sort((a, b) => b.sizeBytes - a.sizeBytes);
+    case 'size-asc':
+      return games.sort((a, b) => a.sizeBytes - b.sizeBytes);
+    case 'az':
+    default:
+      return games.sort((a, b) => a.name.localeCompare(b.name));
+  }
+}
+
 async function init() {
   const games = await fetchGames();
   const container = document.getElementById('games-container');
   const empty = document.getElementById('empty-state');
+  const sortMode = document.getElementById('sort-select')?.value || 'az';
 
   container.innerHTML = '';
 
   if (!games.length) {
     empty.classList.remove('hidden');
     return;
-  } else {
-    empty.classList.add('hidden');
   }
 
-  games
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach(game => {
-      container.appendChild(createGameCard(game));
-    });
+  empty.classList.add('hidden');
+
+  sortGames(games, sortMode).forEach(game => {
+    container.appendChild(createGameCard(game));
+  });
 }
+
+document.getElementById('sort-select')?.addEventListener('change', init);
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
