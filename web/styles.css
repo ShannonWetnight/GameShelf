@@ -132,7 +132,7 @@ body {
   display: flex;
   flex-direction: column;
 
-  height: 550px; /* Force locked height */
+  height: 520px; /* Force locked height */
   backdrop-filter: blur(16px);
 
   transition: transform 0.16s ease,
