@@ -161,6 +161,7 @@ body {
   flex-direction: column;
   gap: 0.4rem;
   flex: 1; /* Fill remaining card height */
+  position: relative;
 }
 
 .gs-card-title {
@@ -171,15 +172,21 @@ body {
 }
 
 .gs-card-meta {
+  position: absolute;
+  left: 0.95rem; /* Same as body horizontal padding */
+  bottom: 1rem; /* Same as body bottom padding */
+
   font-size: 0.8rem;
   color: var(--text-muted);
+  white-space: nowrap;
 }
+
 
 .gs-card-actions {
   margin-top: auto; /* Push to bottom */
   display: flex;
   justify-content: center; /* Center horizontally */
-  padding-top: 0.75rem;
+  padding-bottom: 0.25rem;
 }
 
 .gs-button {
@@ -205,15 +212,15 @@ body {
 }
 
 .gs-icon-button {
-  min-width: 120px; /* elongated width */
-  height: 42px; /* comfortable but not oversized */
-  padding: 0 16px; /* horizontal breathing room */
+  min-width: 120px;
+  height: 42px;
+  padding: 0 16px;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
 
-  border-radius: 999px; /* pill shape */
+  border-radius: var(--radius-lg); /* Match game card corner radius */
   background: linear-gradient(135deg, var(--accent), #f69500);
   border: none;
   cursor: pointer;
