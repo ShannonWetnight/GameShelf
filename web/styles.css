@@ -128,10 +128,16 @@ body {
   border: 1px solid var(--border-subtle);
   overflow: hidden;
   box-shadow: var(--shadow-soft);
+
   display: flex;
   flex-direction: column;
+
+  height: 420px; /* Force locked height */
   backdrop-filter: blur(16px);
-  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+
+  transition: transform 0.16s ease,
+              box-shadow 0.16s ease,
+              border-color 0.16s ease;
 }
 
 .gs-card:hover {
@@ -168,8 +174,17 @@ body {
   margin: 0;
   font-size: 0.98rem;
   font-weight: 600;
-  min-height: 2.4em;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Introduce maximum 2-line logic */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  line-height: 1.25;
+  min-height: 2.5em; /* Always reserve 2 lines */
 }
+
 
 .gs-card-meta {
   position: absolute;
