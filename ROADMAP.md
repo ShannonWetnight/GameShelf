@@ -19,7 +19,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] *(Planned)* Display “Last refreshed at…” timestamp
 * [ ] Add a toggle UI effects option
 * [ ] Add a dark/light mode toggle
-* [x] *(Planned)*Integrate refresh button into GameShelf header text
 * [ ] Integrate download button into card main body
 * [ ] Add graceful fallback UI when `/api/games` fails
 * [ ] Toggle for "Game card is download button"
@@ -52,5 +51,5 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ### Docker / GHCR
 * [ ] Add multi-arch builds (amd64 + arm64)
 * [x] *(Planned)* Environment variable configuration
-* [ ] Add a responsible distribution use/disclaimer statement
+* [x] Add a responsible distribution use/disclaimer statement
 * [ ] Substantial features added that go beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)
