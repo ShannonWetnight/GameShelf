@@ -149,6 +149,25 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.gs-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.gs-search-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  fill: var(--text-muted);
+  pointer-events: none;
+}
+
+.gs-search {
+  padding-left: 36px; /* Make room for icon */
+}
+
 .gs-sort {
   position: relative;
 }
