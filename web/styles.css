@@ -185,6 +185,22 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.gs-sort-menu button.active {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 178, 52, 0.18),
+    rgba(249, 178, 52, 0.10)
+  );
+  color: var(--text);
+  font-weight: 600;
+}
+
+.gs-sort-menu button.active::after {
+  content: "✓";
+  float: right;
+  color: var(--accent);
+}
+
 .gs-main {
   flex: 1;
   padding: 1.5rem 3vw 2.5rem;
