@@ -329,6 +329,9 @@ body {
 }
 
 .gs-card-actions {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
 }
@@ -341,11 +344,10 @@ body {
 }
 
 .gs-card-footer {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   height: 48px;
-  margin-top: auto;
 }
 
 .gs-button {
