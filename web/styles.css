@@ -116,6 +116,39 @@ body {
   justify-content: space-between;
 }
 
+.gs-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gs-search {
+  height: 44px;
+  min-width: 220px;
+
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.9rem;
+
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.gs-search::placeholder {
+  color: var(--text-muted);
+}
+
+.gs-search:focus {
+  outline: none;
+  border-color: var(--accent-soft);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .gs-sort {
   position: relative;
 }
