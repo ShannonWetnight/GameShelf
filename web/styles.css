@@ -292,9 +292,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  flex: 1; /* Fill remaining card height */
-  position: relative;
-  overflow: hidden; /* Prevent internal spillage */
+  flex: 1;
 }
 
 .gs-card-title {
@@ -313,21 +311,19 @@ body {
 }
 
 .gs-card-meta {
-  position: absolute;
-  left: 0.95rem; /* Same as body horizontal padding */
-  bottom: 1rem; /* Same as body bottom padding */
-
+  margin-top: auto; /* Push to bottom naturally */
   font-size: 0.8rem;
   color: var(--text-muted);
-  white-space: nowrap;
+  text-align: left;
 }
-
 
 .gs-card-actions {
   margin-top: auto; /* Push to bottom */
   display: flex;
   justify-content: center; /* Center horizontally */
   padding-bottom: 0.25rem;
+  flex-shrink: 0;
+  margin-top: 0.4rem;
 }
 
 .gs-button {
