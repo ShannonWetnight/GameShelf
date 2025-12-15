@@ -310,9 +310,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 0.9rem 0.95rem 1rem;
-  gap: 0.4rem;
-  flex: 1;
-  min-height: 0; /* Critical for zoom without cut-offs */
+  height: 100%;
 }
 
 .gs-card-title {
@@ -330,19 +328,27 @@ body {
 }
 
 .gs-card-meta {
-  margin-top: auto; /* Push to bottom naturally */
   font-size: 0.8rem;
   color: var(--text-muted);
-  white-space: nowrap;
+  text-align: left;
 }
 
 .gs-card-actions {
-  margin-top: auto; /* Push to bottom */
-  flex-shrink: 0; /* Never shrink */
-  min-height: 56px; /* Reserve space for button */
   display: flex;
   justify-content: center;
-  align-items: center;
+}
+
+.gs-card-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.gs-card-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-top: 0.5rem;
 }
 
 .gs-button {
