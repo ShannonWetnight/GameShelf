@@ -319,15 +319,14 @@ body {
   margin: 0;
   font-size: 0.98rem;
   font-weight: 600;
-
   text-align: center;
 
   display: -webkit-box;
-  -webkit-line-clamp: 2; /* Introduce maximum 2-line logic */
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+
   overflow: hidden;
   text-overflow: ellipsis;
-  min-height: 2.5em; /* Always reserve 2 lines */
 }
 
 .gs-card-meta {
@@ -338,12 +337,12 @@ body {
 }
 
 .gs-card-actions {
-  margin-top: 0.4rem;
+  margin-top: auto; /* Push to bottom */
+  flex-shrink: 0; /* Never shrink */
+  min-height: 56px; /* Reserve space for button */
   display: flex;
-  justify-content: center; /* Center horizontally */
-  padding-bottom: 0.25rem;
-  flex-shrink: 0;
-  margin-top: 0.4rem;
+  justify-content: center;
+  align-items: center;
 }
 
 .gs-button {
