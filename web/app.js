@@ -173,26 +173,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   });
 
-  /* -------- Sort menu logic -------- */
+    /* -------- Sort menu logic -------- */
 
   const sortButton = document.getElementById('sort-button');
   const sortMenu = document.getElementById('sort-menu');
+  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
 
-  if (!sortButton || !sortMenu) return;
+  if (!sortButton || !sortMenu || !sortButtons.length) return;
 
+  function updateActiveSort() {
+    sortButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sort === currentSort);
+    });
+  }
+
+  // Open menu
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
-    updateActiveSort(); // Ensure correct highlight
+    updateActiveSort(); // ensure highlight is correct
     sortMenu.classList.toggle('hidden');
   });
 
-
+  // Close menu when clicking outside
   document.addEventListener('click', e => {
     if (!e.target.closest('.gs-sort')) {
       sortMenu.classList.add('hidden');
     }
   });
 
+  // Handle sort selection
   sortButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       currentSort = btn.dataset.sort;
@@ -200,15 +209,9 @@ document.addEventListener('DOMContentLoaded', () => {
       sortMenu.classList.add('hidden');
       init();
     });
-    updateActiveSort();
-
-  /* -------- Current sort method highlighting logic -------- */
-  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
-
-  function updateActiveSort() {
-    sortButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.sort === currentSort);
-    });
   });
+
+  // Initial highlight
+  updateActiveSort();
 
 });
