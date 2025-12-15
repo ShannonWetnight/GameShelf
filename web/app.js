@@ -182,8 +182,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
+    updateActiveSort(); // Ensure correct highlight
     sortMenu.classList.toggle('hidden');
   });
+
 
   document.addEventListener('click', e => {
     if (!e.target.closest('.gs-sort')) {
@@ -191,11 +193,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.querySelectorAll('.gs-sort-menu button').forEach(btn => {
+  sortButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       currentSort = btn.dataset.sort;
+      updateActiveSort();
       sortMenu.classList.add('hidden');
       init();
+    });
+    updateActiveSort();
+
+  /* -------- Current sort method highlighting logic -------- */
+  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
+
+  function updateActiveSort() {
+    sortButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sort === currentSort);
     });
   });
 
