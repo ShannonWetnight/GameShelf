@@ -141,6 +141,26 @@ async function init() {
 document.addEventListener('DOMContentLoaded', () => {
   init();
 
+  /* -------- Global keyboard shortcuts -------- */
+document.addEventListener('keydown', e => {
+  // Ignore if user is already typing in an input
+  if (
+    e.target instanceof HTMLInputElement ||
+    e.target instanceof HTMLTextAreaElement
+  ) {
+    return;
+  }
+
+  if (e.key === '/') {
+    e.preventDefault();
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+});
+
   /* -------- Refresh header logic -------- */
 
   const trigger = document.getElementById('gs-refresh-trigger');
