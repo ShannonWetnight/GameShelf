@@ -271,11 +271,8 @@ body {
   border: 1px solid var(--border-subtle);
   overflow: hidden;
   box-shadow: var(--shadow-soft);
-
   display: flex;
   flex-direction: column;
-
-  height: 32.5rem;
   min-height: 32.5rem; /* Lock uniform height */
   backdrop-filter: blur(16px);
 
