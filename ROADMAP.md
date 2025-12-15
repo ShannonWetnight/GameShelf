@@ -15,8 +15,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
 * [ ] *(Planned)* Add grid/list view toggle
-* [ ] *(Planned)* Add visible UI feedback during refresh (spinner or toast)
-* [ ] *(Planned)* Display “Last refreshed at…” timestamp
 * [ ] Add a toggle UI effects option
 * [ ] Add a dark/light mode toggle
 * [ ] Integrate download button into card main body
@@ -25,14 +23,13 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Artwork Enhancements
 * [x] *(Planned)* Placeholder artwork fallback
-* [ ] Add slight blur to placeholder backgrounds
 * [ ] Ensure user-supplied artwork always overrides auto-detected art
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
 * [ ] Cache fetched artwork locally
 
 ### Metadata & Sorting
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
-* [ ] *(Planned)* Add sorting options (name, size, date added)
+* [x] *(Planned)* Add sorting options (name, size, date added)
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
 * [ ] Functional search bar with rotating games list (derived from parsed library)
