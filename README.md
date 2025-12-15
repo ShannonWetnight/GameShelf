@@ -167,7 +167,7 @@ GameShelf supports custom cover images for any game folder. To add your own artw
 > [!IMPORTANT]
 > Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
 >[!IMPORTANT]
-> You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until an image is supplied and the page is refreshed/rescanned.
+> You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until an image is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
 
 #### Recommended Resolution
 High-quality artwork is recommended. A resolution around 600×900 (3:4) works well; however, GameShelf automatically crops and scales the artwork into a portrait format and ratio of 2:3, so the final appearance will be vertically oriented regardless of the original aspect ratio.
