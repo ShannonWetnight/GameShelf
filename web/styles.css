@@ -149,18 +149,19 @@ body {
 .gs-sort-menu {
   position: absolute;
   right: 0;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
 
-  min-width: 140px;
+  min-width: 210px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-soft);
-  padding: 6px;
 
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+
   z-index: 100;
 }
 
@@ -169,12 +170,15 @@ body {
   border: none;
   color: var(--text);
   text-align: left;
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  border-radius: 6px;
+
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  border-radius: 8px;
   cursor: pointer;
 
-  transition: background 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .gs-sort-menu button:hover {
