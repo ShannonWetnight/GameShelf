@@ -22,8 +22,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Toggle for "Game card is download button"
 
 ### Artwork Enhancements
+* [x] Ensure user-supplied artwork always overrides auto-detected art
 * [x] *(Planned)* Placeholder artwork fallback
-* [ ] Ensure user-supplied artwork always overrides auto-detected art
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
 * [ ] Cache fetched artwork locally
 
@@ -32,7 +32,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Add sorting options (name, size, date added)
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
-* [ ] Functional search bar with rotating games list (derived from parsed library)
+* [x] Add functional search bar
+* [ ] Add a dice icon and randomize logic from parsed folder names to suggest a game download
+* [ ] Add ability to group games together by adding tags (requires lightweight database integration)
 
 ### Downloads & File Handling
 * [x] *(Planned)* ZIP download streaming
