@@ -44,7 +44,7 @@ function createGameCard(game) {
   cover.className = 'gs-card-cover';
 
   const img = document.createElement('img');
-  img.src = `/covers/${encodeURIComponent(game.id)}`; // server auto-fallbacks
+  img.src = `/covers/${encodeURIComponent(game.id)}`;
   img.alt = `${game.name} cover`;
   cover.appendChild(img);
 
@@ -78,9 +78,13 @@ function createGameCard(game) {
   `;
 
   actions.appendChild(dl);
-  body.appendChild(title);
-  body.appendChild(meta);
-  body.appendChild(actions);
+
+  content.appendChild(title);
+  footer.appendChild(meta);
+  footer.appendChild(actions);
+
+  body.appendChild(content);
+  body.appendChild(footer);
 
   card.appendChild(cover);
   card.appendChild(body);
