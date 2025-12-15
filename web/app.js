@@ -122,10 +122,16 @@ async function init() {
     game.name.toLowerCase().includes(currentSearch)
   );
 
+  if (!filtered.length) {
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+
   sortGames(filtered).forEach(game => {
     container.appendChild(createGameCard(game));
   });
-
 }
 
 /* =============================
