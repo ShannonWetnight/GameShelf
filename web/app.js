@@ -51,6 +51,12 @@ function createGameCard(game) {
   const body = document.createElement('div');
   body.className = 'gs-card-body';
 
+  const content = document.createElement('div');
+  content.className = 'gs-card-content';
+
+  const footer = document.createElement('div');
+  footer.className = 'gs-card-footer';
+
   const title = document.createElement('h3');
   title.className = 'gs-card-title';
   title.textContent = game.name;
