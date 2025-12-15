@@ -69,7 +69,7 @@ body {
 .gs-logo-text {
   min-width: 11ch;
   display: inline-block;
-  font-size: 2rem;                     /* matches original header size */
+  font-size: 2rem; /* Matches original header size */
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
