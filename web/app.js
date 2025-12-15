@@ -3,6 +3,7 @@
    ============================= */
 
 let currentSort = 'az';
+let currentSearch = '';
 
 /* =============================
    Data fetching
@@ -117,9 +118,14 @@ async function init() {
 
   empty.classList.add('hidden');
 
-  sortGames(games).forEach(game => {
+  const filtered = games.filter(game =>
+    game.name.toLowerCase().includes(currentSearch)
+  );
+
+  sortGames(filtered).forEach(game => {
     container.appendChild(createGameCard(game));
   });
+
 }
 
 /* =============================
@@ -174,6 +180,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
     /* -------- Sort menu logic -------- */
+
+  const searchInput = document.getElementById('search-input');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      currentSearch = e.target.value.trim().toLowerCase();
+      init();
+    });
+  }
 
   const sortButton = document.getElementById('sort-button');
   const sortMenu = document.getElementById('sort-menu');
