@@ -15,22 +15,31 @@
       </div>
 
       <!-- Sort control -->
-      <div class="gs-sort">
-        <button id="sort-button" class="gs-sort-button" aria-label="Sort games">
-          <!-- Lines + arrow icon -->
-          <svg viewBox="0 0 24 24">
-            <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
-          </svg>
-        </button>
+      <div class="gs-controls">
+        <input
+          id="search-input"
+          class="gs-search"
+          type="search"
+          placeholder="Search games…"
+          aria-label="Search games by name"
+        />
 
-        <div id="sort-menu" class="gs-sort-menu hidden">
-          <button data-sort="az">A to Z</button>
-          <button data-sort="za">Z to A</button>
-          <button data-sort="size-desc">Size: High to Low</button>
-          <button data-sort="size-asc">Size: Low to High</button>
+        <div class="gs-sort">
+          <button id="sort-button" class="gs-sort-button" aria-label="Sort games">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
+            </svg>
+          </button>
+
+          <div id="sort-menu" class="gs-sort-menu hidden">
+            <button data-sort="az">A to Z</button>
+            <button data-sort="za">Z to A</button>
+            <button data-sort="size-desc">Size: High to Low</button>
+            <button data-sort="size-asc">Size: Low to High</button>
+          </div>
         </div>
       </div>
-    </div>
+
   </header>
 
   <main class="gs-main">
