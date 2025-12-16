@@ -9,6 +9,8 @@ let refreshGeneration = 0;
 let currentSort = 'az';
 let currentSearch = '';
 
+const cardMap = new Map(); // game.id -> card element
+
 /* =============================
    Data fetching
    ============================= */
@@ -37,12 +39,14 @@ function formatSize(bytes) {
 }
 
 /* =============================
-   Card creation
+   Card creation (ONE TIME)
    ============================= */
 
 function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
+  card.dataset.id = game.id;
+  card.dataset.name = game.name.toLowerCase();
 
   const cover = document.createElement('div');
   cover.className = 'gs-card-cover';
@@ -99,68 +103,62 @@ function createGameCard(game) {
 }
 
 /* =============================
-   Sorting
+   Initial render / refresh
    ============================= */
 
-function sortGames(games) {
-  switch (currentSort) {
-    case 'za':
-      return games.sort((a, b) => b.name.localeCompare(a.name));
-    case 'size-desc':
-      return games.sort((a, b) => b.sizeBytes - a.sizeBytes);
-    case 'size-asc':
-      return games.sort((a, b) => a.sizeBytes - b.sizeBytes);
-    case 'az':
-    default:
-      return games.sort((a, b) => a.name.localeCompare(b.name));
-  }
-}
-
-/* =============================
-   Rendering (NO FETCHING)
-   ============================= */
-
-function renderGames() {
+async function loadGames(isRefresh = false) {
   const container = document.getElementById('games-container');
   const empty = document.getElementById('empty-state');
 
-  container.innerHTML = '';
+  gamesCache = await fetchGames();
 
-  const filtered = gamesCache.filter(game =>
-    game.name.toLowerCase().includes(currentSearch)
-  );
+  if (isRefresh) {
+    coverVersions.clear();
+    refreshGeneration++;
+    cardMap.clear();
+    container.innerHTML = '';
 
-  if (!filtered.length) {
+    gamesCache.forEach(game => {
+      coverVersions.set(game.id, refreshGeneration);
+    });
+  }
+
+  if (!gamesCache.length) {
     empty.classList.remove('hidden');
     return;
   }
 
   empty.classList.add('hidden');
 
-  sortGames(filtered).forEach(game => {
-    try {
-      container.appendChild(createGameCard(game));
-    } catch (e) {
-      console.error('Failed to render game card:', game.name, e);
+  gamesCache.forEach(game => {
+    if (!cardMap.has(game.id)) {
+      const card = createGameCard(game);
+      cardMap.set(game.id, card);
+      container.appendChild(card);
     }
   });
+
+  applySearchFilter();
 }
 
 /* =============================
-   Load games (FETCHING)
+   Search (NO DOM DESTRUCTION)
    ============================= */
 
-async function loadGames(isRefresh = false) {
-  gamesCache = await fetchGames();
+function applySearchFilter() {
+  const empty = document.getElementById('empty-state');
+  let visibleCount = 0;
 
-  if (isRefresh) {
-    coverVersions.clear();
-    gamesCache.forEach(game => {
-      coverVersions.set(game.id, refreshGeneration);
-    });
-  }
+  cardMap.forEach(card => {
+    if (card.dataset.name.includes(currentSearch)) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
 
-  renderGames();
+  empty.classList.toggle('hidden', visibleCount > 0);
 }
 
 /* =============================
@@ -170,27 +168,17 @@ async function loadGames(isRefresh = false) {
 document.addEventListener('DOMContentLoaded', () => {
   loadGames();
 
-  /* -------- Global keyboard shortcuts -------- */
+  /* -------- Search -------- */
 
-  document.addEventListener('keydown', e => {
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement
-    ) {
-      return;
-    }
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      currentSearch = e.target.value.trim().toLowerCase();
+      applySearchFilter();
+    });
+  }
 
-    if (e.key === '/') {
-      e.preventDefault();
-      const searchInput = document.getElementById('search-input');
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
-      }
-    }
-  });
-
-  /* -------- Refresh header logic -------- */
+  /* -------- Refresh -------- */
 
   const trigger = document.getElementById('gs-refresh-trigger');
   const logoText = document.getElementById('gs-logo-text');
@@ -201,9 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const doneText = 'REFRESHED';
 
   let refreshLock = false;
-
-  const originalWidth = logoText.offsetWidth;
-  trigger.style.width = `${originalWidth + 20}px`;
 
   trigger.addEventListener('mouseenter', () => {
     if (!refreshLock) logoText.textContent = hoverText;
@@ -217,12 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refreshLock) return;
 
     refreshLock = true;
-    trigger.classList.add('refreshing');
     logoText.textContent = refreshingText;
 
     await fetch('/api/games?forceRefresh=1');
-    refreshGeneration++;
-
     await loadGames(true);
 
     logoText.textContent = doneText;
@@ -231,55 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       logoText.classList.remove('bounce');
       logoText.textContent = originalText;
-      trigger.classList.remove('refreshing');
       refreshLock = false;
     }, 1000);
   });
-
-  /* -------- Search -------- */
-
-  const searchInput = document.getElementById('search-input');
-  if (searchInput) {
-    searchInput.addEventListener('input', e => {
-      currentSearch = e.target.value.trim().toLowerCase();
-      renderGames();
-    });
-  }
-
-  /* -------- Sort menu -------- */
-
-  const sortButton = document.getElementById('sort-button');
-  const sortMenu = document.getElementById('sort-menu');
-  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
-
-  if (!sortButton || !sortMenu || !sortButtons.length) return;
-
-  function updateActiveSort() {
-    sortButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.sort === currentSort);
-    });
-  }
-
-  sortButton.addEventListener('click', e => {
-    e.stopPropagation();
-    updateActiveSort();
-    sortMenu.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.gs-sort')) {
-      sortMenu.classList.add('hidden');
-    }
-  });
-
-  sortButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentSort = btn.dataset.sort;
-      updateActiveSort();
-      sortMenu.classList.add('hidden');
-      renderGames();
-    });
-  });
-
-  updateActiveSort();
 });
