@@ -325,6 +325,10 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCover(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+    w.Header().Set("Pragma", "no-cache")
+    w.Header().Set("Expires", "0")
+
     if r.Method != http.MethodGet {
         http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
         return
@@ -343,7 +347,6 @@ func handleCover(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // If no cover found, serve placeholder instead of 404
     if entry.CoverPath == "" {
         f, err := webFS.Open("web/placeholder.png")
         if err != nil {
@@ -357,7 +360,6 @@ func handleCover(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Normal cover path
     http.ServeFile(w, r, entry.CoverPath)
 }
 

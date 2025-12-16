@@ -8,11 +8,42 @@
 </head>
 <body>
   <header class="gs-header">
-    <div class="gs-logo">GameShelf</div>
-    <div class="gs-subtitle">Local Games Library</div>
+    <div class="gs-header-row">
+      <div id="gs-refresh-trigger" class="gs-refresh">
+        <img src="gameshelf_icon.png" class="gs-logo-icon" alt="GameShelf icon">
+        <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
+      </div>
 
-    <!-- Live Reload Button -->
-    <button id="gs-reload" class="gs-reload-button">Refresh</button>
+      <!-- Sort control -->
+      <div class="gs-search-wrapper">
+        <svg class="gs-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
+        </svg>
+
+        <input
+          id="search-input"
+          class="gs-search"
+          type="search"
+          placeholder="Search games…"
+          aria-label="Search games by name"
+        />
+
+        <div class="gs-sort">
+          <button id="sort-button" class="gs-sort-button" aria-label="Sort games">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
+            </svg>
+          </button>
+
+          <div id="sort-menu" class="gs-sort-menu hidden">
+            <button data-sort="az">A to Z</button>
+            <button data-sort="za">Z to A</button>
+            <button data-sort="size-desc">Size: High to Low</button>
+            <button data-sort="size-asc">Size: Low to High</button>
+        </div>
+        </div>
+      </div>
+
   </header>
 
   <main class="gs-main">
@@ -22,7 +53,6 @@
 
     <section id="empty-state" class="gs-empty hidden">
       <h2>No games found!</h2>
-      <p>Drop folders into your <code>GAMESHELF_ROOT</code> directory and refresh.</p>
     </section>
   </main>
 

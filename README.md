@@ -1,9 +1,13 @@
 # GameShelf [![GitHub release](https://img.shields.io/github/v/release/shannonwetnight/gameshelf.svg?style=flat-square)](https://github.com/shannonwetnight/gameshelf/releases/latest) [![GHCR](https://img.shields.io/badge/GHCR-gameshelf-blue?logo=github)](https://github.com/users/shannonwetnight/packages/container/package/gameshelf) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+![GameShelf Showcase](https://raw.githubusercontent.com/shannonwetnight/gameshelf/main/images/gameshelf_showcase.gif)
+
 > **AI Workflow Notice**  
 > Parts of GameShelf are developed with the assistance of AI tools to accelerate boilerplate generation, UI layout, and documentation drafting. All logic, architecture decisions, and final code have been reviewed and curated by the project maintainers. GameShelf is fully open-source (MIT licensed), and all contributors are welcome.
 
 ## Table of Contents
 - [Overview](#overview)
+    + [Project Philosophy](#project-philosophy)
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
@@ -12,19 +16,25 @@
     + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
     + [Reverse Proxy](#reverse-proxy)
-      + [Traefik Example](#traefik-example)
+        + [Traefik Example](#traefik-example)
     + [Single Sign-On](#single-sign-on)
+    + [Cover Art](#cover-art)
+        + [Recommended Resolution](#recommended-resolution)
+        + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
+    + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
+- [Legal Disclaimer](#responsible-use-&-distribution)
 
 ## Overview
-GameShelf is a lightweight, no-nonsense LAN game library designed for offline storage collections.  
+GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections.  
 Point it at a directory and GameShelf automatically:
-- Indexes game folders  
-- Detects and displays cover art (`cover.jpg`, `folder.png`, etc.)
-- Generates downloadable ZIP archives on demand
+- Indexes game folders
+- Detects and displays cover art, such as `cover.jpg`, `folder.png`, etc.
 - Serves a clean, modern UI over your local network
+- Provides one-click downloadable ZIP archives on demand
 
-There are no databases, logins, analytics, or external dependencies unless you choose to enable optional cover-fetching (see roadmap). Drop your games into a folder, run GameShelf, and enjoy a clean local library.
+### Project Philosophy
+GameShelf is designed to provide a straightforward, dependable, read-only LAN-based game library with minimal overhead. It avoids unnecessary dependencies and account systems, allowing you to maintain complete control over your offline collections. The major intended use case for GameShelf is to provide easy access to DRM-free game installers to a small number of local users (eg. 1-10 users in the same house) without the need for 1st/3rd-party installers and account logins. Simply drop your games into a folder, run GameShelf, and enjoy a clean local library.
 
 ## Features
 - Automatic folder indexing
@@ -39,7 +49,7 @@ There are no databases, logins, analytics, or external dependencies unless you c
 - [Docker](https://docs.docker.com/engine/install/) or
 - [Docker Compose](https://docs.docker.com/compose/install/)
 - A mountable directory for GameShelf to index
-- 10-15 minutes of free-time
+- 10-15 minutes of free time
 
 ## Quick Start
 
@@ -66,7 +76,7 @@ services:
     ports:
       - 8080:8080 # Increment if in-use
     environment:
-      # Working directory for indexing folders
+      # Directory containing indexable folders. 
       - GAMESHELF_ROOT=/games
       # Optional: v
       #- GAMESHELF_ADDR=:8080
@@ -147,8 +157,85 @@ middlewares:
 
 ### Single Sign-On
 You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and more, by using forward Auth.
-> GameShelf was not created to natively support SSO, user creation, mapping, or profiles. The purpose of GameShelf is to offer a frictionless library of DRM-free games to a local network, typically between 1-10 users in size. Using SSO or branching and adding profile functionality can be done but extends beyond the scope of GameShelf's intended purpose.
+> [!NOTE]
+> GameShelf was not created to natively support SSO, user creation, mapping, or profiles. The purpose of GameShelf is to offer a frictionless library of DRM-free games to a local network, typically between 1-10 users in size. Using SSO or branching and adding profile functionality can be done but extends beyond the scope of GameShelf's intended purpose as a frictionless local file distributor.
 
+### Cover Art
+GameShelf supports custom cover images for any game folder. To add your own artwork, place a cover image in the game’s directory using one of the supported file types:
+- `cover.jpg`
+- `cover.jpeg`
+- `cover.png`
+- `folder.jpg`
+- `folder.jpeg`
+- `folder.png`
+> [!IMPORTANT]
+> Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
+>
+> You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until an image is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
+
+#### Recommended Resolution
+High-quality artwork is recommended. A resolution around 600×900 (3:4) works well; however, GameShelf automatically crops and scales the artwork into a portrait format and ratio of 2:3, so the final appearance will be vertically oriented regardless of the original aspect ratio.
+- File size may be a performance factor to consider for libraries that include many games. Consider compressing your high-quality cover art before adding to the root of your game folders to reduce overall cover art file size.
+
+#### How GameShelf Chooses an Image
+When loading a game entry:
+1. GameShelf checks for `cover.jpg`, `cover.jpeg`, `cover.png`, `folder.jpg`, `folder.jpeg`, and `folder.png`.
+2. The first matching file found is used as the game’s cover art.
+3. If no cover image is provided, GameShelf will fall back to:
+4. Displaying the `placeholder.png` cover if nothing is available.
+This allows users to provide artwork simply by placing their own cover.* image into the game’s folder. In a future release, `auto-fetch cover art` will be attempted before using the `placeholder.png` cover.
+
+### Recommended File Structure
+As GameShelf parses folder names from `GAMESHELF_ROOT`, it is important to properly structure your master games directory. The following folder structure is recommended to keep things simple for GameShelf:
+```
+GameDrive
+  Games
+    Game Example 1
+      Installation Files
+      cover.png
+    
+    Game Example 2
+      Installation Files
+      cover.png
+
+  Games
+    Game Example 3
+      Installation Files
+      Extras
+        Patch 1
+        Patch 2
+      cover.png
+    
+    Game Example 4
+      Installation Files
+      Manuals
+        game_example_4_manual.pdf
+      cover.png
+```
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
 2. View and/or download zipped folders from the web UI.
+
+## Roadmap
+View the [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md) for a list of features worth considering for GameShelf.
+
+## Responsible Use & Distribution
+GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.
+
+By installing, configuring, or using GameShelf, you accept full legal responsibility for how the software is used and for any content made available through it.
+
+### User Responsibility
+- Use GameShelf only with content you own, are licensed to distribute, or are otherwise legally permitted to share
+- Comply with all applicable local, national, and international laws, including but not limited to copyright and intellectual property laws
+- Do not use GameShelf to knowingly facilitate illegal distribution, piracy, or unauthorized sharing of copyrighted material
+
+### No Liability
+The GameShelf project, its contributors, and maintainers:
+- Do not provide content
+- Do not monitor or control user deployments
+- Assume no responsibility or liability for how the software is used or what files are distributed through it
+
+GameShelf is provided “as is”, without warranty of any kind, and is intended for personal, lawful, and responsible use only.
+
+> [!WARNING]
+> If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
