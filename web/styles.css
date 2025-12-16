@@ -149,6 +149,13 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* Search active feedback */
+.gs-search.is-filtering {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(249, 178, 52, 0.35);
+  background: rgba(255, 255, 255, 0.07);
+}
+
 .gs-search-wrapper {
   position: relative;
   display: flex;
@@ -166,6 +173,23 @@ body {
 
 .gs-search {
   padding-left: 36px; /* Make room for icon */
+}
+
+/* Remove native search clear button (Chrome / Safari) */
+.gs-search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Remove native decorations (Safari) */
+.gs-search::-webkit-search-decoration {
+  display: none;
+}
+
+.gs-search.is-filtering {
+  border-color: var(--accent-soft);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .gs-sort {
