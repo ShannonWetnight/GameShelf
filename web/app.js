@@ -319,5 +319,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  /* -------- Keyboard shortcuts -------- */
+
+  document.addEventListener('keydown', e => {
+    const searchInput = document.getElementById('search-input');
+    if (!searchInput) return;
+
+    const activeTag = document.activeElement?.tagName;
+
+    /* "/" focuses search (unless already typing in an input) */
+    if (e.key === '/' && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+      return;
+    }
+
+    /* "Escape" clears search */
+    if (e.key === 'Escape') {
+      if (searchInput.value !== '') {
+        searchInput.value = '';
+        currentSearch = '';
+        searchInput.classList.remove('is-filtering');
+
+        // Show all cards immediately
+        cardMap.forEach(card => {
+          card.style.display = '';
+        });
+
+        applySearchFilter();
+      }
+
+      searchInput.blur();
+    }
+  });
+
   updateActiveSort();
 });
