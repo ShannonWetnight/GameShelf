@@ -453,12 +453,12 @@ body {
    ============================= */
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(249, 178, 52, 0.25);
-  border-radius: 6px;
+  background: rgba(249, 177, 52, 0.356);
+  border-radius: 12px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
