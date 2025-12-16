@@ -18,6 +18,7 @@
     + [Cover Art](#cover-art)
         + [Recommended Resolution](#recommended-resolution)
         + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
+    + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
 - [Legal Disclaimer](#responsible-use-&-distribution)
 
@@ -30,7 +31,7 @@ Point it at a directory and GameShelf automatically:
 - Serves a clean, modern UI over your local network
 
 ### Project Philosophy
-GameShelf is designed to provide a straightforward, dependable, read-only LAN-based game library with minimal overhead. It avoids unnecessary dependencies and account systems, allowing you to maintain complete control over your offline collections. The major intended use case for GameShelf is to provide easy access to DRM-free game installers to a small number of local users (eg. 1-10 users in the same house) without the need for 1st/3rd-party installers and account logins. There are no databases, logins, analytics, or external dependencies unless you choose to enable optional cover-fetching (see [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md#artwork-enhancements)). Drop your games into a folder, run GameShelf, and enjoy a clean local library.
+GameShelf is designed to provide a straightforward, dependable, read-only LAN-based game library with minimal overhead. It avoids unnecessary dependencies and account systems, allowing you to maintain complete control over your offline collections. The major intended use case for GameShelf is to provide easy access to DRM-free game installers to a small number of local users (eg. 1-10 users in the same house) without the need for 1st/3rd-party installers and account logins. Simply drop your games into a folder, run GameShelf, and enjoy a clean local library.
 
 ## Features
 - Automatic folder indexing
@@ -166,7 +167,7 @@ GameShelf supports custom cover images for any game folder. To add your own artw
 - `folder.png`
 > [!IMPORTANT]
 > Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
->[!IMPORTANT]
+> [!IMPORTANT]
 > You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until an image is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
 
 #### Recommended Resolution
@@ -182,6 +183,33 @@ When loading a game entry:
 5. `current behavior` Displaying the placeholder.png cover if nothing is available.
 This allows users to fully override auto-fetched artwork simply by placing their own cover.* image into the game’s folder.
 
+### Recommended File Structure
+As GameShelf parses folder names from `GAMESHELF_ROOT`, it is important to properly structure your master games directory. The following folder structure is recommended to keep things simple for GameShelf:
+```
+GameDrive
+  Games
+    Game Example 1
+      Installation Files
+      cover.png
+    
+    Game Example 2
+      Installation Files
+      cover.png
+
+  Games
+    Game Example 3
+      Installation Files
+      Extras
+        Patch 1
+        Patch 2
+      cover.png
+    
+    Game Example 4
+      Installation Files
+      Manuals
+        game_example_4_manual.pdf
+      cover.png
+```
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
 2. View and/or download zipped folders from the web UI.
