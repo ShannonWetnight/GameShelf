@@ -23,7 +23,7 @@
         + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
     + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
-- [Legal Disclaimer](#responsible-use-&-distribution)
+- [Legal Disclaimer](#responsible-use--distribution)
 
 ## Overview
 GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections. Point it at a directory and GameShelf automatically:
