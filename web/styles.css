@@ -168,6 +168,11 @@ body {
   padding-left: 36px; /* Make room for icon */
 }
 
+.gs-search.is-filtering {
+  border-color: var(--accent-soft);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .gs-sort {
   position: relative;
 }
