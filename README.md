@@ -234,6 +234,8 @@ The GameShelf project, its contributors, and maintainers:
 - Do not provide content
 - Do not monitor or control user deployments
 - Assume no responsibility or liability for how the software is used or what files are distributed through it
+
 GameShelf is provided “as is”, without warranty of any kind, and is intended for personal, lawful, and responsible use only.
+
 > [!WARNING]
 > If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
