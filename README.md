@@ -175,7 +175,7 @@ GameShelf supports custom cover images for any game folder. To add your own artw
 
 #### Recommended Resolution
 High-quality artwork is recommended. A resolution around 600×900 (3:4) works well; however, GameShelf automatically crops and scales the artwork into a portrait format and ratio of 2:3, so the final appearance will be vertically oriented regardless of the original aspect ratio.
-- File size may be a performance factor to consider for libraries that include many games.
+- File size may be a performance factor to consider for libraries that include many games. Consider compressing your high-quality cover art before adding to the root of your game folders to reduce overall cover art file size.
 
 #### How GameShelf Chooses an Image
 When loading a game entry:
