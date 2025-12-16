@@ -126,13 +126,13 @@ body {
   height: 44px;
   min-width: 220px;
 
-  padding: 0 14px;
+  padding: 0 50px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
 
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 1.0rem;
 
   transition:
     border-color 0.15s ease,
