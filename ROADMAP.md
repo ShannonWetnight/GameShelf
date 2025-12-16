@@ -26,6 +26,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Placeholder artwork fallback
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
 * [ ] Cache fetched artwork locally
+* [ ] Add ability to directly upload cover image from UI (security risks with write access, current scope does not allow file management on purpose)
 
 ### Metadata & Sorting
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
