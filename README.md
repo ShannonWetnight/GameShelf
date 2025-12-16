@@ -26,8 +26,7 @@
 - [Legal Disclaimer](#responsible-use-&-distribution)
 
 ## Overview
-GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections.  
-Point it at a directory and GameShelf automatically:
+GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections. Point it at a directory and GameShelf automatically:
 - Indexes game folders
 - Detects and displays cover art, such as `cover.jpg`, `folder.png`, etc.
 - Serves a clean, modern UI over your local network
@@ -44,6 +43,8 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Zero-config outside of the indexing directory
 - Go backend and static web UI
 - Easy deployment with Docker or Compose
+- Local search and sort functions
+- User-supplied cover art and placeholders while missing
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/engine/install/) or
