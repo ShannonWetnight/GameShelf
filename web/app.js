@@ -9,7 +9,7 @@ let refreshGeneration = 0;
 let currentSort = 'az';
 let currentSearch = '';
 
-const cardMap = new Map(); // game.id -> card element
+const cardMap = new Map();
 
 /* =============================
    Data fetching
@@ -34,57 +34,36 @@ function formatSize(bytes) {
   if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(1)} ${units[i]}`;
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
 function fuzzyMatch(haystack, needle) {
   if (!needle) return true;
-
-  haystack = haystack.toLowerCase();
-  needle = needle.toLowerCase();
-
-  let h = 0;
-  let n = 0;
-
+  let h = 0, n = 0;
   while (h < haystack.length && n < needle.length) {
     if (haystack[h] === needle[n]) n++;
     h++;
   }
-
   return n === needle.length;
 }
 
 /* =============================
-   Card creation (ONE TIME)
+   Card creation
    ============================= */
 
 function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
-  card.dataset.id = game.id;
   card.dataset.name = game.name.toLowerCase();
   card.dataset.size = game.sizeBytes;
 
-  const cover = document.createElement('div');
-  cover.className = 'gs-card-cover';
-
   const img = document.createElement('img');
-  const version = coverVersions.get(game.id);
-  const suffix = version ? `?v=${version}` : '';
-  img.src = `/covers/${encodeURIComponent(game.id)}${suffix}`;
+  img.src = `/covers/${encodeURIComponent(game.id)}`;
   img.alt = `${game.name} cover`;
 
+  const cover = document.createElement('div');
+  cover.className = 'gs-card-cover';
   cover.appendChild(img);
-
-  const body = document.createElement('div');
-  body.className = 'gs-card-body';
-
-  const content = document.createElement('div');
-  content.className = 'gs-card-content';
-
-  const footer = document.createElement('div');
-  footer.className = 'gs-card-footer';
 
   const title = document.createElement('h3');
   title.className = 'gs-card-title';
@@ -94,29 +73,16 @@ function createGameCard(game) {
   meta.className = 'gs-card-meta';
   meta.textContent = formatSize(game.sizeBytes);
 
-  const actions = document.createElement('div');
-  actions.className = 'gs-card-actions';
-
   const dl = document.createElement('a');
   dl.className = 'gs-icon-button';
   dl.href = `/download/${encodeURIComponent(game.id)}`;
-  dl.innerHTML = `
-    <svg viewBox="0 0 24 24">
-      <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
-    </svg>
-  `;
+  dl.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 16l4-5h-3V4h-2v7H8l4 5z"/></svg>`;
 
-  actions.appendChild(dl);
-  content.appendChild(title);
-  footer.appendChild(meta);
-  footer.appendChild(actions);
+  const footer = document.createElement('div');
+  footer.className = 'gs-card-footer';
+  footer.append(meta, dl);
 
-  body.appendChild(content);
-  body.appendChild(footer);
-
-  card.appendChild(cover);
-  card.appendChild(body);
-
+  card.append(cover, title, footer);
   return card;
 }
 
@@ -126,57 +92,46 @@ function createGameCard(game) {
 
 function applySort() {
   const container = document.getElementById('games-container');
-  const cards = Array.from(cardMap.values());
-
-  cards.sort((a, b) => {
-    const nameA = a.dataset.name;
-    const nameB = b.dataset.name;
-    const sizeA = Number(a.dataset.size);
-    const sizeB = Number(b.dataset.size);
-
-    switch (currentSort) {
-      case 'za': return nameB.localeCompare(nameA);
-      case 'size-desc': return sizeB - sizeA;
-      case 'size-asc': return sizeA - sizeB;
-      case 'az':
-      default: return nameA.localeCompare(nameB);
-    }
-  });
-
-  cards.forEach(card => container.appendChild(card));
+  [...cardMap.values()]
+    .sort((a, b) => {
+      const nA = a.dataset.name, nB = b.dataset.name;
+      const sA = +a.dataset.size, sB = +b.dataset.size;
+      return currentSort === 'za' ? nB.localeCompare(nA)
+        : currentSort === 'size-desc' ? sB - sA
+        : currentSort === 'size-asc' ? sA - sB
+        : nA.localeCompare(nB);
+    })
+    .forEach(card => container.appendChild(card));
 }
 
 /* =============================
-   Search
+   Search + result count
    ============================= */
 
 function applySearchFilter() {
-  const empty = document.getElementById('empty-state');
   let visible = 0;
-
   cardMap.forEach(card => {
-    if (fuzzyMatch(card.dataset.name, currentSearch)) {
-      card.style.display = '';
-      visible++;
-    } else {
-      card.style.display = 'none';
-    }
+    const match = fuzzyMatch(card.dataset.name, currentSearch);
+    card.style.display = match ? '' : 'none';
+    if (match) visible++;
   });
 
-  empty.classList.toggle('hidden', visible > 0);
+  const status = document.getElementById('search-status');
+  if (status) {
+    status.textContent = `${visible} result${visible === 1 ? '' : 's'}`;
+    status.classList.toggle('hidden', currentSearch.length === 0);
+  }
+
+  document.getElementById('empty-state')
+    ?.classList.toggle('hidden', visible > 0);
 }
 
 function clearSearch() {
-  const input = document.getElementById('search-input');
   currentSearch = '';
-
+  const input = document.getElementById('search-input');
   if (input) input.value = '';
-
-  cardMap.forEach(card => {
-    card.style.display = '';
-  });
-
-  document.getElementById('empty-state')?.classList.add('hidden');
+  document.getElementById('search-status')?.classList.add('hidden');
+  cardMap.forEach(card => card.style.display = '');
 }
 
 /* =============================
@@ -185,28 +140,12 @@ function clearSearch() {
 
 async function loadGames(isRefresh = false) {
   const container = document.getElementById('games-container');
-  const empty = document.getElementById('empty-state');
-
-  gamesCache = await fetchGames();
-
   if (isRefresh) {
-    coverVersions.clear();
-    refreshGeneration++;
     cardMap.clear();
     container.innerHTML = '';
-
-    gamesCache.forEach(game => {
-      coverVersions.set(game.id, refreshGeneration);
-    });
   }
 
-  if (!gamesCache.length) {
-    empty.classList.remove('hidden');
-    return;
-  }
-
-  empty.classList.add('hidden');
-
+  gamesCache = await fetchGames();
   gamesCache.forEach(game => {
     if (!cardMap.has(game.id)) {
       const card = createGameCard(game);
@@ -226,100 +165,35 @@ async function loadGames(isRefresh = false) {
 document.addEventListener('DOMContentLoaded', () => {
   loadGames();
 
-  /* -------- Global keybinds -------- */
-
   document.addEventListener('keydown', e => {
     const input = document.getElementById('search-input');
-
-    // Ignore when typing in inputs (except Escape)
-    if (
-      (e.target instanceof HTMLInputElement ||
-       e.target instanceof HTMLTextAreaElement) &&
-      e.key !== 'Escape'
-    ) {
-      return;
-    }
-
     if (e.key === '/') {
       e.preventDefault();
       input?.focus();
       input?.select();
     }
-
     if (e.key === 'Escape') {
       clearSearch();
       input?.blur();
     }
   });
 
-  /* -------- Search input -------- */
+  document.getElementById('search-input')?.addEventListener('input', e => {
+    currentSearch = e.target.value.trim().toLowerCase();
+    applySearchFilter();
+  });
 
-  const searchInput = document.getElementById('search-input');
-  if (searchInput) {
-    searchInput.addEventListener('input', e => {
-      currentSearch = e.target.value.trim().toLowerCase();
-      applySearchFilter();
+  document.getElementById('gs-refresh-trigger')
+    ?.addEventListener('click', async () => {
+      clearSearch();
+      await fetch('/api/games?forceRefresh=1');
+      await loadGames(true);
     });
-  }
 
-  /* -------- Refresh -------- */
-
-  const trigger = document.getElementById('gs-refresh-trigger');
-  const logoText = document.getElementById('gs-logo-text');
-
-  let refreshLock = false;
-
-  trigger.addEventListener('click', async () => {
-    if (refreshLock) return;
-
-    refreshLock = true;
-    logoText.textContent = 'REFRESHING';
-
-    clearSearch();
-
-    await fetch('/api/games?forceRefresh=1');
-    await loadGames(true);
-
-    logoText.textContent = 'REFRESHED';
-    logoText.classList.add('bounce');
-
-    setTimeout(() => {
-      logoText.classList.remove('bounce');
-      logoText.textContent = 'GAMESHELF';
-      refreshLock = false;
-    }, 1000);
-  });
-
-  /* -------- Sort menu -------- */
-
-  const sortButton = document.getElementById('sort-button');
-  const sortMenu = document.getElementById('sort-menu');
-  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
-
-  function updateActiveSort() {
-    sortButtons.forEach(btn =>
-      btn.classList.toggle('active', btn.dataset.sort === currentSort)
-    );
-  }
-
-  sortButton.addEventListener('click', e => {
-    e.stopPropagation();
-    updateActiveSort();
-    sortMenu.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.gs-sort')) sortMenu.classList.add('hidden');
-  });
-
-  sortButtons.forEach(btn => {
+  document.querySelectorAll('.gs-sort-menu button').forEach(btn => {
     btn.addEventListener('click', () => {
       currentSort = btn.dataset.sort;
-      updateActiveSort();
-      sortMenu.classList.add('hidden');
       applySort();
     });
   });
-
-  updateActiveSort();
 });
