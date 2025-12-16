@@ -38,13 +38,13 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 ## Features
 - Automatic folder indexing
 - Local cover art detection
+ - User-supplied cover art and placeholders while missing
 - Instant ZIP downloads of game folders
 - Manual and scheduled rescan support
 - Zero-config outside of the indexing directory
 - Go backend and static web UI
 - Easy deployment with Docker or Compose
 - Local search and sort functions
-- User-supplied cover art and placeholders while missing
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/engine/install/) or
