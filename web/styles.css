@@ -1,3 +1,7 @@
+/* =============================
+   Base
+   ============================= */
+
 :root {
   --bg: #050910;
   --bg-elevated: #0b121f;
@@ -34,7 +38,7 @@ body {
    ============================= */
 
 .gs-header {
-  padding: 1.5rem 3vw;
+  padding: 1.25rem 3vw;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
@@ -52,34 +56,33 @@ body {
 }
 
 .gs-logo-icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   opacity: 0.9;
-  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .gs-logo-text {
-  min-width: 11ch;
-  font-size: 2rem;
+  min-width: 10ch;
+  font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: text-shadow 0.2s ease, transform 0.15s ease;
+  transition: text-shadow 0.15s ease;
 }
 
 .gs-refresh:hover .gs-logo-text {
   text-shadow:
-    0 0 2px #f69500,
-    0 0 6px #f69500aa;
+    0 0 3px rgba(249,178,52,0.9),
+    0 0 8px rgba(249,178,52,0.5);
 }
 
 .gs-logo-text.bounce {
-  animation: micro-bounce 350ms ease-out;
+  animation: micro-bounce 220ms ease-out;
 }
 
 @keyframes micro-bounce {
   0% { transform: scale(1); }
-  40% { transform: scale(1.08); }
+  40% { transform: scale(1.12); }
   100% { transform: scale(1); }
 }
 
@@ -93,30 +96,8 @@ body {
   align-items: center;
 }
 
-.gs-search-status {
-  position: absolute;
-  left: -72px;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.gs-search-status.hidden {
-  display: none;
-}
-
-.gs-search-icon {
-  position: absolute;
-  left: 12px;
-  width: 16px;
-  height: 16px;
-  fill: var(--text-muted);
-  pointer-events: none;
-}
-
 .gs-search {
-  height: 44px;
+  height: 40px;
   min-width: 220px;
   padding: 0 14px 0 36px;
   border-radius: var(--radius-sm);
@@ -130,6 +111,27 @@ body {
   border-color: var(--accent-soft);
 }
 
+.gs-search-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  fill: var(--text-muted);
+  pointer-events: none;
+}
+
+.gs-search-status {
+  position: absolute;
+  left: -72px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gs-search-status.hidden {
+  display: none;
+}
+
 .gs-sort {
   position: relative;
 }
@@ -137,15 +139,8 @@ body {
 .gs-sort-button {
   background: none;
   border: none;
-  margin-left: 6px;
-  padding: 9px;
+  padding: 8px;
   cursor: pointer;
-}
-
-.gs-sort-button svg {
-  width: 28px;
-  height: 28px;
-  fill: var(--text-muted);
 }
 
 .gs-sort-menu {
@@ -155,7 +150,7 @@ body {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 10px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -166,7 +161,7 @@ body {
   background: none;
   border: none;
   color: var(--text);
-  padding: 10px 14px;
+  padding: 8px 12px;
   text-align: left;
   cursor: pointer;
 }
@@ -181,7 +176,7 @@ body {
 }
 
 /* =============================
-   Grid / Cards
+   Grid / Cards (FIXED)
    ============================= */
 
 .gs-main {
@@ -190,6 +185,56 @@ body {
 
 .gs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.gs-card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+}
+
+.gs-card-cover {
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+}
+
+.gs-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gs-card-body {
+  padding: 0.75rem 0.9rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  height: 110px;
+}
+
+.gs-card-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.gs-card-title {
+  font-size: 0.95rem;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.gs-card-footer {
+  position: relative;
+  height: 42px;
+}
+
+.gs-card-actions {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
 }

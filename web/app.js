@@ -44,7 +44,6 @@ function createGameCard(game) {
         <h3 class="gs-card-title">${game.name}</h3>
       </div>
       <div class="gs-card-footer">
-        <div class="gs-card-meta">${game.sizeBytes}</div>
         <div class="gs-card-actions">
           <a class="gs-icon-button" href="/download/${encodeURIComponent(game.id)}">+</a>
         </div>
@@ -60,22 +59,13 @@ function createGameCard(game) {
 
 function updateActiveSort() {
   document.querySelectorAll('#sort-menu button')
-    .forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.sort === currentSort);
-    });
+    .forEach(b => b.classList.toggle('active', b.dataset.sort === currentSort));
 }
 
 function applySort() {
   const grid = document.getElementById('games-container');
   [...cardMap.values()]
-    .sort((a,b)=>{
-      const nA=a.dataset.name,nB=b.dataset.name;
-      const sA=+a.dataset.size,sB=+b.dataset.size;
-      return currentSort==='za'?nB.localeCompare(nA):
-             currentSort==='size-desc'?sB-sA:
-             currentSort==='size-asc'?sA-sB:
-             nA.localeCompare(nB);
-    })
+    .sort((a,b)=>a.dataset.name.localeCompare(b.dataset.name))
     .forEach(c=>grid.appendChild(c));
 }
 
@@ -88,7 +78,7 @@ function applySearch() {
   });
 
   const status = document.getElementById('search-status');
-  status.textContent = `${visible} result${visible===1?'':'s'}`;
+  status.textContent = `${visible} result${visible === 1 ? '' : 's'}`;
   status.classList.toggle('hidden', !currentSearch);
 }
 
@@ -124,7 +114,29 @@ async function loadGames(refresh=false) {
 document.addEventListener('DOMContentLoaded',()=>{
   loadGames();
 
+  const logo = document.getElementById('gs-logo-text');
+  const trigger = document.getElementById('gs-refresh-trigger');
   const input = document.getElementById('search-input');
+
+  const ORIGINAL = 'GAMESHELF';
+  const HOVER = 'REFRESH';
+  const LOADING = 'REFRESHING';
+  const DONE = 'REFRESHED';
+
+  trigger.addEventListener('mouseenter', ()=>logo.textContent = HOVER);
+  trigger.addEventListener('mouseleave', ()=>logo.textContent = ORIGINAL);
+
+  trigger.addEventListener('click', async ()=>{
+    logo.textContent = LOADING;
+    await fetch('/api/games?forceRefresh=1');
+    await loadGames(true);
+    logo.textContent = DONE;
+    logo.classList.add('bounce');
+    setTimeout(()=>{
+      logo.classList.remove('bounce');
+      logo.textContent = ORIGINAL;
+    }, 700);
+  });
 
   input.addEventListener('input', e=>{
     currentSearch = e.target.value.toLowerCase().trim();
@@ -143,38 +155,5 @@ document.addEventListener('DOMContentLoaded',()=>{
       applySearch();
       input.blur();
     }
-  });
-
-  const logo = document.getElementById('gs-logo-text');
-  document.getElementById('gs-refresh-trigger')
-    .addEventListener('click', async ()=>{
-      logo.textContent = 'REFRESHING';
-      await fetch('/api/games?forceRefresh=1');
-      await loadGames(true);
-      logo.textContent = 'REFRESHED';
-      logo.classList.add('bounce');
-      setTimeout(()=>{
-        logo.classList.remove('bounce');
-        logo.textContent = 'GAMESHELF';
-      }, 900);
-    });
-
-  const sortBtn = document.getElementById('sort-button');
-  const sortMenu = document.getElementById('sort-menu');
-
-  sortBtn.addEventListener('click', e=>{
-    e.stopPropagation();
-    sortMenu.classList.toggle('hidden');
-  });
-
-  document.addEventListener('click', ()=>sortMenu.classList.add('hidden'));
-
-  sortMenu.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      currentSort = b.dataset.sort;
-      updateActiveSort();
-      sortMenu.classList.add('hidden');
-      applySort();
-    });
   });
 });
