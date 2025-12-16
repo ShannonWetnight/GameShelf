@@ -289,8 +289,8 @@ body {
 
 .gs-card-cover {
   position: relative;
-  padding-top: 140%;
-  flex-shrink: 0; /* Prevent compression */
+  aspect-ratio: 2 / 3;
+  flex-shrink: 0;
   background: radial-gradient(circle at top, #374785, #141b2f);
   overflow: hidden;
 }
