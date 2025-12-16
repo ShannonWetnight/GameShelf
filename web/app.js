@@ -1,8 +1,11 @@
 /* =============================
    Global state
    ============================= */
+
+let gamesCache = [];
 const coverVersions = new Map();
 let refreshGeneration = 0;
+
 let currentSort = 'az';
 let currentSearch = '';
 
@@ -47,10 +50,9 @@ function createGameCard(game) {
   const img = document.createElement('img');
   const version = coverVersions.get(game.id);
   const suffix = version ? `?v=${version}` : '';
-
   img.src = `/covers/${encodeURIComponent(game.id)}${suffix}`;
-
   img.alt = `${game.name} cover`;
+
   cover.appendChild(img);
 
   const body = document.createElement('div');
@@ -83,7 +85,6 @@ function createGameCard(game) {
   `;
 
   actions.appendChild(dl);
-
   content.appendChild(title);
   footer.appendChild(meta);
   footer.appendChild(actions);
@@ -116,32 +117,16 @@ function sortGames(games) {
 }
 
 /* =============================
-   Rendering
+   Rendering (NO FETCHING)
    ============================= */
 
-async function init(isRefresh = false) {
-  const games = await fetchGames();
-    if (isRefresh) {
-      coverVersions.clear();
-
-      games.forEach(game => {
-        coverVersions.set(game.id, refreshGeneration);
-      });
-    }
-  
+function renderGames() {
   const container = document.getElementById('games-container');
   const empty = document.getElementById('empty-state');
 
   container.innerHTML = '';
 
-  if (!games.length) {
-    empty.classList.remove('hidden');
-    return;
-  }
-
-  empty.classList.add('hidden');
-
-  const filtered = games.filter(game =>
+  const filtered = gamesCache.filter(game =>
     game.name.toLowerCase().includes(currentSearch)
   );
 
@@ -162,31 +147,48 @@ async function init(isRefresh = false) {
 }
 
 /* =============================
+   Load games (FETCHING)
+   ============================= */
+
+async function loadGames(isRefresh = false) {
+  gamesCache = await fetchGames();
+
+  if (isRefresh) {
+    coverVersions.clear();
+    gamesCache.forEach(game => {
+      coverVersions.set(game.id, refreshGeneration);
+    });
+  }
+
+  renderGames();
+}
+
+/* =============================
    DOM bindings
    ============================= */
 
 document.addEventListener('DOMContentLoaded', () => {
-  init();
+  loadGames();
 
   /* -------- Global keyboard shortcuts -------- */
-document.addEventListener('keydown', e => {
-  // Ignore if user is already typing in an input
-  if (
-    e.target instanceof HTMLInputElement ||
-    e.target instanceof HTMLTextAreaElement
-  ) {
-    return;
-  }
 
-  if (e.key === '/') {
-    e.preventDefault();
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) {
-      searchInput.focus();
-      searchInput.select();
+  document.addEventListener('keydown', e => {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement
+    ) {
+      return;
     }
-  }
-});
+
+    if (e.key === '/') {
+      e.preventDefault();
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }
+  });
 
   /* -------- Refresh header logic -------- */
 
@@ -219,11 +221,9 @@ document.addEventListener('keydown', e => {
     logoText.textContent = refreshingText;
 
     await fetch('/api/games?forceRefresh=1');
-
-    // Increment refresh generation
     refreshGeneration++;
 
-    await init(true); // <-- pass a flag
+    await loadGames(true);
 
     logoText.textContent = doneText;
     logoText.classList.add('bounce');
@@ -236,16 +236,17 @@ document.addEventListener('keydown', e => {
     }, 1000);
   });
 
-    /* -------- Sort menu logic -------- */
+  /* -------- Search -------- */
 
   const searchInput = document.getElementById('search-input');
-
   if (searchInput) {
     searchInput.addEventListener('input', e => {
       currentSearch = e.target.value.trim().toLowerCase();
-      init();
+      renderGames();
     });
   }
+
+  /* -------- Sort menu -------- */
 
   const sortButton = document.getElementById('sort-button');
   const sortMenu = document.getElementById('sort-menu');
@@ -259,31 +260,26 @@ document.addEventListener('keydown', e => {
     });
   }
 
-  // Open menu
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
-    updateActiveSort(); // ensure highlight is correct
+    updateActiveSort();
     sortMenu.classList.toggle('hidden');
   });
 
-  // Close menu when clicking outside
   document.addEventListener('click', e => {
     if (!e.target.closest('.gs-sort')) {
       sortMenu.classList.add('hidden');
     }
   });
 
-  // Handle sort selection
   sortButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       currentSort = btn.dataset.sort;
       updateActiveSort();
       sortMenu.classList.add('hidden');
-      init();
+      renderGames();
     });
   });
 
-  // Initial highlight
   updateActiveSort();
-
 });
