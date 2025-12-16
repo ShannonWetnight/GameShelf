@@ -1,10 +1,10 @@
 /* =============================
    Global state
    ============================= */
-
+const coverVersions = new Map();
+let refreshGeneration = 0;
 let currentSort = 'az';
 let currentSearch = '';
-let coverCacheBuster = Date.now();
 
 /* =============================
    Data fetching
@@ -45,7 +45,11 @@ function createGameCard(game) {
   cover.className = 'gs-card-cover';
 
   const img = document.createElement('img');
-  img.src = `/covers/${encodeURIComponent(game.id)}?v=${coverCacheBuster}`;
+  const version = coverVersions.get(game.id);
+  const suffix = version ? `?v=${version}` : '';
+
+  img.src = `/covers/${encodeURIComponent(game.id)}${suffix}`;
+
   img.alt = `${game.name} cover`;
   cover.appendChild(img);
 
@@ -115,8 +119,16 @@ function sortGames(games) {
    Rendering
    ============================= */
 
-async function init() {
+async function init(isRefresh = false) {
   const games = await fetchGames();
+    if (isRefresh) {
+      coverVersions.clear();
+
+      games.forEach(game => {
+        coverVersions.set(game.id, refreshGeneration);
+      });
+    }
+  
   const container = document.getElementById('games-container');
   const empty = document.getElementById('empty-state');
 
@@ -208,10 +220,10 @@ document.addEventListener('keydown', e => {
 
     await fetch('/api/games?forceRefresh=1');
 
-    // Force cover reloads
-    coverCacheBuster = Date.now();
+    // Increment refresh generation
+    refreshGeneration++;
 
-    await init();
+    await init(true); // <-- pass a flag
 
     logoText.textContent = doneText;
     logoText.classList.add('bounce');
