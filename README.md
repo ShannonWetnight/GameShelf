@@ -30,8 +30,8 @@ GameShelf is a lightweight, no-nonsense, completely open-source game library des
 Point it at a directory and GameShelf automatically:
 - Indexes game folders
 - Detects and displays cover art, such as `cover.jpg`, `folder.png`, etc.
-- Generates downloadable ZIP archives on demand
 - Serves a clean, modern UI over your local network
+- Provides one-click downloadable ZIP archives on demand
 
 ### Project Philosophy
 GameShelf is designed to provide a straightforward, dependable, read-only LAN-based game library with minimal overhead. It avoids unnecessary dependencies and account systems, allowing you to maintain complete control over your offline collections. The major intended use case for GameShelf is to provide easy access to DRM-free game installers to a small number of local users (eg. 1-10 users in the same house) without the need for 1st/3rd-party installers and account logins. Simply drop your games into a folder, run GameShelf, and enjoy a clean local library.
