@@ -4,6 +4,7 @@
 
 let currentSort = 'az';
 let currentSearch = '';
+let coverCacheBuster = Date.now();
 
 /* =============================
    Data fetching
@@ -37,6 +38,8 @@ function formatSize(bytes) {
    ============================= */
 
 function createGameCard(game) {
+  img.src = `/covers/${encodeURIComponent(game.id)}?v=${coverCacheBuster}`;
+
   const card = document.createElement('article');
   card.className = 'gs-card';
 
@@ -202,6 +205,10 @@ document.addEventListener('keydown', e => {
     logoText.textContent = refreshingText;
 
     await fetch('/api/games?forceRefresh=1');
+
+    // Force cover reloads
+    coverCacheBuster = Date.now();
+
     await init();
 
     logoText.textContent = doneText;
