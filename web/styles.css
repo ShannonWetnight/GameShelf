@@ -175,12 +175,11 @@ body {
 .gs-sort-button {
   background: none;
   border: none;
+  margin-left: 6px;
   cursor: pointer;
-
-  padding: 12px; /* Larger click target */
+  padding: 9px;
   border-radius: var(--radius-sm);
   opacity: 0.9;
-
   transition:
     background 0.15s ease,
     opacity 0.15s ease,
