@@ -15,8 +15,8 @@
       </div>
 
       <div class="gs-search-wrapper">
-        <svg class="gs-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
+        <svg class="gs-search-icon" viewBox="0 0 24 24">
+          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2z"/>
         </svg>
 
         <input
@@ -24,13 +24,13 @@
           class="gs-search"
           type="search"
           placeholder="Search games…"
-          aria-label="Search games by name"
         />
 
+        <!-- Overlay result count -->
         <span id="search-status" class="gs-search-status hidden"></span>
 
         <div class="gs-sort">
-          <button id="sort-button" class="gs-sort-button" aria-label="Sort games">
+          <button id="sort-button" class="gs-sort-button">
             <svg viewBox="0 0 24 24">
               <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
             </svg>
@@ -49,7 +49,6 @@
 
   <main class="gs-main">
     <section id="games-container" class="gs-grid"></section>
-
     <section id="empty-state" class="gs-empty hidden">
       <h2>No games found!</h2>
     </section>

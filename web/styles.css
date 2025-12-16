@@ -143,6 +143,14 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.gs-search-status {
+  position: absolute;
+  right: 52px; /* before sort button */
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
 /* Search active feedback */
 .gs-search.is-filtering {
   border-color: var(--accent);
