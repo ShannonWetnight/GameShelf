@@ -38,8 +38,6 @@ function formatSize(bytes) {
    ============================= */
 
 function createGameCard(game) {
-  img.src = `/covers/${encodeURIComponent(game.id)}?v=${coverCacheBuster}`;
-
   const card = document.createElement('article');
   card.className = 'gs-card';
 
@@ -47,7 +45,7 @@ function createGameCard(game) {
   cover.className = 'gs-card-cover';
 
   const img = document.createElement('img');
-  img.src = `/covers/${encodeURIComponent(game.id)}`;
+  img.src = `/covers/${encodeURIComponent(game.id)}?v=${coverCacheBuster}`;
   img.alt = `${game.name} cover`;
   cover.appendChild(img);
 
@@ -143,7 +141,11 @@ async function init() {
   empty.classList.add('hidden');
 
   sortGames(filtered).forEach(game => {
-    container.appendChild(createGameCard(game));
+    try {
+      container.appendChild(createGameCard(game));
+    } catch (e) {
+      console.error('Failed to render game card:', game.name, e);
+    }
   });
 }
 
