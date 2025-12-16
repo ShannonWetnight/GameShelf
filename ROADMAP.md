@@ -38,6 +38,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add ability to group games together by adding tags (requires lightweight database integration)
 * [ ] Reintroduce "no games found" subheader directing users where to store/add games
     * [ ] Create a second error message and link it search for when no games are found
+* [ ] Reintroduce "x" to clear search bar (revisit browser defaults, possibly add custom svg for clear)
 
 ### Downloads & File Handling
 * [x] *(Planned)* ZIP download streaming
