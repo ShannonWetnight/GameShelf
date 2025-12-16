@@ -48,9 +48,7 @@ function fuzzyMatch(haystack, needle) {
   let n = 0;
 
   while (h < haystack.length && n < needle.length) {
-    if (haystack[h] === needle[n]) {
-      n++;
-    }
+    if (haystack[h] === needle[n]) n++;
     h++;
   }
 
@@ -123,7 +121,7 @@ function createGameCard(game) {
 }
 
 /* =============================
-   Sorting (DOM reordering only)
+   Sorting
    ============================= */
 
 function applySort() {
@@ -137,15 +135,11 @@ function applySort() {
     const sizeB = Number(b.dataset.size);
 
     switch (currentSort) {
-      case 'za':
-        return nameB.localeCompare(nameA);
-      case 'size-desc':
-        return sizeB - sizeA;
-      case 'size-asc':
-        return sizeA - sizeB;
+      case 'za': return nameB.localeCompare(nameA);
+      case 'size-desc': return sizeB - sizeA;
+      case 'size-asc': return sizeA - sizeB;
       case 'az':
-      default:
-        return nameA.localeCompare(nameB);
+      default: return nameA.localeCompare(nameB);
     }
   });
 
@@ -158,24 +152,35 @@ function applySort() {
 
 function applySearchFilter() {
   const empty = document.getElementById('empty-state');
-  let visibleCount = 0;
+  let visible = 0;
 
   cardMap.forEach(card => {
-    const match = fuzzyMatch(card.dataset.name, currentSearch);
-
-    if (match) {
+    if (fuzzyMatch(card.dataset.name, currentSearch)) {
       card.style.display = '';
-      visibleCount++;
+      visible++;
     } else {
       card.style.display = 'none';
     }
   });
 
-  empty.classList.toggle('hidden', visibleCount > 0);
+  empty.classList.toggle('hidden', visible > 0);
+}
+
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  currentSearch = '';
+
+  if (input) input.value = '';
+
+  cardMap.forEach(card => {
+    card.style.display = '';
+  });
+
+  document.getElementById('empty-state')?.classList.add('hidden');
 }
 
 /* =============================
-   Initial load / refresh
+   Load / refresh
    ============================= */
 
 async function loadGames(isRefresh = false) {
@@ -221,13 +226,38 @@ async function loadGames(isRefresh = false) {
 document.addEventListener('DOMContentLoaded', () => {
   loadGames();
 
-  /* -------- Search -------- */
+  /* -------- Global keybinds -------- */
+
+  document.addEventListener('keydown', e => {
+    const input = document.getElementById('search-input');
+
+    // Ignore when typing in inputs (except Escape)
+    if (
+      (e.target instanceof HTMLInputElement ||
+       e.target instanceof HTMLTextAreaElement) &&
+      e.key !== 'Escape'
+    ) {
+      return;
+    }
+
+    if (e.key === '/') {
+      e.preventDefault();
+      input?.focus();
+      input?.select();
+    }
+
+    if (e.key === 'Escape') {
+      clearSearch();
+      input?.blur();
+    }
+  });
+
+  /* -------- Search input -------- */
 
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
     searchInput.addEventListener('input', e => {
       currentSearch = e.target.value.trim().toLowerCase();
-      searchInput.classList.toggle('is-filtering', currentSearch.length > 0);
       applySearchFilter();
     });
   }
@@ -237,51 +267,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const trigger = document.getElementById('gs-refresh-trigger');
   const logoText = document.getElementById('gs-logo-text');
 
-  const originalText = 'GAMESHELF';
-  const hoverText = 'REFRESH';
-  const refreshingText = 'REFRESHING';
-  const doneText = 'REFRESHED';
-
   let refreshLock = false;
-
-  trigger.addEventListener('mouseenter', () => {
-    if (!refreshLock) logoText.textContent = hoverText;
-  });
-
-  trigger.addEventListener('mouseleave', () => {
-    if (!refreshLock) logoText.textContent = originalText;
-  });
 
   trigger.addEventListener('click', async () => {
     if (refreshLock) return;
 
     refreshLock = true;
-    logoText.textContent = refreshingText;
+    logoText.textContent = 'REFRESHING';
 
-    // --- RESET SEARCH STATE ---
-    const searchInput = document.getElementById('search-input');
-    currentSearch = '';
+    clearSearch();
 
-    if (searchInput) {
-      searchInput.value = '';
-      searchInput.classList.remove('is-filtering');
-    }
-
-    // Ensure all cards are visible immediately
-    cardMap.forEach(card => {
-      card.style.display = '';
-    });
-
-    // --- PERFORM REFRESH ---
     await fetch('/api/games?forceRefresh=1');
     await loadGames(true);
 
-    logoText.textContent = doneText;
+    logoText.textContent = 'REFRESHED';
     logoText.classList.add('bounce');
 
     setTimeout(() => {
       logoText.classList.remove('bounce');
-      logoText.textContent = originalText;
+      logoText.textContent = 'GAMESHELF';
       refreshLock = false;
     }, 1000);
   });
@@ -293,9 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const sortButtons = document.querySelectorAll('.gs-sort-menu button');
 
   function updateActiveSort() {
-    sortButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.sort === currentSort);
-    });
+    sortButtons.forEach(btn =>
+      btn.classList.toggle('active', btn.dataset.sort === currentSort)
+    );
   }
 
   sortButton.addEventListener('click', e => {
@@ -305,9 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('click', e => {
-    if (!e.target.closest('.gs-sort')) {
-      sortMenu.classList.add('hidden');
-    }
+    if (!e.target.closest('.gs-sort')) sortMenu.classList.add('hidden');
   });
 
   sortButtons.forEach(btn => {
