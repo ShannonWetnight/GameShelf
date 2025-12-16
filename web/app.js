@@ -47,6 +47,7 @@ function createGameCard(game) {
   card.className = 'gs-card';
   card.dataset.id = game.id;
   card.dataset.name = game.name.toLowerCase();
+  card.dataset.size = game.sizeBytes;
 
   const cover = document.createElement('div');
   cover.className = 'gs-card-cover';
@@ -103,7 +104,57 @@ function createGameCard(game) {
 }
 
 /* =============================
-   Initial render / refresh
+   Sorting (DOM reordering only)
+   ============================= */
+
+function applySort() {
+  const container = document.getElementById('games-container');
+  const cards = Array.from(cardMap.values());
+
+  cards.sort((a, b) => {
+    const nameA = a.dataset.name;
+    const nameB = b.dataset.name;
+    const sizeA = Number(a.dataset.size);
+    const sizeB = Number(b.dataset.size);
+
+    switch (currentSort) {
+      case 'za':
+        return nameB.localeCompare(nameA);
+      case 'size-desc':
+        return sizeB - sizeA;
+      case 'size-asc':
+        return sizeA - sizeB;
+      case 'az':
+      default:
+        return nameA.localeCompare(nameB);
+    }
+  });
+
+  cards.forEach(card => container.appendChild(card));
+}
+
+/* =============================
+   Search (NO DOM DESTRUCTION)
+   ============================= */
+
+function applySearchFilter() {
+  const empty = document.getElementById('empty-state');
+  let visibleCount = 0;
+
+  cardMap.forEach(card => {
+    if (card.dataset.name.includes(currentSearch)) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  empty.classList.toggle('hidden', visibleCount > 0);
+}
+
+/* =============================
+   Initial load / refresh
    ============================= */
 
 async function loadGames(isRefresh = false) {
@@ -138,27 +189,8 @@ async function loadGames(isRefresh = false) {
     }
   });
 
+  applySort();
   applySearchFilter();
-}
-
-/* =============================
-   Search (NO DOM DESTRUCTION)
-   ============================= */
-
-function applySearchFilter() {
-  const empty = document.getElementById('empty-state');
-  let visibleCount = 0;
-
-  cardMap.forEach(card => {
-    if (card.dataset.name.includes(currentSearch)) {
-      card.style.display = '';
-      visibleCount++;
-    } else {
-      card.style.display = 'none';
-    }
-  });
-
-  empty.classList.toggle('hidden', visibleCount > 0);
 }
 
 /* =============================
@@ -174,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (searchInput) {
     searchInput.addEventListener('input', e => {
       currentSearch = e.target.value.trim().toLowerCase();
+      searchInput.classList.toggle('is-filtering', currentSearch.length > 0);
       applySearchFilter();
     });
   }
@@ -216,4 +249,39 @@ document.addEventListener('DOMContentLoaded', () => {
       refreshLock = false;
     }, 1000);
   });
+
+  /* -------- Sort menu -------- */
+
+  const sortButton = document.getElementById('sort-button');
+  const sortMenu = document.getElementById('sort-menu');
+  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
+
+  function updateActiveSort() {
+    sortButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sort === currentSort);
+    });
+  }
+
+  sortButton.addEventListener('click', e => {
+    e.stopPropagation();
+    updateActiveSort();
+    sortMenu.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.gs-sort')) {
+      sortMenu.classList.add('hidden');
+    }
+  });
+
+  sortButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSort = btn.dataset.sort;
+      updateActiveSort();
+      sortMenu.classList.add('hidden');
+      applySort();
+    });
+  });
+
+  updateActiveSort();
 });
