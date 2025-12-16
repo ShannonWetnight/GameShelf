@@ -258,6 +258,21 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshLock = true;
     logoText.textContent = refreshingText;
 
+    // --- RESET SEARCH STATE ---
+    const searchInput = document.getElementById('search-input');
+    currentSearch = '';
+
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.classList.remove('is-filtering');
+    }
+
+    // Ensure all cards are visible immediately
+    cardMap.forEach(card => {
+      card.style.display = '';
+    });
+
+    // --- PERFORM REFRESH ---
     await fetch('/api/games?forceRefresh=1');
     await loadGames(true);
 
