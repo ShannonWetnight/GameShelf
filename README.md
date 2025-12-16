@@ -199,7 +199,6 @@ GameDrive
       Installation Files
       cover.png
 
-  Games
     Game Example 3
       Installation Files
       Extras
