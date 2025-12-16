@@ -6,7 +6,6 @@
   --accent-soft: rgba(249, 178, 52, 0.16);
   --text: #f5f7ff;
   --text-muted: #9ca7c7;
-  --danger: #ff5c5c;
   --radius-lg: 16px;
   --radius-sm: 8px;
   --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.5);
@@ -21,7 +20,6 @@
 
 html, body {
   margin: 0;
-  padding: 0;
   height: 100%;
 }
 
@@ -29,85 +27,15 @@ body {
   background: radial-gradient(circle at top, #111c33 0, #050910 55%, #020309 100%);
   color: var(--text);
   font-family: var(--font-sans);
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
 }
+
+/* =============================
+   Header / Refresh
+   ============================= */
 
 .gs-header {
   padding: 1.5rem 3vw;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-/* Hover glow (outline only, text stays white) */
-.gs-refresh:hover .gs-logo-text {
-  color: #f5f7ff; /* KEEP TEXT WHITE */
-  text-shadow:
-    0 0 1px #f69500,
-    0 0 3px #f69500,
-    0 0 6px #f69500aa;
-}
-
-.gs-refresh:hover .gs-logo-icon {
-  opacity: 1;
-  transform: scale(1.05);
-}
-
-/* Icon styling */
-.gs-logo-icon {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  opacity: 0.9;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-/* Text styling */
-.gs-logo-text {
-  min-width: 11ch;
-  display: inline-block;
-  font-size: 2rem; /* Matches original header size */
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: color 0.2s ease, text-shadow 0.2s ease, transform 0.15s ease;
-}
-
-.gs-logo-text.refreshing {
-  color: #f5f7ff; /* WHITE TEXT */
-  text-shadow:
-    0 0 2px #f69500,
-    0 0 4px #f69500aa,
-    0 0 6px #f6950055;
-}
-
-/* The clickable area */
-.gs-refresh {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-/* Micro-bounce animation for “Refreshed” */
-@keyframes micro-bounce {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.08); }
-  60%  { transform: scale(0.96); }
-  80%  { transform: scale(1.03); }
-  100% { transform: scale(1); }
-}
-
-.gs-logo-text.bounce {
-  animation: micro-bounce 350ms ease-out;
-}
-
-.gs-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
 .gs-header-row {
@@ -116,56 +44,66 @@ body {
   justify-content: space-between;
 }
 
-.gs-controls {
+.gs-refresh {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
 }
 
-.gs-search {
-  height: 44px;
-  min-width: 220px;
-  padding: 0 14px 0 36px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  font-size: 1rem;
+.gs-logo-icon {
+  width: 32px;
+  height: 32px;
+  opacity: 0.9;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.gs-search::placeholder {
-  color: var(--text-muted);
+.gs-logo-text {
+  min-width: 11ch;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: text-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.gs-search:focus {
-  outline: none;
-  border-color: var(--accent-soft);
-  background: rgba(255, 255, 255, 0.06);
+.gs-refresh:hover .gs-logo-text {
+  text-shadow:
+    0 0 2px #f69500,
+    0 0 6px #f69500aa;
 }
 
-.gs-search-status {
-  position: absolute;
-  right: 52px; /* before sort button */
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  pointer-events: none;
+.gs-logo-text.bounce {
+  animation: micro-bounce 350ms ease-out;
 }
 
-/* Search active feedback */
-.gs-search.is-filtering {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(249, 178, 52, 0.35);
-  background: rgba(255, 255, 255, 0.07);
+@keyframes micro-bounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
-.gs-search-status.hidden {
-  display: none;
-}
+/* =============================
+   Search / Sort
+   ============================= */
 
 .gs-search-wrapper {
   position: relative;
   display: flex;
   align-items: center;
+}
+
+.gs-search-status {
+  position: absolute;
+  left: -72px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.gs-search-status.hidden {
+  display: none;
 }
 
 .gs-search-icon {
@@ -178,18 +116,18 @@ body {
 }
 
 .gs-search {
-  padding-left: 36px; /* Make room for icon */
+  height: 44px;
+  min-width: 220px;
+  padding: 0 14px 0 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
 }
 
-/* Remove native clear button */
-.gs-search::-webkit-search-cancel-button,
-.gs-search::-webkit-search-decoration {
-  display: none;
-}
-
-.gs-search.is-filtering {
+.gs-search:focus {
+  outline: none;
   border-color: var(--accent-soft);
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .gs-sort {
@@ -200,24 +138,13 @@ body {
   background: none;
   border: none;
   margin-left: 6px;
-  cursor: pointer;
   padding: 9px;
-  border-radius: var(--radius-sm);
-  opacity: 0.9;
-  transition:
-    background 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.12s ease;
-}
-
-.gs-sort-button:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
 }
 
 .gs-sort-button svg {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   fill: var(--text-muted);
 }
 
@@ -225,18 +152,13 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
-
-  min-width: 210px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-soft);
-
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-
   z-index: 100;
 }
 
@@ -244,40 +166,25 @@ body {
   background: none;
   border: none;
   color: var(--text);
-  text-align: left;
-
   padding: 10px 14px;
-  font-size: 0.95rem;
-  border-radius: 8px;
+  text-align: left;
   cursor: pointer;
-
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.gs-sort-menu button:hover {
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .gs-sort-menu button.active {
-  background: linear-gradient(
-    135deg,
-    rgba(249, 178, 52, 0.18),
-    rgba(249, 178, 52, 0.10)
-  );
-  color: var(--text);
+  background: rgba(249,178,52,0.18);
   font-weight: 600;
 }
 
-.gs-sort-menu button.active::after {
-  content: "✓";
-  float: right;
-  color: var(--accent);
+.hidden {
+  display: none;
 }
 
+/* =============================
+   Grid / Cards
+   ============================= */
+
 .gs-main {
-  flex: 1;
   padding: 1.5rem 3vw 2.5rem;
 }
 
@@ -285,165 +192,4 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1.5rem;
-  align-items: stretch;
-}
-
-.gs-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
-  box-shadow: var(--shadow-soft);
-  display: flex;
-  flex-direction: column;
-  min-height: 32.5rem; /* Lock uniform height */
-  backdrop-filter: blur(16px);
-
-  transition: transform 0.16s ease,
-              box-shadow 0.16s ease,
-              border-color 0.16s ease;
-}
-
-.gs-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--accent-soft);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.8);
-}
-
-.gs-card-cover {
-  position: relative;
-  aspect-ratio: 2 / 3;
-  flex-shrink: 0;
-  background: radial-gradient(circle at top, #374785, #141b2f);
-  overflow: hidden;
-}
-
-.gs-card-cover img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.gs-card-body {
-  display: flex;
-  flex-direction: column;
-  padding: 0.6rem 0.9rem 0.5rem;
-  height: 124px;
-}
-
-.gs-card-title {
-  margin: 0;
-  font-size: 0.98rem;
-  font-weight: 600;
-  text-align: center;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.gs-card-meta {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-align: left;
-}
-
-.gs-card-actions {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-}
-
-.gs-card-content {
-  flex: 1 1 auto;
-  min-height: 3.2em;
-  max-height: 3.2em;
-  overflow: hidden;
-}
-
-.gs-card-footer {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 48px;
-}
-
-.gs-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.45rem 0.85rem;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: linear-gradient(135deg, var(--accent), #ffdd7f);
-  color: #1a1304;
-  text-decoration: none;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: filter 0.15s ease, transform 0.12s ease;
-}
-
-.gs-icon-button:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(249, 178, 52, 0.25);
-}
-
-.gs-icon-button {
-  width: 120px;
-  height: 42px;
-  padding: 0 16px;
-  flex-shrink: 0;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: var(--radius-lg); /* Match game card corner radius */
-  background: linear-gradient(135deg, var(--accent), #f69500);
-  border: none;
-  cursor: pointer;
-
-  transition:
-    filter 0.15s ease,
-    transform 0.12s ease,
-    box-shadow 0.15s ease;
-}
-
-.gs-icon-button:hover {
-  filter: brightness(1.10);
-  transform: translateY(-1px);
-}
-
-.gs-icon-button svg {
-  width: 20px;
-  height: 20px;
-  fill: #1a1304;
-}
-
-.gs-footer {
-  padding: 0.75rem 3vw 1rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-align: right;
-}
-
-.gs-empty {
-  margin-top: 3rem;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.gs-empty h2 {
-  margin-bottom: 0.5rem;
-}
-
-.hidden {
-  display: none;
 }
