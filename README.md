@@ -179,9 +179,8 @@ When loading a game entry:
 1. GameShelf checks for `cover.jpg`, `cover.jpeg`, `cover.png`, `folder.jpg`, `folder.jpeg`, and `folder.png`.
 2. The first matching file found is used as the game’s cover art.
 3. If no cover image is provided, GameShelf will fall back to:
-4. `planned feature` Attempting automatic artwork retrieval (if enabled), or
-5. `current behavior` Displaying the placeholder.png cover if nothing is available.
-This allows users to fully override auto-fetched artwork simply by placing their own cover.* image into the game’s folder.
+4. Displaying the `placeholder.png` cover if nothing is available.
+This allows users to provide artwork simply by placing their own cover.* image into the game’s folder. In a future release, `auto-fetch cover art` will be attempted before using the `placeholder.png` cover.
 
 ### Recommended File Structure
 As GameShelf parses folder names from `GAMESHELF_ROOT`, it is important to properly structure your master games directory. The following folder structure is recommended to keep things simple for GameShelf:
