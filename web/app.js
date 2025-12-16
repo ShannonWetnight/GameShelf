@@ -1,159 +1,289 @@
+/* =============================
+   Global state
+   ============================= */
+const coverVersions = new Map();
+let refreshGeneration = 0;
 let currentSort = 'az';
 let currentSearch = '';
-const cardMap = new Map();
 
 /* =============================
-   Fetch
+   Data fetching
    ============================= */
 
 async function fetchGames() {
-  const res = await fetch('/api/games');
-  return res.ok ? res.json() : [];
+  try {
+    const res = await fetch('/api/games');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('Failed to load games:', err);
+    return [];
+  }
 }
 
 /* =============================
    Helpers
    ============================= */
 
-function fuzzyMatch(h, n) {
-  if (!n) return true;
-  let i = 0, j = 0;
-  while (i < h.length && j < n.length) {
-    if (h[i] === n[j]) j++;
-    i++;
-  }
-  return j === n.length;
+function formatSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const value = bytes / Math.pow(1024, i);
+  return `${value.toFixed(1)} ${units[i]}`;
 }
 
 /* =============================
-   Cards
+   Card creation
    ============================= */
 
 function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
-  card.dataset.name = game.name.toLowerCase();
-  card.dataset.size = game.sizeBytes;
 
-  card.innerHTML = `
-    <div class="gs-card-cover">
-      <img src="/covers/${encodeURIComponent(game.id)}">
-    </div>
-    <div class="gs-card-body">
-      <div class="gs-card-content">
-        <h3 class="gs-card-title">${game.name}</h3>
-      </div>
-      <div class="gs-card-footer">
-        <div class="gs-card-actions">
-          <a class="gs-icon-button" href="/download/${encodeURIComponent(game.id)}">+</a>
-        </div>
-      </div>
-    </div>
+  const cover = document.createElement('div');
+  cover.className = 'gs-card-cover';
+
+  const img = document.createElement('img');
+  const version = coverVersions.get(game.id);
+  const suffix = version ? `?v=${version}` : '';
+
+  img.src = `/covers/${encodeURIComponent(game.id)}${suffix}`;
+
+  img.alt = `${game.name} cover`;
+  cover.appendChild(img);
+
+  const body = document.createElement('div');
+  body.className = 'gs-card-body';
+
+  const content = document.createElement('div');
+  content.className = 'gs-card-content';
+
+  const footer = document.createElement('div');
+  footer.className = 'gs-card-footer';
+
+  const title = document.createElement('h3');
+  title.className = 'gs-card-title';
+  title.textContent = game.name;
+
+  const meta = document.createElement('div');
+  meta.className = 'gs-card-meta';
+  meta.textContent = formatSize(game.sizeBytes);
+
+  const actions = document.createElement('div');
+  actions.className = 'gs-card-actions';
+
+  const dl = document.createElement('a');
+  dl.className = 'gs-icon-button';
+  dl.href = `/download/${encodeURIComponent(game.id)}`;
+  dl.innerHTML = `
+    <svg viewBox="0 0 24 24">
+      <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
+    </svg>
   `;
+
+  actions.appendChild(dl);
+
+  content.appendChild(title);
+  footer.appendChild(meta);
+  footer.appendChild(actions);
+
+  body.appendChild(content);
+  body.appendChild(footer);
+
+  card.appendChild(cover);
+  card.appendChild(body);
+
   return card;
 }
 
 /* =============================
-   Sort / Search
+   Sorting
    ============================= */
 
-function updateActiveSort() {
-  document.querySelectorAll('#sort-menu button')
-    .forEach(b => b.classList.toggle('active', b.dataset.sort === currentSort));
-}
-
-function applySort() {
-  const grid = document.getElementById('games-container');
-  [...cardMap.values()]
-    .sort((a,b)=>a.dataset.name.localeCompare(b.dataset.name))
-    .forEach(c=>grid.appendChild(c));
-}
-
-function applySearch() {
-  let visible = 0;
-  cardMap.forEach(c=>{
-    const ok = fuzzyMatch(c.dataset.name, currentSearch);
-    c.style.display = ok ? '' : 'none';
-    if (ok) visible++;
-  });
-
-  const status = document.getElementById('search-status');
-  status.textContent = `${visible} result${visible === 1 ? '' : 's'}`;
-  status.classList.toggle('hidden', !currentSearch);
+function sortGames(games) {
+  switch (currentSort) {
+    case 'za':
+      return games.sort((a, b) => b.name.localeCompare(a.name));
+    case 'size-desc':
+      return games.sort((a, b) => b.sizeBytes - a.sizeBytes);
+    case 'size-asc':
+      return games.sort((a, b) => a.sizeBytes - b.sizeBytes);
+    case 'az':
+    default:
+      return games.sort((a, b) => a.name.localeCompare(b.name));
+  }
 }
 
 /* =============================
-   Load
+   Rendering
    ============================= */
 
-async function loadGames(refresh=false) {
-  const grid = document.getElementById('games-container');
-  if (refresh) {
-    cardMap.clear();
-    grid.innerHTML = '';
+async function init(isRefresh = false) {
+  const games = await fetchGames();
+    if (isRefresh) {
+      coverVersions.clear();
+
+      games.forEach(game => {
+        coverVersions.set(game.id, refreshGeneration);
+      });
+    }
+  
+  const container = document.getElementById('games-container');
+  const empty = document.getElementById('empty-state');
+
+  container.innerHTML = '';
+
+  if (!games.length) {
+    empty.classList.remove('hidden');
+    return;
   }
 
-  const games = await fetchGames();
-  games.forEach(g=>{
-    if (!cardMap.has(g.id)) {
-      const c = createGameCard(g);
-      cardMap.set(g.id, c);
-      grid.appendChild(c);
+  empty.classList.add('hidden');
+
+  const filtered = games.filter(game =>
+    game.name.toLowerCase().includes(currentSearch)
+  );
+
+  if (!filtered.length) {
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+
+  sortGames(filtered).forEach(game => {
+    try {
+      container.appendChild(createGameCard(game));
+    } catch (e) {
+      console.error('Failed to render game card:', game.name, e);
     }
   });
-
-  applySort();
-  applySearch();
-  updateActiveSort();
 }
 
 /* =============================
-   DOM
+   DOM bindings
    ============================= */
 
-document.addEventListener('DOMContentLoaded',()=>{
-  loadGames();
+document.addEventListener('DOMContentLoaded', () => {
+  init();
 
-  const logo = document.getElementById('gs-logo-text');
+  /* -------- Global keyboard shortcuts -------- */
+document.addEventListener('keydown', e => {
+  // Ignore if user is already typing in an input
+  if (
+    e.target instanceof HTMLInputElement ||
+    e.target instanceof HTMLTextAreaElement
+  ) {
+    return;
+  }
+
+  if (e.key === '/') {
+    e.preventDefault();
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+});
+
+  /* -------- Refresh header logic -------- */
+
   const trigger = document.getElementById('gs-refresh-trigger');
-  const input = document.getElementById('search-input');
+  const logoText = document.getElementById('gs-logo-text');
 
-  const ORIGINAL = 'GAMESHELF';
-  const HOVER = 'REFRESH';
-  const LOADING = 'REFRESHING';
-  const DONE = 'REFRESHED';
+  const originalText = 'GAMESHELF';
+  const hoverText = 'REFRESH';
+  const refreshingText = 'REFRESHING';
+  const doneText = 'REFRESHED';
 
-  trigger.addEventListener('mouseenter', ()=>logo.textContent = HOVER);
-  trigger.addEventListener('mouseleave', ()=>logo.textContent = ORIGINAL);
+  let refreshLock = false;
 
-  trigger.addEventListener('click', async ()=>{
-    logo.textContent = LOADING;
+  const originalWidth = logoText.offsetWidth;
+  trigger.style.width = `${originalWidth + 20}px`;
+
+  trigger.addEventListener('mouseenter', () => {
+    if (!refreshLock) logoText.textContent = hoverText;
+  });
+
+  trigger.addEventListener('mouseleave', () => {
+    if (!refreshLock) logoText.textContent = originalText;
+  });
+
+  trigger.addEventListener('click', async () => {
+    if (refreshLock) return;
+
+    refreshLock = true;
+    trigger.classList.add('refreshing');
+    logoText.textContent = refreshingText;
+
     await fetch('/api/games?forceRefresh=1');
-    await loadGames(true);
-    logo.textContent = DONE;
-    logo.classList.add('bounce');
-    setTimeout(()=>{
-      logo.classList.remove('bounce');
-      logo.textContent = ORIGINAL;
-    }, 700);
+
+    // Increment refresh generation
+    refreshGeneration++;
+
+    await init(true); // <-- pass a flag
+
+    logoText.textContent = doneText;
+    logoText.classList.add('bounce');
+
+    setTimeout(() => {
+      logoText.classList.remove('bounce');
+      logoText.textContent = originalText;
+      trigger.classList.remove('refreshing');
+      refreshLock = false;
+    }, 1000);
   });
 
-  input.addEventListener('input', e=>{
-    currentSearch = e.target.value.toLowerCase().trim();
-    applySearch();
+    /* -------- Sort menu logic -------- */
+
+  const searchInput = document.getElementById('search-input');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      currentSearch = e.target.value.trim().toLowerCase();
+      init();
+    });
+  }
+
+  const sortButton = document.getElementById('sort-button');
+  const sortMenu = document.getElementById('sort-menu');
+  const sortButtons = document.querySelectorAll('.gs-sort-menu button');
+
+  if (!sortButton || !sortMenu || !sortButtons.length) return;
+
+  function updateActiveSort() {
+    sortButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sort === currentSort);
+    });
+  }
+
+  // Open menu
+  sortButton.addEventListener('click', e => {
+    e.stopPropagation();
+    updateActiveSort(); // ensure highlight is correct
+    sortMenu.classList.toggle('hidden');
   });
 
-  document.addEventListener('keydown', e=>{
-    if (e.key === '/') {
-      e.preventDefault();
-      input.focus();
-      input.select();
-    }
-    if (e.key === 'Escape') {
-      input.value = '';
-      currentSearch = '';
-      applySearch();
-      input.blur();
+  // Close menu when clicking outside
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.gs-sort')) {
+      sortMenu.classList.add('hidden');
     }
   });
+
+  // Handle sort selection
+  sortButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSort = btn.dataset.sort;
+      updateActiveSort();
+      sortMenu.classList.add('hidden');
+      init();
+    });
+  });
+
+  // Initial highlight
+  updateActiveSort();
+
 });

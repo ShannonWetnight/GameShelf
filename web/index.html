@@ -14,13 +14,10 @@
         <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
       </div>
 
+      <!-- Sort control -->
       <div class="gs-search-wrapper">
-        <!-- Result count (LEFT of input, overlay, no layout shift) -->
-        <span id="search-status" class="gs-search-status hidden"></span>
-
-        <!-- Search icon -->
         <svg class="gs-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M11 2a9 9 0 1 0 5.657 15.657l4.672 4.671 1.414-1.414-4.671-4.672A9 9 0 0 0 11 2zm0 2a7 7 0 1 1 0 14a7 7 0 0 1 0-14z"/>
+          <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707 1.414-1.414-4.707-4.707A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
         </svg>
 
         <input
@@ -28,6 +25,7 @@
           class="gs-search"
           type="search"
           placeholder="Search games…"
+          aria-label="Search games by name"
         />
 
         <div class="gs-sort">
@@ -42,14 +40,16 @@
             <button data-sort="za">Z to A</button>
             <button data-sort="size-desc">Size: High to Low</button>
             <button data-sort="size-asc">Size: Low to High</button>
-          </div>
+        </div>
         </div>
       </div>
-    </div>
+
   </header>
 
   <main class="gs-main">
-    <section id="games-container" class="gs-grid"></section>
+    <section id="games-container" class="gs-grid">
+      <!-- Cards inserted by app.js -->
+    </section>
 
     <section id="empty-state" class="gs-empty hidden">
       <h2>No games found!</h2>
