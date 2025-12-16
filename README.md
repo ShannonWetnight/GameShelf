@@ -38,7 +38,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 ## Features
 - Automatic folder indexing
 - Local cover art detection
- - User-supplied cover art and placeholders while missing
+  - User-supplied cover art and placeholders while missing
 - Instant ZIP downloads of game folders
 - Manual and scheduled rescan support
 - Zero-config outside of the indexing directory
