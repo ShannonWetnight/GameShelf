@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const activeTag = document.activeElement?.tagName;
 
-    /* "/" focuses search (unless already typing in an input) */
+    /* "/" always focuses search (unless already typing in an input) */
     if (e.key === '/' && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
       e.preventDefault();
       searchInput.focus();
@@ -335,8 +335,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    /* "Escape" clears search */
+    /* "Escape" clears search and closes sort menu */
     if (e.key === 'Escape') {
+      const sortMenu = document.getElementById('sort-menu');
+      if (sortMenu) {
+        sortMenu.classList.add('hidden');
+      }
+
       if (searchInput.value !== '') {
         searchInput.value = '';
         currentSearch = '';
