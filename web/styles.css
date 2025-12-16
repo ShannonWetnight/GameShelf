@@ -125,18 +125,12 @@ body {
 .gs-search {
   height: 44px;
   min-width: 220px;
-
-  padding: 0 50px;
+  padding: 0 14px 0 36px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
-
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  font-size: 1.0rem;
-
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  font-size: 1rem;
 }
 
 .gs-search::placeholder {
@@ -154,6 +148,10 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(249, 178, 52, 0.35);
   background: rgba(255, 255, 255, 0.07);
+}
+
+.gs-search-status.hidden {
+  display: none;
 }
 
 .gs-search-wrapper {
@@ -175,14 +173,8 @@ body {
   padding-left: 36px; /* Make room for icon */
 }
 
-/* Remove native search clear button (Chrome / Safari) */
-.gs-search::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
-  display: none;
-}
-
-/* Remove native decorations (Safari) */
+/* Remove native clear button */
+.gs-search::-webkit-search-cancel-button,
 .gs-search::-webkit-search-decoration {
   display: none;
 }
