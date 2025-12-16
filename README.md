@@ -158,7 +158,7 @@ middlewares:
 ### Single Sign-On
 You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and more, by using forward Auth.
 > [!NOTE]
-> GameShelf was not created to natively support SSO, user creation, mapping, or profiles. The purpose of GameShelf is to offer a frictionless library of DRM-free games to a local network, typically between 1-10 users in size. Using SSO or branching and adding profile functionality can be done but extends beyond the scope of GameShelf's intended purpose.
+> GameShelf was not created to natively support SSO, user creation, mapping, or profiles. The purpose of GameShelf is to offer a frictionless library of DRM-free games to a local network, typically between 1-10 users in size. Using SSO or branching and adding profile functionality can be done but extends beyond the scope of GameShelf's intended purpose as a frictionless local file distributor.
 
 ### Cover Art
 GameShelf supports custom cover images for any game folder. To add your own artwork, place a cover image in the game’s directory using one of the supported file types:
@@ -170,7 +170,7 @@ GameShelf supports custom cover images for any game folder. To add your own artw
 - `folder.png`
 > [!IMPORTANT]
 > Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
-> [!IMPORTANT]
+>
 > You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until an image is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
 
 #### Recommended Resolution
