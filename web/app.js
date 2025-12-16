@@ -38,6 +38,25 @@ function formatSize(bytes) {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
+function fuzzyMatch(haystack, needle) {
+  if (!needle) return true;
+
+  haystack = haystack.toLowerCase();
+  needle = needle.toLowerCase();
+
+  let h = 0;
+  let n = 0;
+
+  while (h < haystack.length && n < needle.length) {
+    if (haystack[h] === needle[n]) {
+      n++;
+    }
+    h++;
+  }
+
+  return n === needle.length;
+}
+
 /* =============================
    Card creation (ONE TIME)
    ============================= */
@@ -134,7 +153,7 @@ function applySort() {
 }
 
 /* =============================
-   Search (NO DOM DESTRUCTION)
+   Search
    ============================= */
 
 function applySearchFilter() {
@@ -142,7 +161,9 @@ function applySearchFilter() {
   let visibleCount = 0;
 
   cardMap.forEach(card => {
-    if (card.dataset.name.includes(currentSearch)) {
+    const match = fuzzyMatch(card.dataset.name, currentSearch);
+
+    if (match) {
       card.style.display = '';
       visibleCount++;
     } else {
