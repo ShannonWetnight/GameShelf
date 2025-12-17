@@ -366,6 +366,7 @@ body {
 .gs-grid.list-view .gs-card-meta {
   font-size: 0.8rem;
   margin-left: 12px;
+  padding: 9px;
 }
 
 /* =============================
