@@ -8,6 +8,7 @@ let refreshGeneration = 0;
 
 let currentSort = 'az';
 let currentSearch = '';
+let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
 const cardMap = new Map(); // game.id -> card element
 
@@ -55,6 +56,16 @@ function fuzzyMatch(haystack, needle) {
   }
 
   return n === needle.length;
+}
+
+function applyViewMode() {
+  const container = document.getElementById('games-container');
+  const toggle = document.getElementById('view-toggle');
+
+  if (!container || !toggle) return;
+
+  container.classList.toggle('list-view', currentView === 'list');
+  toggle.classList.toggle('active', currentView === 'list');
 }
 
 /* =============================
@@ -319,6 +330,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  /* -------- View toggle -------- */
+
+  const viewToggle = document.getElementById('view-toggle');
+
+  if (viewToggle) {
+    viewToggle.addEventListener('click', () => {
+      currentView = currentView === 'grid' ? 'list' : 'grid';
+      localStorage.setItem('gameshelf:view', currentView);
+      applyViewMode();
+    });
+  }
+
   /* -------- Keyboard shortcuts -------- */
 
   document.addEventListener('keydown', e => {
@@ -360,4 +383,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateActiveSort();
+  applyViewMode();
 });
