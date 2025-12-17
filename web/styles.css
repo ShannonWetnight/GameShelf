@@ -276,6 +276,35 @@ body {
   color: var(--accent);
 }
 
+/* =============================
+   Toggle Grid / List View
+   ============================= */
+
+.gs-view-toggle {
+  background: none;
+  border: none;
+  margin-left: 6px;
+  cursor: pointer;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  opacity: 0.9;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.12s ease;
+}
+
+.gs-view-toggle:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gs-view-toggle svg {
+  width: 28px;
+  height: 28px;
+  fill: var(--text-muted);
+}
+
 .gs-main {
   flex: 1;
   padding: 1.5rem 3vw 2.5rem;
@@ -449,7 +478,7 @@ body {
 }
 
 /* =============================
-   Custom Scrollbar (GameShelf)
+   Custom Scrollbar
    ============================= */
 
 ::-webkit-scrollbar {
