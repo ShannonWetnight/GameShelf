@@ -14,7 +14,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add theme support (drop-in CSS files)
 * [ ] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
-* [ ] *(Planned)* Add grid/list view toggle
+* [ ] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
 * [ ] Add a toggle UI effects option
 * [ ] Add a dark/light mode toggle
 * [ ] Integrate download button into card main body
