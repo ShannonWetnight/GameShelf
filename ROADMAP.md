@@ -12,7 +12,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Manual refresh button
 * [x] Integrate refresh button into GAMESHELF header text and remove button
 * [ ] Add theme support (drop-in CSS files)
-* [ ] *(Planned)* Add micro-animations for hover and card transitions
+* [x] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
 * [ ] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
 * [ ] Add a toggle UI effects option
