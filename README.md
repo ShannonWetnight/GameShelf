@@ -23,11 +23,10 @@
         + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
     + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
-- [Legal Disclaimer](#responsible-use-&-distribution)
+- [Legal Disclaimer](#responsible-use--distribution)
 
 ## Overview
-GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections.  
-Point it at a directory and GameShelf automatically:
+GameShelf is a lightweight, no-nonsense, completely open-source game library designed for offline DRM-free storage collections. Point it at a directory and GameShelf automatically:
 - Indexes game folders
 - Detects and displays cover art, such as `cover.jpg`, `folder.png`, etc.
 - Serves a clean, modern UI over your local network
@@ -39,11 +38,13 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 ## Features
 - Automatic folder indexing
 - Local cover art detection
+  - User-supplied cover art and placeholders while missing
 - Instant ZIP downloads of game folders
 - Manual and scheduled rescan support
 - Zero-config outside of the indexing directory
 - Go backend and static web UI
 - Easy deployment with Docker or Compose
+- Local search and sort functions
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/engine/install/) or
@@ -171,7 +172,7 @@ GameShelf supports custom cover images for any game folder. To add your own artw
 > [!IMPORTANT]
 > Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
 >
-> You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until an image is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
+> You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until one is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
 
 #### Recommended Resolution
 High-quality artwork is recommended. A resolution around 600×900 (3:4) works well; however, GameShelf automatically crops and scales the artwork into a portrait format and ratio of 2:3, so the final appearance will be vertically oriented regardless of the original aspect ratio.
@@ -198,7 +199,6 @@ GameDrive
       Installation Files
       cover.png
 
-  Games
     Game Example 3
       Installation Files
       Extras
