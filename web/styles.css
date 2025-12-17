@@ -277,7 +277,7 @@ body {
 }
 
 /* =============================
-   Toggle Grid / List View
+   Toggle Grid
    ============================= */
 
 .gs-view-toggle {
@@ -304,6 +304,80 @@ body {
   height: 28px;
   fill: var(--text-muted);
 }
+
+/* =============================
+   Toggle list
+   ============================= */
+
+.gs-grid.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* =============================
+   List view card override
+   ============================= */
+
+.gs-grid.list-view .gs-card {
+  flex-direction: row;
+  align-items: center;
+  min-height: unset;
+  height: 72px;
+  padding: 0 0.75rem;
+}
+
+/* =============================
+   Remove cover art during list
+   ============================= */
+
+.gs-grid.list-view .gs-card-cover {
+  display: none;
+}
+
+/* =============================
+   Flatten card body for rows
+   ============================= */
+
+.gs-grid.list-view .gs-card-body {
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  height: auto;
+  width: 100%;
+}
+
+/* =============================
+   Title / meta alignment
+   ============================= */
+
+.gs-grid.list-view .gs-card-content {
+  flex: 1;
+  min-height: unset;
+  max-height: unset;
+}
+
+.gs-grid.list-view .gs-card-title {
+  text-align: left;
+  font-size: 0.95rem;
+  -webkit-line-clamp: 1;
+}
+
+.gs-grid.list-view .gs-card-meta {
+  font-size: 0.8rem;
+  margin-left: 12px;
+}
+
+/* =============================
+   Download button alignment
+   ============================= */
+
+.gs-grid.list-view .gs-card-actions {
+  position: static;
+  transform: none;
+  margin-left: auto;
+}
+
 
 .gs-main {
   flex: 1;
