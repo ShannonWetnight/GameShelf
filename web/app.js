@@ -314,12 +314,15 @@ document.addEventListener('DOMContentLoaded', () => {
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
     updateActiveSort();
-    sortMenu.classList.toggle('hidden');
+
+    const isOpening = sortMenu.classList.toggle('hidden') === false;
+    sortButton.classList.toggle('gs-control-active', isOpening);
   });
 
   document.addEventListener('click', e => {
     if (!e.target.closest('.gs-sort')) {
       sortMenu.classList.add('hidden');
+      sortButton.classList.remove('gs-control-active');
     }
   });
 
@@ -328,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentSort = btn.dataset.sort;
       updateActiveSort();
       sortMenu.classList.add('hidden');
+      sortButton.classList.remove('gs-control-active');
       applySort();
     });
   });
