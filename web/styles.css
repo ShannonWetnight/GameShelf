@@ -530,6 +530,19 @@ body {
   fill: #1a1304;
 }
 
+/* =============================
+   Active header control (list toggle / sort button)
+   ============================= */
+.gs-control-active {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 178, 52, 0.18),
+    rgba(249, 178, 52, 0.10)
+  );
+  box-shadow: 0 0 0 1px rgba(249, 178, 52, 0.35);
+  opacity: 1;
+}
+
 .gs-footer {
   padding: 0.75rem 3vw 1rem;
   font-size: 0.75rem;

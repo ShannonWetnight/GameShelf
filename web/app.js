@@ -64,8 +64,10 @@ function applyViewMode() {
 
   if (!container || !toggle) return;
 
-  container.classList.toggle('list-view', currentView === 'list');
-  toggle.classList.toggle('active', currentView === 'list');
+  const isList = currentView === 'list';
+
+  container.classList.toggle('list-view', isList);
+  toggle.classList.toggle('gs-control-active', isList);
 }
 
 /* =============================
