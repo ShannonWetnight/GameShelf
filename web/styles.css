@@ -225,14 +225,15 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
-
+  height: 44px;
+  width: 44px;
   min-width: 210px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-soft);
 
-  padding: 10px;
+  /* padding: 10px; */
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -283,9 +284,11 @@ body {
 .gs-view-toggle {
   background: none;
   border: none;
+  height: 44px;
+  width: 44px;
   margin-left: 6px;
   cursor: pointer;
-  padding: 9px;
+  //* padding: 9px; */
   border-radius: var(--radius-sm);
   opacity: 0.9;
   transition:
@@ -300,8 +303,8 @@ body {
 }
 
 .gs-view-toggle svg {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   fill: var(--text-muted);
 }
 
