@@ -201,7 +201,7 @@ body {
   border: none;
   margin-left: 6px;
   cursor: pointer;
-  padding: 9px;
+  padding: 3px;
   border-radius: var(--radius-sm);
   opacity: 0.9;
   transition:
@@ -283,6 +283,7 @@ body {
   background: none;
   border: none;
   margin-left: 6px;
+  padding: 3px;
   cursor: pointer;
   border-radius: var(--radius-sm);
   opacity: 0.9;
