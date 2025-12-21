@@ -125,8 +125,7 @@ body {
 .gs-search {
   height: 44px;
   min-width: 220px;
-  margin-left: 6px;
-  
+
   padding: 0 50px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
@@ -200,7 +199,7 @@ body {
 .gs-sort-button {
   background: none;
   border: none;
-  margin-left: 6px;
+  margin-left: 9px;
   cursor: pointer;
   padding: 4px;
   border-radius: var(--radius-sm);
