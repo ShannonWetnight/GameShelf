@@ -14,7 +14,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add theme support (drop-in CSS files)
 * [x] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
-* [ ] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
+* [x] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
 * [ ] Add a toggle UI effects option
 * [ ] Add a dark/light mode toggle
 * [ ] Integrate download button into card main body
@@ -55,5 +55,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ### Docker / GHCR
 * [ ] Add multi-arch builds (amd64 + arm64)
 * [x] *(Planned)* Environment variable configuration
-* [x] Add a responsible distribution use/disclaimer statement
-* [ ] Substantial features added that go beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)
+* [x] Add a responsible distribution use/disclaimer statement tp README
+> [!NOTE]
+> For substantial features that are beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)
