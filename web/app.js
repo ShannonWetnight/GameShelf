@@ -1,20 +1,19 @@
 /* =============================
    Global state
    ============================= */
-
 let gamesCache = [];
 const coverVersions = new Map();
 let refreshGeneration = 0;
 
 let currentSort = 'az';
 let currentSearch = '';
+let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
 const cardMap = new Map(); // game.id -> card element
 
 /* =============================
    Data fetching
    ============================= */
-
 async function fetchGames() {
   try {
     const res = await fetch('/api/games');
@@ -29,7 +28,6 @@ async function fetchGames() {
 /* =============================
    Helpers
    ============================= */
-
 function formatSize(bytes) {
   if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -57,10 +55,21 @@ function fuzzyMatch(haystack, needle) {
   return n === needle.length;
 }
 
+function applyViewMode() {
+  const container = document.getElementById('games-container');
+  const toggle = document.getElementById('view-toggle');
+
+  if (!container || !toggle) return;
+
+  const isList = currentView === 'list';
+
+  container.classList.toggle('list-view', isList);
+  toggle.classList.toggle('gs-control-active', isList);
+}
+
 /* =============================
    Card creation (ONE TIME)
    ============================= */
-
 function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
@@ -125,7 +134,6 @@ function createGameCard(game) {
 /* =============================
    Sorting (DOM reordering only)
    ============================= */
-
 function applySort() {
   const container = document.getElementById('games-container');
   const cards = Array.from(cardMap.values());
@@ -155,7 +163,6 @@ function applySort() {
 /* =============================
    Search
    ============================= */
-
 function applySearchFilter() {
   const empty = document.getElementById('empty-state');
   let visibleCount = 0;
@@ -177,7 +184,6 @@ function applySearchFilter() {
 /* =============================
    Initial load / refresh
    ============================= */
-
 async function loadGames(isRefresh = false) {
   const container = document.getElementById('games-container');
   const empty = document.getElementById('empty-state');
@@ -217,12 +223,10 @@ async function loadGames(isRefresh = false) {
 /* =============================
    DOM bindings
    ============================= */
-
 document.addEventListener('DOMContentLoaded', () => {
   loadGames();
 
   /* -------- Search -------- */
-
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
     searchInput.addEventListener('input', e => {
@@ -233,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* -------- Refresh -------- */
-
   const trigger = document.getElementById('gs-refresh-trigger');
   const logoText = document.getElementById('gs-logo-text');
 
@@ -287,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* -------- Sort menu -------- */
-
   const sortButton = document.getElementById('sort-button');
   const sortMenu = document.getElementById('sort-menu');
   const sortButtons = document.querySelectorAll('.gs-sort-menu button');
@@ -301,12 +303,18 @@ document.addEventListener('DOMContentLoaded', () => {
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
     updateActiveSort();
-    sortMenu.classList.toggle('hidden');
+
+    const isOpening = sortMenu.classList.toggle('hidden') === false;
+    sortButton.classList.toggle('gs-control-active', isOpening);
   });
 
   document.addEventListener('click', e => {
-    if (!e.target.closest('.gs-sort')) {
+    const clickedSortButton = e.target.closest('#sort-button');
+    const clickedSortMenu = e.target.closest('#sort-menu');
+
+    if (!clickedSortButton && !clickedSortMenu) {
       sortMenu.classList.add('hidden');
+      sortButton.classList.remove('gs-control-active');
     }
   });
 
@@ -315,12 +323,27 @@ document.addEventListener('DOMContentLoaded', () => {
       currentSort = btn.dataset.sort;
       updateActiveSort();
       sortMenu.classList.add('hidden');
+      sortButton.classList.remove('gs-control-active');
       applySort();
     });
   });
 
-  /* -------- Keyboard shortcuts -------- */
+  /* -------- View toggle -------- */
+  const viewToggle = document.getElementById('view-toggle');
 
+  if (viewToggle) {
+    viewToggle.addEventListener('click', () => {
+      currentView = currentView === 'grid' ? 'list' : 'grid';
+      localStorage.setItem('gameshelf:view', currentView);
+      applyViewMode();
+
+    // Close sort menu if open
+    sortMenu.classList.add('hidden');
+    sortButton.classList.remove('gs-control-active');
+    });
+  }
+
+  /* -------- Keyboard shortcuts -------- */
   document.addEventListener('keydown', e => {
     const searchInput = document.getElementById('search-input');
     if (!searchInput) return;
@@ -360,4 +383,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateActiveSort();
+  applyViewMode();
 });

@@ -199,9 +199,9 @@ body {
 .gs-sort-button {
   background: none;
   border: none;
-  margin-left: 6px;
+  margin-left: 9px;
   cursor: pointer;
-  padding: 9px;
+  padding: 4px;
   border-radius: var(--radius-sm);
   opacity: 0.9;
   transition:
@@ -225,7 +225,6 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
-
   min-width: 210px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -274,6 +273,109 @@ body {
   content: "✓";
   float: right;
   color: var(--accent);
+}
+
+/* =============================
+   Toggle Grid
+   ============================= */
+
+.gs-view-toggle {
+  background: none;
+  border: none;
+  margin-left: 6px;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  opacity: 0.9;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.12s ease;
+}
+
+.gs-view-toggle:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gs-view-toggle svg {
+  width: 32px;
+  height: 32px;
+  fill: var(--text-muted);
+}
+
+/* =============================
+   Toggle list
+   ============================= */
+
+.gs-grid.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* =============================
+   List view card override
+   ============================= */
+
+.gs-grid.list-view .gs-card {
+  flex-direction: row;
+  align-items: center;
+  min-height: unset;
+  height: 72px;
+  padding: 0 0.75rem;
+}
+
+/* =============================
+   Remove cover art during list
+   ============================= */
+
+.gs-grid.list-view .gs-card-cover {
+  display: none;
+}
+
+/* =============================
+   Flatten card body for rows
+   ============================= */
+
+.gs-grid.list-view .gs-card-body {
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+  height: auto;
+  width: 100%;
+}
+
+/* =============================
+   Title / meta alignment
+   ============================= */
+
+.gs-grid.list-view .gs-card-content {
+  flex: 1;
+  min-height: unset;
+  max-height: unset;
+}
+
+.gs-grid.list-view .gs-card-title {
+  text-align: left;
+  font-size: 0.95rem;
+  -webkit-line-clamp: 1;
+}
+
+.gs-grid.list-view .gs-card-meta {
+  font-size: 0.8rem;
+  margin-left: 12px;
+  padding: 0 18px;
+}
+
+/* =============================
+   Download button alignment
+   ============================= */
+
+.gs-grid.list-view .gs-card-actions {
+  position: static;
+  transform: none;
+  margin-left: auto;
 }
 
 .gs-main {
@@ -427,6 +529,19 @@ body {
   fill: #1a1304;
 }
 
+/* =============================
+   Active header control (list toggle / sort button)
+   ============================= */
+.gs-control-active {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 178, 52, 0.18),
+    rgba(249, 178, 52, 0.10)
+  );
+  box-shadow: 0 0 0 1px rgba(249, 178, 52, 0.35);
+  opacity: 1;
+}
+
 .gs-footer {
   padding: 0.75rem 3vw 1rem;
   font-size: 0.75rem;
@@ -449,7 +564,7 @@ body {
 }
 
 /* =============================
-   Custom Scrollbar (GameShelf)
+   Custom Scrollbar
    ============================= */
 
 ::-webkit-scrollbar {
