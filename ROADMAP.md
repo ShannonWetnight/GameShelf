@@ -8,7 +8,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Responsive UI layout
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
 * [ ] Add loading state or skeleton UI while games load
-* [ ] *(Planned)* Improve mobile spacing and responsive typography
+* [ ] Improve mobile spacing and responsive typography
+  - Mobile view, although not entirely necessary as this application is geared towards PC libraries
 * [x] *(Planned)* Manual refresh button
 * [x] Integrate refresh button into GAMESHELF header text and remove button
 * [ ] Add theme support (drop-in CSS files)
@@ -46,7 +47,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* ZIP download streaming
 * [x] *(Planned)* Display file size calculation on game card
 * [x] *(Planned)* Folder autodiscovery
-* [ ] Add multi-select mode for downloading multiple folders
+* [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
  - Env to include, optional 
 * [ ] Add support for multiple directories
