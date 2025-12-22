@@ -25,7 +25,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Ensure user-supplied artwork always overrides auto-detected art
 * [x] *(Planned)* Placeholder artwork fallback
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
+  - Env to include, optional 
 * [ ] Cache fetched artwork locally
+  - If cached, skip fetch
 * [ ] Add ability to directly upload cover image from UI (security risks with write access, current scope does not allow file management on purpose)
 
 ### Metadata & Sorting
@@ -46,6 +48,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
+ - Env to include, optional 
 * [ ] Add support for multiple directories
 
 ### Administration, Security & LAN
