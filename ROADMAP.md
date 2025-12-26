@@ -64,3 +64,5 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Additional logging outputs
 > [!NOTE]
 > For substantial features that are beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)
+
+** This is a test line added to sanity check build logic **
