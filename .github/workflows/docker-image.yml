@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - edge
+    tags:
+      - "v*"
     paths:
       - Dockerfile
       - docker-image.yml
@@ -16,15 +18,10 @@ on:
       - app.js
       - index.html
 
-  push:
-    tags:
-      - "v*"
-
 permissions:
   contents: read
   packages: write
 
-# Hardcode the image (previously used logic to parse username and change to all lowercase for build action)
 env:
   IMAGE_NAME: ghcr.io/shannonwetnight/gameshelf
 
@@ -67,7 +64,7 @@ jobs:
         run: |
           docker push $IMAGE_NAME:${{ steps.vars.outputs.tag }}
 
-      - name: Also push :latest on release
+      - name: Also push :latest on tag
         if: ${{ github.ref_type == 'tag' }}
         run: |
           docker tag $IMAGE_NAME:${{ steps.vars.outputs.tag }} $IMAGE_NAME:latest
