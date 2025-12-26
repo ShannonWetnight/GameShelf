@@ -2,10 +2,9 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: 
-      - "main"
-      - "edge"
-    # Allow path list for files to push builds with changes
+    branches:
+      - main
+      - edge
     paths:
       - Dockerfile
       - docker-image.yml
@@ -16,12 +15,18 @@ on:
       - styles.css
       - app.js
       - index.html
-  release:
-    types: [published]
+
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
   packages: write
+
+# Hardcode the image (previously used logic to parse username and change to all lowercase for build action)
+env:
+  IMAGE_NAME: ghcr.io/shannonwetnight/gameshelf
 
 jobs:
   build:
@@ -41,40 +46,29 @@ jobs:
       - name: Determine image tag
         id: vars
         run: |
-          # If this is a release, tag = release version (ex: v1.2)
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Otherwise check branch name
-          BRANCH="${GITHUB_REF_NAME}"
-
-          if [[ "$BRANCH" == "main" ]]; then
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
             echo "tag=latest" >> $GITHUB_OUTPUT
-          elif [[ "$BRANCH" == "edge" ]]; then
+          elif [[ "${GITHUB_REF_NAME}" == "edge" ]]; then
             echo "tag=edge" >> $GITHUB_OUTPUT
           else
-            # Fallback (should not occur)
             echo "tag=unknown" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build the Docker image
+      - name: Build Docker image
         run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker build . \
+          docker build \
             --file Dockerfile \
-            --tag ghcr.io/$owner/gameshelf:${{ steps.vars.outputs.tag }}
+            --tag $IMAGE_NAME:${{ steps.vars.outputs.tag }} \
+            .
 
-      - name: Push the Docker image
+      - name: Push Docker image
         run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker push ghcr.io/$owner/gameshelf:${{ steps.vars.outputs.tag }}
+          docker push $IMAGE_NAME:${{ steps.vars.outputs.tag }}
 
       - name: Also push :latest on release
         if: ${{ github.ref_type == 'tag' }}
         run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker tag ghcr.io/$owner/gameshelf:${{ steps.vars.outputs.tag }} \
-                     ghcr.io/$owner/gameshelf:latest
-          docker push ghcr.io/$owner/gameshelf:latest
+          docker tag $IMAGE_NAME:${{ steps.vars.outputs.tag }} $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:latest
