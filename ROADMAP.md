@@ -8,7 +8,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Responsive UI layout
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
 * [ ] Add loading state or skeleton UI while games load
-* [ ] *(Planned)* Improve mobile spacing and responsive typography
+* [ ] Improve mobile spacing and responsive typography
+  - Mobile view, although not entirely necessary as this application is geared towards PC libraries
+  - If geared towards mobile, can consider APK file type filter or dedicated tab
 * [x] *(Planned)* Manual refresh button
 * [x] Integrate refresh button into GAMESHELF header text and remove button
 * [ ] Add theme support (drop-in CSS files)
@@ -25,7 +27,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Ensure user-supplied artwork always overrides auto-detected art
 * [x] *(Planned)* Placeholder artwork fallback
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
+  - Env to include, optional 
 * [ ] Cache fetched artwork locally
+  - If cached, skip fetch
 * [ ] Add ability to directly upload cover image from UI (security risks with write access, current scope does not allow file management on purpose)
 
 ### Metadata & Sorting
@@ -37,15 +41,16 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add a dice icon and randomize logic from parsed folder names to suggest a game download
 * [ ] Add ability to group games together by adding tags (requires lightweight database integration)
 * [ ] Reintroduce "no games found" subheader directing users where to store/add games
-    * [ ] Create a second error message and link it search for when no games are found
+    * [ ] Create a second error message and link it to search when no games are found
 * [ ] Reintroduce "x" to clear search bar (revisit browser defaults, possibly add custom svg for clear)
 
 ### Downloads & File Handling
 * [x] *(Planned)* ZIP download streaming
 * [x] *(Planned)* Display file size calculation on game card
 * [x] *(Planned)* Folder autodiscovery
-* [ ] Add multi-select mode for downloading multiple folders
+* [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
+ - Env to include, optional 
 * [ ] Add support for multiple directories
 
 ### Administration, Security & LAN

@@ -5,6 +5,17 @@ on:
     branches: 
       - "main"
       - "edge"
+    # Allow path list for files to push builds with changes
+    paths:
+      - Dockerfile
+      - docker-image.yml
+      - go.mod
+      - go.sum
+      - main.go
+      - web/**
+      - styles.css
+      - app.js
+      - index.html
   release:
     types: [published]
 
