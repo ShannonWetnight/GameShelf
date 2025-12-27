@@ -52,6 +52,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
  - Env to include, optional 
 * [ ] Add support for multiple directories
+* [ ] Add settings wheel and nest ability to change or set default/additional directory 
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
