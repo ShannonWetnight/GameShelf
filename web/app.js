@@ -1,5 +1,5 @@
 /* =============================
-   Global state
+   Global State
    ============================= */
 let gamesCache = [];
 const coverVersions = new Map();
@@ -12,7 +12,7 @@ let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 const cardMap = new Map(); // game.id -> card element
 
 /* =============================
-   Data fetching
+   Data Fetching
    ============================= */
 async function fetchGames() {
   try {
@@ -68,7 +68,7 @@ function applyViewMode() {
 }
 
 /* =============================
-   Card creation (ONE TIME)
+   Card Creation
    ============================= */
 function createGameCard(game) {
   const card = document.createElement('article');
@@ -161,10 +161,12 @@ function applySort() {
 }
 
 /* =============================
-   Search
+   Search Function
    ============================= */
 function applySearchFilter() {
   const empty = document.getElementById('empty-state');
+  const hint = document.getElementById('empty-hint');
+
   let visibleCount = 0;
 
   cardMap.forEach(card => {
@@ -178,11 +180,22 @@ function applySearchFilter() {
     }
   });
 
-  empty.classList.toggle('hidden', visibleCount > 0);
+  if (visibleCount === 0) {
+    empty.classList.remove('hidden');
+
+    // Only show setup hint when NOT searching
+    if (currentSearch.length === 0) {
+      hint.classList.remove('hidden');
+    } else {
+      hint.classList.add('hidden');
+    }
+  } else {
+    empty.classList.add('hidden');
+  }
 }
 
 /* =============================
-   Initial load / refresh
+   Initial Load/Refresh
    ============================= */
 async function loadGames(isRefresh = false) {
   const container = document.getElementById('games-container');
@@ -261,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshLock = true;
     logoText.textContent = refreshingText;
 
-    // --- RESET SEARCH STATE ---
+    // --- Reset Search State ---
     const searchInput = document.getElementById('search-input');
     currentSearch = '';
 
@@ -275,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
       card.style.display = '';
     });
 
-    // --- PERFORM REFRESH ---
+    // --- Perform Refresh ---
     await fetch('/api/games?forceRefresh=1');
     await loadGames(true);
 
@@ -343,14 +356,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* -------- Keyboard shortcuts -------- */
+  /* -------- Keyboard Shortcuts -------- */
   document.addEventListener('keydown', e => {
     const searchInput = document.getElementById('search-input');
     if (!searchInput) return;
 
     const activeTag = document.activeElement?.tagName;
 
-    /* "/" always focuses search (unless already typing in an input) */
+    /* "/" always focus search (unless already typing an input) */
     if (e.key === '/' && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
       e.preventDefault();
       searchInput.focus();
