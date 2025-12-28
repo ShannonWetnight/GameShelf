@@ -40,8 +40,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Add functional search bar
 * [ ] Add a dice icon and randomize logic from parsed folder names to suggest a game download
 * [ ] Add ability to group games together by adding tags (requires lightweight database integration)
-* [ ] Reintroduce "no games found" subheader directing users where to store/add games
-    * [ ] Create a second error message and link it to search when no games are found
+* [x] Reintroduce "no games found" subheader directing users where to store/add games
+    * [x] Create a second error message and link it to search when no games are found
 * [ ] Reintroduce "x" to clear search bar (revisit browser defaults, possibly add custom svg for clear)
 
 ### Downloads & File Handling
@@ -52,6 +52,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
  - Env to include, optional 
 * [ ] Add support for multiple directories
+* [ ] Add settings wheel and nest ability to change or set default/additional directory 
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
@@ -64,5 +65,3 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Additional logging outputs
 > [!NOTE]
 > For substantial features that are beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)
-
-** This is a test line added to sanity check build logic **
