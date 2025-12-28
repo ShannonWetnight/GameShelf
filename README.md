@@ -45,6 +45,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Go backend and static web UI
 - Easy deployment with Docker or Compose
 - Local search and sort functions
+  - Search keyboard shortcuts (`/` to search, `Esc` to clear)
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/engine/install/) or
