@@ -60,12 +60,21 @@
   </header>
 
   <main class="gs-main">
+    <p id="loading-state" class="gs-empty" role="status">Loading games…</p>
+
+    <section id="error-state" class="gs-error hidden" role="alert">
+      <h2 id="error-title">Could not load games.</h2>
+      <p id="error-message"></p>
+      <button id="retry-button" class="gs-button" type="button">Retry</button>
+    </section>
+
     <section id="games-container" class="gs-grid">
       <!-- Cards inserted by app.js -->
     </section>
 
-    <section id="empty-state" class="gs-empty hidden">
-      <h2>No games found!</h2>
+    <section id="empty-state" class="gs-empty hidden" role="status">
+      <h2 id="empty-title">No games found!</h2>
+      <p id="search-hint" class="hidden">Try a different search or press Escape to clear it.</p>
 
       <!-- Subheader to be omitted during search function-->
       <p id="empty-hint" class="gs-empty-hint">

@@ -559,6 +559,26 @@ body {
   margin-bottom: 0.5rem;
 }
 
+.gs-error {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  text-align: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.gs-error h2 {
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+
+.gs-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .hidden {
   display: none;
 }
