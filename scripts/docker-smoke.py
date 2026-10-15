@@ -78,6 +78,9 @@ def check(image, root, port, expected):
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="gameshelf-smoke-") as temp:
         root = pathlib.Path(temp)
+        # The container drops DAC override, so the fixture must be readable
+        # across the host runner's UID and the container's UID.
+        root.chmod(0o755)
         check(sys.argv[1], root, 8080, 0)
         for name in ("Sample Game", "No Cover"):
             (root / name).mkdir()
