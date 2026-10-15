@@ -1,0 +1,99 @@
+name: Verify Docker Image
+
+on:
+  pull_request:
+    branches: [main, edge]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build candidate (Linux amd64)
+        run: |
+          docker build --pull --platform linux/amd64 --tag gameshelf:verify .
+          docker image inspect gameshelf:verify > candidate-image.json
+          docker build --platform linux/amd64 --target build --tag gameshelf:builder .
+          docker run --rm --entrypoint go gameshelf:builder version
+          docker run --rm --entrypoint go gameshelf:builder vet ./...
+          docker run --rm --entrypoint go gameshelf:builder test ./...
+
+      - name: Smoke test candidate
+        run: python3 scripts/docker-smoke.py gameshelf:verify
+
+      - name: Build PR base for scan comparison
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_dir=$(mktemp -d)
+          git archive "$BASE_SHA" | tar -x -C "$base_dir"
+          docker build --pull --platform linux/amd64 --tag gameshelf:base "$base_dir"
+          docker image inspect gameshelf:base > base-image.json
+
+      - name: Scan candidate and PR base
+        env:
+          HAS_BASE: ${{ github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p reports
+          docker pull aquasec/trivy:0.76.0
+          docker image inspect aquasec/trivy:0.76.0 > reports/scanner-image.json
+          scan() {
+            docker run --rm \
+              --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
+              --mount "type=bind,src=$PWD/reports,dst=/reports" \
+              --mount type=volume,src=trivy-cache,dst=/root/.cache/trivy \
+              aquasec/trivy:0.76.0 image --image-src docker \
+              --scanners vuln --format json --output "/reports/$1.json" "gameshelf:$1"
+          }
+          scan verify
+          if [[ "$HAS_BASE" == true ]]; then scan base; fi
+
+      - name: Summarize scans and reject high or critical candidate findings
+        run: |
+          python3 - <<'PY'
+          import collections, json, os, pathlib
+          blocked = False
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              for path in sorted(pathlib.Path('reports').glob('*.json')):
+                  if path.name == 'scanner-image.json':
+                      continue
+                  data = json.loads(path.read_text())
+                  counts = collections.Counter()
+                  summary.write(f'### {path.stem}\n\n')
+                  for result in data.get('Results', []):
+                      for vuln in result.get('Vulnerabilities', []):
+                          severity = vuln['Severity']
+                          counts[severity] += 1
+                          summary.write(f"- {vuln['VulnerabilityID']}: {severity}, {vuln['PkgName']} {vuln['InstalledVersion']}, fixed: {vuln.get('FixedVersion', 'unfixed')}\n")
+                          if path.stem == 'verify' and severity in {'HIGH', 'CRITICAL'}:
+                              blocked = True
+                  summary.write(f'\nCounts: {dict(counts)}\n\n')
+          if blocked:
+              raise SystemExit('Candidate has HIGH or CRITICAL vulnerabilities; see scan reports')
+          PY
+
+      - name: Preserve scan reports and image metadata
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docker-security-${{ github.sha }}
+          path: |
+            reports/
+            candidate-image.json
+            base-image.json
+          retention-days: 30
