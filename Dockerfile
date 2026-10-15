@@ -1,5 +1,6 @@
 # Build stage
 FROM golang:1.27.2-alpine3.24 AS build
+RUN apk upgrade --no-cache
 
 WORKDIR /app
 
