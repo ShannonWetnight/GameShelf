@@ -45,7 +45,7 @@ jobs:
           docker build --pull --platform linux/amd64 --tag gameshelf:base "$base_dir"
           docker image inspect gameshelf:base > base-image.json
 
-      - name: Scan candidate and PR base
+      - name: Scan candidate, builder and PR base
         env:
           HAS_BASE: ${{ github.event_name == 'pull_request' }}
         run: |
@@ -61,6 +61,7 @@ jobs:
               --scanners vuln --format json --output "/reports/$1.json" "gameshelf:$1"
           }
           scan verify
+          scan builder
           if [[ "$HAS_BASE" == true ]]; then scan base; fi
 
       - name: Summarize scans and reject high or critical candidate findings
@@ -80,7 +81,7 @@ jobs:
                           severity = vuln['Severity']
                           counts[severity] += 1
                           summary.write(f"- {vuln['VulnerabilityID']}: {severity}, {vuln['PkgName']} {vuln['InstalledVersion']}, fixed: {vuln.get('FixedVersion', 'unfixed')}\n")
-                          if path.stem == 'verify' and severity in {'HIGH', 'CRITICAL'}:
+                          if path.stem in {'verify', 'builder'} and severity in {'HIGH', 'CRITICAL'}:
                               blocked = True
                   summary.write(f'\nCounts: {dict(counts)}\n\n')
           if blocked:
