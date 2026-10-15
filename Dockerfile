@@ -14,6 +14,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o gameshelf main.go
 
 # Runtime stage
 FROM alpine:3.24.2
+# Apply security fixes published since the base image was built.
+RUN apk upgrade --no-cache
 WORKDIR /app
 
 COPY --from=build /app/gameshelf .
