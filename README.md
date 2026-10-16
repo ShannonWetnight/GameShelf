@@ -124,8 +124,6 @@ Keep the collection mount read-only and retain `no-new-privileges:true`. You can
 
 Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_ADDR`, and `GAMESHELF_REFRESH_INTERVAL` continue to work with the non-root user.
 
-The Docker verification workflow checks image metadata and PID 1's real, effective, saved, and filesystem UID/GID. It exercises empty and populated collections, manual and scheduled discovery, covers, nested ZIP downloads, group-readable and owner-only mounts, a numeric user override, a supplemental group, and an inaccessible collection root. Application containers run with a read-only filesystem and collection, all capabilities dropped, and no new privileges. A separate short-lived root helper changes ownership only on temporary test fixtures.
-
 ### Environment Variables
 | Variable                     | Default  | Description                                                                     |
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
@@ -255,9 +253,6 @@ GameDrive
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
 2. View and/or download zipped folders from the web UI.
-
-## Roadmap
-View the [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md) for a list of features worth considering for GameShelf.
 
 ## Responsible Use & Distribution
 GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.
