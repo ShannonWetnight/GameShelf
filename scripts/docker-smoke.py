@@ -81,7 +81,9 @@ def check(image, root, port, expected):
                 if blocked == root:
                     # Confirm a scheduled scan has also failed before reading cache.
                     for attempt in range(30):
-                        if "periodic scan error:" in docker("logs", cid):
+                        if "periodic scan error:" in subprocess.check_output(
+                            ["docker", "logs", cid], text=True, stderr=subprocess.STDOUT
+                        ):
                             break
                         if attempt == 29:
                             raise AssertionError("scheduled scan did not report failure")
