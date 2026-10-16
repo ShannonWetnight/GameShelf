@@ -105,6 +105,9 @@ services:
 For ease of use, it is recommended to use a reverse proxy for accessing GameShelf, such as `games.mydomain.com`. Use the service of your choice to accomplish this. The below configuration is a working example from [Traefik](https://doc.traefik.io/traefik/).
 
 #### Traefik Example
+
+Use this dynamic configuration with Traefik's file provider and an existing `https` entry point. Traefik and GameShelf must share a Docker network where `gameshelf` resolves to the GameShelf container. The backend URL uses GameShelf's default internal port, `8080`.
+
 ```yaml
 http:
   routers:
@@ -117,20 +120,16 @@ http:
         - default-chain
       tls: {}
       service: gameshelf
-```
 
-```yaml
-services:
+  services:
 
     gameshelf:
       loadBalancer:
         servers:
-          - url: "http://gameshelf:8086"
+          - url: "http://gameshelf:8080"
         passHostHeader: true
-```
 
-```yaml
-middlewares:
+  middlewares:
 
     https-redirectscheme:
       redirectScheme:
@@ -156,6 +155,10 @@ middlewares:
         - https-redirectscheme
         - default-headers
 ```
+
+Traefik connects directly to the container port on the shared network. Changing only the published host port (for example, `8086:8080`) leaves the backend URL at `http://gameshelf:8080`.
+
+To use a custom internal port, set `GAMESHELF_ADDR=:8086` in GameShelf's environment and change the Traefik backend URL to `http://gameshelf:8086`. If you also publish a host port, update the container side of that mapping to match (for example, `8086:8086`).
 
 ### Single Sign-On
 You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and more, by using forward Auth.
