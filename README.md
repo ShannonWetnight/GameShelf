@@ -13,6 +13,7 @@
 - [Quick Start](#quick-start)
     + [Docker Run](#docker-run)
     + [Docker Compose](#docker-compose)
+    + [Container User and File Permissions](#container-user-and-file-permissions)
     + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
     + [Reverse Proxy](#reverse-proxy)
@@ -89,6 +90,41 @@ services:
     security_opt:
       - no-new-privileges:true
 ```
+
+### Container User and File Permissions
+
+The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client; it needs no writable data directory, home directory, or temporary volume. The image does not change ownership or permissions on your library.
+
+When upgrading from an older image that ran as root, check access before recreating the container. The runtime identity needs read and search (execute) permission on the mounted collection and every game subdirectory, plus read permission on every game file and cover image. A read-only mount prevents writes but does not grant read access. An inaccessible collection root prevents startup; inaccessible files or subdirectories can cause scan warnings, failed covers, or incomplete ZIP downloads. Check container logs if content is missing.
+
+Publicly readable collections (directories `0755`, files `0644`) work with the default identity. For a private collection, use its existing non-root owner or a group/ACL that grants read and directory search access. Keep these permissions limited to the intended collection; `chmod 777` is unnecessary.
+
+To run as an existing host identity, add `--user 1000:1000` to `docker run`, or set this in the Compose service (replace the example IDs with yours):
+
+```yaml
+    user: "1000:1000"
+```
+
+For group-only access, add `--group-add 2000` to `docker run`, or use:
+
+```yaml
+    group_add:
+      - "2000"
+```
+
+These are numeric Docker settings; the image does not interpret `PUID` or `PGID` environment variables. An arbitrary non-root UID/GID works without a matching account inside the image. Rootless Docker, user namespace remapping, NAS ACLs, and SELinux labeling can affect host access; match permissions to the identity and mount policy used by your deployment.
+
+Keep the collection mount read-only and retain `no-new-privileges:true`. You can also add `--read-only --cap-drop=ALL` to `docker run`, or the following Compose settings; no additional writable mount is required:
+
+```yaml
+    read_only: true
+    cap_drop:
+      - ALL
+```
+
+Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_ADDR`, and `GAMESHELF_REFRESH_INTERVAL` continue to work with the non-root user.
+
+The Docker verification workflow checks image metadata and PID 1's real, effective, saved, and filesystem UID/GID. It exercises empty and populated collections, manual and scheduled discovery, covers, nested ZIP downloads, group-readable and owner-only mounts, a numeric user override, a supplemental group, and an inaccessible collection root. Application containers run with a read-only filesystem and collection, all capabilities dropped, and no new privileges. A separate short-lived root helper changes ownership only on temporary test fixtures.
 
 ### Environment Variables
 | Variable                     | Default  | Description                                                                     |

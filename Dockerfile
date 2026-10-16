@@ -20,6 +20,13 @@ RUN apk upgrade --no-cache
 WORKDIR /app
 
 COPY --from=build /app/gameshelf .
+RUN addgroup -S -g 10001 gameshelf \
+    && adduser -S -D -H -u 10001 -G gameshelf -s /sbin/nologin gameshelf \
+    && chmod 0555 /app /app/gameshelf
+
+# Numeric IDs make bind-mount permissions predictable and allow runtime overrides.
+# Keep the executable root-owned; the application only needs read access to games.
+USER 10001:10001
 
 # Default internal port, can be overridden with -p flag or environment variable
 EXPOSE 8080
