@@ -33,7 +33,10 @@ jobs:
           docker run --rm --cap-drop=ALL --entrypoint go gameshelf:builder test -v ./...
 
       - name: Smoke test candidate
-        run: python3 scripts/docker-smoke.py gameshelf:verify
+        shell: bash
+        run: |
+          python3 -m py_compile scripts/docker-smoke.py
+          python3 scripts/docker-smoke.py gameshelf:verify | tee docker-smoke.log
 
       - name: Build PR base for scan comparison
         if: github.event_name == 'pull_request'
@@ -96,5 +99,6 @@ jobs:
           path: |
             reports/
             candidate-image.json
+            docker-smoke.log
             base-image.json
           retention-days: 30
