@@ -103,6 +103,11 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
                     raise AssertionError("scheduled rescan did not discover the new game")
             finally:
                 (root / "Added Later").rmdir()
+            # Restore the baseline cache before testing failure preservation.
+            restored = json.loads(get("/api/games?forceRefresh=1"))
+            assert sorted(restored, key=lambda g: g["id"]) == sorted(
+                games, key=lambda g: g["id"]
+            ), restored
         try:
             get("/download/not-a-game")
             raise AssertionError("missing game returned success")
