@@ -23,7 +23,7 @@ def check(image, root, port, expected):
         "--publish", f"127.0.0.1::{port}",
         "--mount", f"type=bind,src={root},dst=/collection,readonly",
         "--env", "GAMESHELF_ROOT=/collection",
-        "--env", "GAMESHELF_REFRESH_INTERVAL=0",
+        "--env", f"GAMESHELF_REFRESH_INTERVAL={'1s' if expected else '0'}",
         "--env", f"GAMESHELF_ADDR=:{port}", image,
     )
     try:
@@ -68,6 +68,41 @@ def check(image, root, port, expected):
             raise AssertionError("missing game returned success")
         except urllib.error.HTTPError as error:
             assert error.code == 404
+        def assert_preserved_after_failure(blocked):
+            mode = blocked.stat().st_mode & 0o777
+            blocked.chmod(0)
+            try:
+                try:
+                    get("/api/games?forceRefresh=1")
+                    raise AssertionError("failed scan returned success")
+                except urllib.error.HTTPError as error:
+                    assert error.code == 503, error.code
+                    assert b"Unable to refresh game library" in error.read()
+                if blocked == root:
+                    # Confirm a scheduled scan has also failed before reading cache.
+                    for attempt in range(30):
+                        if "periodic scan error:" in subprocess.check_output(
+                            ["docker", "logs", cid], text=True, stderr=subprocess.STDOUT
+                        ):
+                            break
+                        if attempt == 29:
+                            raise AssertionError("scheduled scan did not report failure")
+                        time.sleep(0.2)
+                cached = json.loads(get("/api/games"))
+                assert sorted(cached, key=lambda g: g["id"]) == sorted(
+                    games, key=lambda g: g["id"]
+                ), cached
+            finally:
+                blocked.chmod(mode)
+            recovered = json.loads(get("/api/games?forceRefresh=1"))
+            assert sorted(recovered, key=lambda g: g["id"]) == sorted(
+                games, key=lambda g: g["id"]
+            ), recovered
+
+        if expected:
+            assert_preserved_after_failure(root)
+            assert_preserved_after_failure(root / "Sample Game")
+            print("PASS: failed root/child scans return 503, preserve cache, and recover; scheduled failure preserves cache")
         assert docker("inspect", "--format", "{{.State.Running}}", cid) == "true"
         print(f"PASS: {expected} games, port {port}, static assets, API, covers and ZIP downloads")
     finally:
