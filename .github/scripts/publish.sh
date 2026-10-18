@@ -2,7 +2,7 @@
 set -euo pipefail
 (cd dist && sha256sum -c SHA256SUMS.txt)
 docker load -i "dist/gameshelf-$VERSION-linux-amd64.docker.tar.gz"
-python3 scripts/release.py guard
+python3 .github/scripts/release.py guard
 repo="$GITHUB_REPOSITORY"
 image="ghcr.io/shannonwetnight/gameshelf"
 ref="tags/$VERSION"
@@ -13,7 +13,7 @@ if [[ -z "$existing" ]]; then
   gh api --method POST "repos/$repo/git/refs" -f "ref=refs/$ref" -f "sha=$GITHUB_SHA" > /dev/null
 fi
 # Re-check after creation and before publishing. check_tag peels annotated tags.
-python3 scripts/release.py guard
+python3 .github/scripts/release.py guard
 printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 docker push "$image:$VERSION"
 digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$VERSION")
