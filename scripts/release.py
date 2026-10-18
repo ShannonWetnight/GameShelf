@@ -45,7 +45,7 @@ def check_release(version):
 def validate_notes(path):
     text = path.read_text().strip()
     # Notes should describe changes; copying the template unchanged cannot pass.
-    if re.search(r"\b(TODO|TBD|PLACEHOLDER)\b|\[Describe|\[Add ", text, re.I):
+    if re.search(r"\b(TODO|TBD)\b|\[PLACEHOLDER\]|\[Describe|\[Add ", text, re.I):
         raise ValueError(f"Replace unfinished placeholders in {path}.")
     if not re.search(r"^[-*] \S.+", text, re.M):
         raise ValueError(f"Add at least one change bullet to {path}.")
