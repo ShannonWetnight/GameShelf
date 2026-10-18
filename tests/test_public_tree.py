@@ -8,6 +8,8 @@ import unittest
 from unittest.mock import patch
 
 path = Path(os.environ.get('PUBLIC_RELEASE_SCRIPT', Path(__file__).parents[1] / 'scripts/release.py'))
+if not path.exists():
+    path = Path(__file__).parents[1] / 'scripts/release.py'
 spec = importlib.util.spec_from_file_location('public_release', path)
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
@@ -17,14 +19,14 @@ MARKER = '# Edge launcher only; test implementation lives on edge.'
 @unittest.skipUnless(hasattr(release, 'check_tree'), 'Main-specific checks run against a main source checkout')
 class PublicTreeTests(unittest.TestCase):
     def test_production_files_are_allowed(self):
-        paths = 'main.go\nweb/app.js\nimages/gameshelf_icon.png\n.github/release-notes/v2.2.0.md\nscripts/publish.sh'
+        paths = 'main.go\nweb/app.js\nimages/gameshelf_icon.png\n.github/release-notes/v2.2.0.md\n.github/scripts/publish.sh'
         with patch.object(release, 'run', return_value=paths), patch.object(Path, 'read_text', return_value=MARKER):
             release.check_tree()
 
     def test_development_files_are_rejected(self):
         for path in ('main_test.go', 'tests/frontend.test.cjs', 'scripts/docker-smoke.py',
                      '.github/actions/verify/action.yml', '.github/release-notes/edge.md',
-                     'web/app.test.js', 'web/fixtures/example.png', 'reports/scan.json', 'notes.txt'):
+                     'web/app.test.js', 'web/fixtures/example.png', 'reports/scan.json', 'notes.txt', 'docs/RELEASING.md', 'scripts/release.py', 'scripts/publish.sh', '.github/scripts/promote.py'):
             with self.subTest(path=path), patch.object(release, 'run', return_value=path):
                 with self.assertRaisesRegex(ValueError, 'Keep development files on edge'):
                     release.check_tree()

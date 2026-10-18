@@ -1,6 +1,6 @@
 # Edge testing and release preparation
 
-This branch owns the backend tests, frontend tests, Docker smoke checks, scan scripts, fixtures, and test package generation. Keep these files on Edge. Promote reviewed application files and versioned release notes individually to main rather than merging this entire branch.
+This branch owns the backend tests, frontend tests, Docker smoke checks, scan scripts, fixtures, and test package generation. Keep these files on Edge. Keep promotion selective; never merge this entire branch into main. Commit `.github/release-notes/vX.Y.Z.md`, then run **Edge tests and prerelease** from Edge with `promote_version` set to that version and **publish** unchecked. After verification, the promotion job starts from main, copies only application paths and those notes, and opens a draft release PR. Main's README, roadmap, and release automation remain unchanged. Tests, fixtures, and Edge notes are excluded. Application-file deletions are preserved.
 
 Run **Edge tests and prerelease** from `edge`. Leave **publish** unchecked for a downloadable package, or check it to create a prerelease and update `:edge`. Pushes and pull requests to Edge run the same verification without publishing. Update `.github/release-notes/edge.md` with the changes being tested. Notes also record commits since the previous Edge release.
 
@@ -9,3 +9,8 @@ The optional `source_sha`, `stable_version`, and `request_id` inputs are used by
 The main release Action downloads the package from that exact successful Edge run, verifies its source SHA and image ID, and publishes it. Edge never publishes a stable request. Missing notes, failing tests, scan errors, and HIGH/CRITICAL findings stop the process.
 
 Install this Edge change before the main cleanup. Main retains only a launcher for Edge testing and stable publication tooling. Its file check prevents a broad merge from bringing this harness into the public source tree. Keep release helpers compatible across branches when maintaining the process.
+
+
+Main keeps its maintainer guide in `.github/RELEASING.md` and stable helpers in `.github/scripts/`. The general-user README on main contains no release procedure. Do not promote top-level `docs/` or `scripts/` into main. Main's `public-files` check validates the complete candidate tree before a release; require that check in main's branch rules to block merges as well.
+
+Install the main folder cleanup before this Edge path update. Promotion requires the repository setting that allows GitHub Actions to create pull requests. It explicitly dispatches a `check_only` run of main's release workflow on the draft branch to avoid relying on PR-event triggering or approval for an automation-created PR. That run validates files and skips publication. Promotion opens a draft; it never merges it or publishes a stable release.
