@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Prepare release metadata and validate source/tag integrity."""
-import datetime
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 STABLE = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 IMAGE = "ghcr.io/shannonwetnight/gameshelf"
@@ -53,7 +53,8 @@ def validate_notes(path):
 
 
 def prepare():
-    channel = os.environ["CHANNEL"]
+    channel = "stable"
+    check_tree()
     ref = os.environ["GITHUB_REF"]
     sha = os.environ["GITHUB_SHA"]
     if run("git", "rev-parse", "HEAD") != sha:
@@ -71,23 +72,13 @@ def prepare():
                         "--sort=-version:refname").splitlines() if STABLE.fullmatch(tag) and tag != version), None)
         if previous and tuple(map(int, version[1:].split('.'))) <= tuple(map(int, previous[1:].split('.'))):
             raise ValueError(f"Choose a version newer than {previous}.")
-    elif channel == "edge":
-        if os.environ["GITHUB_EVENT_NAME"] == "workflow_dispatch" and ref != "refs/heads/edge":
-            raise ValueError("Run Edge tests and prerelease from edge.")
-        stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
-        version = f"edge-{stamp}-{os.environ['GITHUB_RUN_ID']}.{os.environ['GITHUB_RUN_ATTEMPT']}-{sha[:12]}"
-        notes = validate_notes(Path(".github/release-notes/edge.md"))
-        previous = next(iter(run("git", "tag", "--merged", sha, "--list", "edge-*",
-                                 "--sort=-creatordate").splitlines()), None)
     else:
-        raise ValueError("Unknown release channel.")
+        raise ValueError("Only stable releases belong on main.")
 
     commits = run("git", "log", "--format=- %s (%h)", f"{previous}..{sha}" if previous else sha)
     compare = (f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/compare/{previous}...{version}"
                if previous else f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/{sha}")
     body = f"# GameShelf {version}\n\n{notes}\n\n"
-    if channel == "edge":
-        body += "This is an experimental Edge build. Test it against a separate, read-only library mount.\n\n"
     body += (f"## Included commits\n\n{commits or 'No commits since the previous release.'}\n\n"
              f"[Full changes]({compare})\n\n## Build and installation\n\n"
              f"Source commit: `{sha}`\n\nPlatform: Linux amd64.\n\n"
@@ -110,6 +101,7 @@ def prepare():
 
 
 def publication_guard():
+    check_tree()
     data = json.loads(Path("dist/release.json").read_text())
     version, channel, sha = os.environ["VERSION"], os.environ["CHANNEL"], os.environ["GITHUB_SHA"]
     def require(condition, message):
@@ -123,10 +115,68 @@ def publication_guard():
     if channel == 'stable':
         require(STABLE.fullmatch(version), "Invalid stable tag")
     else:
-        require(re.fullmatch(r"edge-[0-9]{8}-[0-9]+\.[0-9]+-[0-9a-f]{12}", version), "Invalid Edge tag")
+        raise ValueError("Main publishes stable releases only.")
     check_tag(version, sha)
     check_release(version)
 
 
+
+def check_tree():
+    """Reject development files before they can enter a public source release."""
+    allowed = {
+        'Dockerfile', 'LICENSE', 'README.md', 'ROADMAP.md', 'docker-compose.yml',
+        'go.mod', 'go.sum', 'main.go', '.gitignore', 'docs/RELEASING.md',
+        '.github/workflows/edge.yml', '.github/workflows/release.yml',
+        '.github/release-notes/TEMPLATE.md', 'scripts/release.py', 'scripts/publish.sh',
+    }
+    unexpected = []
+    for path in run('git', 'ls-tree', '-r', '--name-only', 'HEAD').splitlines():
+        if path in allowed or re.fullmatch(r'\.github/release-notes/v[0-9]+\.[0-9]+\.[0-9]+\.md', path):
+            continue
+        if (path.startswith(('web/', 'images/'))
+                and Path(path).suffix.lower() in {'.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.ico', '.woff', '.woff2'}
+                and not re.search(r'(^|/)(tests?|fixtures?)(/|\.)|\.(test|spec)\.', path, re.I)):
+            continue
+        unexpected.append(path)
+    if unexpected:
+        raise ValueError('Keep development files on edge: ' + ', '.join(unexpected))
+    launcher = Path('.github/workflows/edge.yml').read_text()
+    if '# Edge launcher only; test implementation lives on edge.' not in launcher or 'actions/verify' in launcher:
+        raise ValueError('Main must retain the Edge launcher, not the Edge test workflow.')
+
+
+def verify_on_edge():
+    """Request an Edge-built package for this exact main commit and await it."""
+    request = f"stable-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+    repo, sha, version = os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_SHA'], os.environ['VERSION']
+    edge_sha = gh('api', f'repos/{repo}/git/ref/heads/edge', '--jq', '.object.sha')
+    gh('api', '--method', 'POST', f'repos/{repo}/actions/workflows/edge.yml/dispatches',
+       '-f', 'ref=edge', '-f', f'inputs[source_sha]={sha}',
+       '-f', f'inputs[stable_version]={version}', '-f', f'inputs[request_id]={request}',
+       '-f', 'inputs[publish]=false')
+    deadline = time.monotonic() + 1800
+    while time.monotonic() < deadline:
+        runs = json.loads(gh('run', 'list', '--repo', repo, '--workflow', 'edge.yml',
+                            '--branch', 'edge', '--event', 'workflow_dispatch', '--limit', '100',
+                            '--json', 'databaseId,displayTitle,headSha,status,conclusion'))
+        matches = [r for r in runs if r['displayTitle'] == request]
+        if len(matches) > 1:
+            raise ValueError('Multiple Edge runs matched this release request.')
+        if matches:
+            result = matches[0]
+            if result['headSha'] != edge_sha:
+                raise ValueError('Edge moved during dispatch. Retry to use one known test harness commit.')
+            if result['status'] == 'completed':
+                if result['conclusion'] != 'success':
+                    raise ValueError(f"Edge verification failed: {result['databaseId']}")
+                with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                    output.write(f"run_id={result['databaseId']}\n")
+                with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                    summary.write(f"\nEdge verification: https://github.com/{repo}/actions/runs/{result['databaseId']}\n")
+                return
+        time.sleep(15)
+    raise TimeoutError('Edge verification did not complete within 30 minutes.')
+
+
 if __name__ == "__main__":
-    {"prepare": prepare, "guard": publication_guard}[sys.argv[1]]()
+    {"prepare": prepare, "guard": publication_guard, "check-tree": check_tree, "verify-on-edge": verify_on_edge}[sys.argv[1]]()

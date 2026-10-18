@@ -1,47 +1,59 @@
 name: Publish stable release
-
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
-        description: New release tag, for example v1.2.3 (select main above)
+        description: New stable version, for example v2.2.0 (select main)
         required: true
         type: string
-
 permissions:
   contents: read
-
 concurrency:
-  group: gameshelf-stable-release
+  group: main-release-${{ github.event_name == 'workflow_dispatch' && 'publish' || github.ref }}
   cancel-in-progress: false
-
 jobs:
-  test:
+  public-files:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Keep development tooling off main
+        run: python3 scripts/release.py check-tree
+  verify:
+    if: github.event_name == 'workflow_dispatch'
+    needs: public-files
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: write
+    outputs:
+      run_id: ${{ steps.edge.outputs.run_id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check main source, new version and release notes
+      - name: Validate release source and notes
         env:
           CHANNEL: stable
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/release.py prepare
-      - uses: ./.github/actions/verify
-      - name: Package the tested image
-        run: bash scripts/package.sh
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: gameshelf-${{ inputs.version }}
-          path: dist/
-          if-no-files-found: error
-          retention-days: 30
-
+      - name: Verify and package this main commit on Edge
+        id: edge
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release.py verify-on-edge
   publish:
-    needs: test
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -53,12 +65,13 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Download this run's tested package
+      - name: Download the package verified on Edge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
-        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
-      - name: Publish stable release
+          EDGE_RUN_ID: ${{ needs.verify.outputs.run_id }}
+        run: gh run download "$EDGE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
+      - name: Publish the verified public bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANNEL: stable
