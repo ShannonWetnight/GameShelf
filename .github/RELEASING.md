@@ -23,7 +23,7 @@ If the notes file is missing, commit it to main before starting a new workflow r
 
 The release Action validates the source, notes, and version, then starts the Edge harness against that exact main commit. Edge builds and tests a temporary copy using its own tests, scans builder and runtime images, and packages the verified image. It separately archives the pristine main checkout, so the public source archive contains no overlaid test files. Main downloads the package from that specific successful run and checks its source SHA and image ID before publication.
 
-The public bundle contains the Linux amd64 Docker image archive, clean main source archive, version-specific Compose file, license, change notes, build metadata, and SHA-256 checksums. Test fixtures and verification reports are excluded. Notes include the maintained summary and the included commits since the previous stable release. GitHub's automatic source downloads also follow the clean main tag.
+The public bundle contains the Linux amd64 Docker image archive, clean main source archive, version-specific Compose file, license, change notes, build metadata, and SHA-256 checksums. Test fixtures and verification reports are excluded. Notes contain only the reviewed, brief change summary. GitHub's automatic source downloads also follow the clean main tag.
 
 Publication creates a matching source tag without moving existing tags, uploads a draft release, publishes it, and finally updates `:latest`. Edge prereleases update only `:edge`. A failed check or scan blocks publication. Existing releases cannot be overwritten. An interrupted publication can leave a draft or a versioned image; inspect its run before retrying. GitHub and GHCR cannot be updated as one transaction.
 
@@ -44,3 +44,10 @@ Make the `public-files` check required in main's branch protection or ruleset to
 Install the consolidated main paths first, then the matching Edge change before running stable verification or promotion. Keep the full Edge workflow and test files there. Main needs only the Edge launcher to expose the Action in GitHub's menu; it does not contain or run the test implementation.
 
 The built-in `GITHUB_TOKEN` needs Actions write access to dispatch and wait for Edge verification, and contents/package write access in the stable publication job. The workflows request these permissions by job. If tag rules or package permissions reject publication, adjust the repository rules for its release workflow.
+
+
+## Release-note format
+
+Use only `Changes`, `Fixed`, `Added`, `Other`, and `Security` as level-two headings. Omit empty sections and keep bullets to one short sentence where practical. Describe the user-visible result; group related changes. Put patched security issues under `Security`, naming a CVE only when verified. Keep any essential upgrade action to a brief bullet in the relevant section.
+
+Do not append installation instructions, limitations, commit lists, source SHAs, container references, image digests, or build details to the public notes. Installation belongs in README; source and image identity belong in `release.json` and the Action summary. Update the version notes for each stable release and `.github/release-notes/edge.md` for each Edge test release.
