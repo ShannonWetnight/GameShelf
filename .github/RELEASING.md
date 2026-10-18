@@ -33,7 +33,7 @@ Keep release instructions here, stable helpers in `.github/scripts/`, version no
 
 The promotion copies `Dockerfile`, `main.go`, `go.mod`, optional `go.sum`, `docker-compose.yml`, approved assets under `web/` and `images/`, and only the requested version's notes. Deletions in those application paths are preserved. It validates the resulting complete file list using main's own release guard. Maintainer files, test files, fixture directories, and Edge change notes are never copied. Production README or roadmap changes require a separate reviewed change on main.
 
-The promotion creates a new branch and draft PR; it does not merge or publish. Since PRs created with `GITHUB_TOKEN` do not start ordinary PR-triggered workflows, promotion explicitly dispatches main's **Publish stable release** workflow with `check_only` enabled on the new branch. That run checks the public file list and skips verification/publication. Repository Actions settings must allow GitHub Actions to create pull requests.
+The promotion creates a new branch and draft PR; it does not merge or publish. To avoid relying on PR-event triggering or approval for an automation-created PR, promotion explicitly dispatches main's **Publish stable release** workflow with `check_only` enabled on the new branch. That run checks the public file list and skips verification/publication. Repository Actions settings must allow GitHub Actions to create pull requests.
 
 Make the `public-files` check required in main's branch protection or ruleset to prevent merging a failing PR. The workflow itself also blocks publication even if that merge protection has not been configured.
 
