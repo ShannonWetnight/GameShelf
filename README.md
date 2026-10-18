@@ -24,6 +24,7 @@
         + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
     + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
+- [Roadmap](#roadmap)
 - [Legal Disclaimer](#responsible-use--distribution)
 
 ## Overview
@@ -253,6 +254,9 @@ GameDrive
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
 2. View and/or download zipped folders from the web UI.
+
+## Roadmap
+View the [roadmap](ROADMAP.md) for a list of features worth considering for GameShelf.
 
 ## Responsible Use & Distribution
 GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.
