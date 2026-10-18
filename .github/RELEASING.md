@@ -19,6 +19,8 @@ To prepare a release PR, commit the version notes on Edge and run **Edge tests a
 2. Copy `.github/release-notes/TEMPLATE.md` to a new version file such as `.github/release-notes/v2.2.0.md`. Replace the placeholders with changes, upgrade instructions, and known issues. Commit it to main.
 3. Run **Publish stable release** from `main` with that same version.
 
+If the notes file is missing, commit it to main before starting a new workflow run. Re-running a failed older run uses its original commit and will still miss the new file.
+
 The release Action validates the source, notes, and version, then starts the Edge harness against that exact main commit. Edge builds and tests a temporary copy using its own tests, scans builder and runtime images, and packages the verified image. It separately archives the pristine main checkout, so the public source archive contains no overlaid test files. Main downloads the package from that specific successful run and checks its source SHA and image ID before publication.
 
 The public bundle contains the Linux amd64 Docker image archive, clean main source archive, version-specific Compose file, license, change notes, build metadata, and SHA-256 checksums. Test fixtures and verification reports are excluded. Notes include the maintained summary and the included commits since the previous stable release. GitHub's automatic source downloads also follow the clean main tag.
