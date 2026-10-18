@@ -1,72 +1,23 @@
 name: Edge tests and prerelease
-
+# Edge launcher only; test implementation lives on edge.
 on:
-  push:
-    branches: [edge]
-  pull_request:
-    branches: [main, edge]
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish a test release and update the Docker edge tag (select edge above)
+        description: Publish a test prerelease from Edge
         type: boolean
         default: false
-
 permissions:
-  contents: read
-
-concurrency:
-  group: edge-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
-
+  actions: write
 jobs:
-  test:
+  start-edge:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    outputs:
-      version: ${{ steps.prepare.outputs.version }}
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Prepare test package and change notes
-        id: prepare
-        env:
-          CHANNEL: edge
-        run: python3 scripts/release.py prepare
-      - uses: ./.github/actions/verify
-      - name: Package the tested image
-        run: bash scripts/package.sh
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: gameshelf-${{ steps.prepare.outputs.version }}
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
-
-  publish:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/edge'
-    needs: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-      packages: write
-      actions: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Download this run's tested package
+      - name: Start the workflow on Edge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.test.outputs.version }}
-        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
-      - name: Publish Edge prerelease
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CHANNEL: edge
-          VERSION: ${{ needs.test.outputs.version }}
-        run: bash scripts/publish.sh
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          gh workflow run edge.yml --repo "$GITHUB_REPOSITORY" --ref edge -f "publish=$PUBLISH"
+          echo 'Started Edge testing. Open the Edge run in Actions for its results and packages.' >> "$GITHUB_STEP_SUMMARY"
