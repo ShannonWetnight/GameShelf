@@ -41,12 +41,14 @@ class ReleaseTests(unittest.TestCase):
     def test_empty_or_template_notes_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'notes.md'
-            for text in ('', '# Changes', '- TODO: changes', '- [Describe a change.]'):
+            for text in ('', '# Changes', '- TODO: changes', '- [PLACEHOLDER]', '- [Describe a change.]'):
                 path.write_text(text)
                 with self.assertRaises(ValueError):
                     release.validate_notes(path)
             path.write_text('## Changes\n\n- Preserve the library when a refresh fails.\n')
             self.assertIn('Preserve', release.validate_notes(path))
+            path.write_text('- Fix placeholder cover scaling.\n')
+            self.assertIn('placeholder cover', release.validate_notes(path))
 
     def test_stable_versions_reject_shell_and_path_input(self):
         for value in ('v1.2.3; echo bad', '../notes', 'v01.2.3', 'v1.2.3-beta', 'v1.2.3\n'):
