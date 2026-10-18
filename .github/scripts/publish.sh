@@ -17,8 +17,15 @@ python3 .github/scripts/release.py guard
 printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 docker push "$image:$VERSION"
 digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$VERSION")
-printf '\nPublished image digest: `%s`\n' "$digest" >> dist/RELEASE-NOTES.md
-# Checksums describe the final uploaded files, including the image digest notes.
+IMAGE_DIGEST="$digest" python3 - <<'PYMETA'
+import json, os
+from pathlib import Path
+path = Path('dist/release.json')
+data = json.loads(path.read_text())
+data['image_digest'] = os.environ['IMAGE_DIGEST']
+path.write_text(json.dumps(data, indent=2) + '\n')
+PYMETA
+# Keep provenance in metadata, outside the audience-facing release notes.
 (cd dist && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 flags=(--latest)
 alias=latest
