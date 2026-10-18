@@ -1,0 +1,37 @@
+name: Verify GameShelf
+description: Test and scan the image that will be packaged and published
+runs:
+  using: composite
+  steps:
+    - name: Build runtime and builder
+      shell: bash
+      run: |
+        mkdir -p reports
+        docker build --pull --platform linux/amd64 --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag gameshelf:candidate .
+        docker build --platform linux/amd64 --target build --tag gameshelf:builder .
+        docker image inspect gameshelf:candidate > reports/runtime-image.json
+        docker image inspect gameshelf:builder > reports/builder-image.json
+    - name: Go and frontend checks
+      shell: bash
+      run: |
+        docker run --rm --mount "type=bind,src=$PWD,dst=/src,readonly" --workdir /src \
+          --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
+        node --check web/app.js
+        node --test tests/frontend.test.cjs
+        python3 -m unittest discover -s tests -p 'test_*.py' -v
+    - name: Test Docker behavior and non-root restrictions
+      shell: bash
+      run: |
+        set -o pipefail
+        python3 scripts/docker-smoke.py gameshelf:candidate | tee reports/docker-smoke.log
+    - name: Scan builder and runtime
+      shell: bash
+      run: bash scripts/scan.sh
+    - name: Preserve verification results
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: verification-${{ github.run_id }}-${{ github.run_attempt }}
+        path: reports/
+        if-no-files-found: warn
+        retention-days: 30
