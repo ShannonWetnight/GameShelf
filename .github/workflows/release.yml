@@ -10,10 +10,14 @@ on:
         description: New stable version, for example v2.2.0 (select main)
         required: true
         type: string
+      check_only:
+        description: Validate the public source tree without publishing
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: main-release-${{ github.event_name == 'workflow_dispatch' && 'publish' || github.ref }}
+  group: main-release-${{ github.event_name == 'workflow_dispatch' && !inputs.check_only && 'publish' || github.ref }}
   cancel-in-progress: false
 jobs:
   public-files:
@@ -24,9 +28,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Keep development tooling off main
-        run: python3 scripts/release.py check-tree
+        run: python3 .github/scripts/release.py check-tree
   verify:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && !inputs.check_only
     needs: public-files
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -45,13 +49,13 @@ jobs:
           CHANNEL: stable
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/release.py prepare
+        run: python3 .github/scripts/release.py prepare
       - name: Verify and package this main commit on Edge
         id: edge
         env:
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/release.py verify-on-edge
+        run: python3 .github/scripts/release.py verify-on-edge
   publish:
     needs: verify
     runs-on: ubuntu-latest
@@ -76,4 +80,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANNEL: stable
           VERSION: ${{ inputs.version }}
-        run: bash scripts/publish.sh
+        run: bash .github/scripts/publish.sh
