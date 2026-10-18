@@ -7,7 +7,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ### Core UX & Stability
 * [x] *(Planned)* Responsive UI layout
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
-* [ ] Add loading state or skeleton UI while games load
+* [x] Add loading state or skeleton UI while games load
 * [ ] Improve mobile spacing and responsive typography
   - Mobile view, although not entirely necessary as this application is geared towards PC libraries
   - If geared towards mobile, can consider APK file type filter or dedicated tab
@@ -20,7 +20,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add a toggle UI effects option
 * [ ] Add a dark/light mode toggle
 * [ ] Integrate download button into card main body
-* [ ] Add graceful fallback UI when `/api/games` fails
+* [x] Add graceful fallback UI when `/api/games` fails
+  - Show an error with retry; keep the last loaded cards when refresh fails
 * [ ] Toggle for "Game card is download button"
 
 ### Artwork Enhancements
@@ -50,7 +51,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
- - Env to include, optional 
+  - Env to include, optional 
 * [ ] Add support for multiple directories
 * [ ] Add settings wheel and nest ability to change or set default/additional directory 
 

@@ -4,6 +4,10 @@
 let gamesCache = [];
 const coverVersions = new Map();
 let refreshGeneration = 0;
+let isLoading = false;
+let hasLoadedGames = false;
+let loadError = false;
+let retryRefresh = false;
 
 let currentSort = 'az';
 let currentSearch = '';
@@ -14,14 +18,23 @@ const cardMap = new Map(); // game.id -> card element
 /* =============================
    Data Fetching
    ============================= */
-async function fetchGames() {
+async function fetchGames(isRefresh = false) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
-    const res = await fetch('/api/games');
+    const url = isRefresh ? '/api/games?forceRefresh=1' : '/api/games';
+    const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.error('Failed to load games:', err);
-    return [];
+    const games = await res.json();
+    if (!Array.isArray(games) || games.some(game =>
+      !game || typeof game.id !== 'string' || typeof game.name !== 'string' ||
+      !Number.isFinite(game.sizeBytes) || game.sizeBytes < 0
+    )) {
+      throw new Error('Invalid games response');
+    }
+    return games;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -166,6 +179,8 @@ function applySort() {
 function applySearchFilter() {
   const empty = document.getElementById('empty-state');
   const hint = document.getElementById('empty-hint');
+  const title = document.getElementById('empty-title');
+  const searchHint = document.getElementById('search-hint');
 
   let visibleCount = 0;
 
@@ -180,57 +195,75 @@ function applySearchFilter() {
     }
   });
 
-  if (visibleCount === 0) {
-    empty.classList.remove('hidden');
-
-    // Only show setup hint when NOT searching
-    if (currentSearch.length === 0) {
-      hint.classList.remove('hidden');
-    } else {
-      hint.classList.add('hidden');
-    }
-  } else {
-    empty.classList.add('hidden');
-  }
+  const emptyLibrary = gamesCache.length === 0;
+  title.textContent = emptyLibrary ? 'No games found!' : 'No matching games!';
+  hint.classList.toggle('hidden', !emptyLibrary);
+  searchHint.classList.toggle('hidden', emptyLibrary);
+  empty.classList.toggle('hidden', isLoading || loadError || !hasLoadedGames || visibleCount > 0);
 }
 
 /* =============================
    Initial Load/Refresh
    ============================= */
 async function loadGames(isRefresh = false) {
+  if (isLoading) return false;
   const container = document.getElementById('games-container');
-  const empty = document.getElementById('empty-state');
+  const loading = document.getElementById('loading-state');
+  const error = document.getElementById('error-state');
+  const retry = document.getElementById('retry-button');
 
-  gamesCache = await fetchGames();
+  isLoading = true;
+  loadError = false;
+  retryRefresh = isRefresh;
+  loading.textContent = isRefresh ? 'Refreshing games…' : 'Loading games…';
+  loading.classList.remove('hidden');
+  error.classList.add('hidden');
+  retry.disabled = true;
+  container.setAttribute('aria-busy', 'true');
+  applySearchFilter();
 
-  if (isRefresh) {
-    coverVersions.clear();
-    refreshGeneration++;
+  try {
+    const games = await fetchGames(isRefresh);
+
+    // Commit the new library only after the request and response validation succeed.
+    if (isRefresh) {
+      coverVersions.clear();
+      refreshGeneration++;
+      games.forEach(game => coverVersions.set(game.id, refreshGeneration));
+      currentSearch = '';
+      const searchInput = document.getElementById('search-input');
+      searchInput.value = '';
+      searchInput.classList.remove('is-filtering');
+    }
+
+    gamesCache = games;
     cardMap.clear();
     container.innerHTML = '';
-
     gamesCache.forEach(game => {
-      coverVersions.set(game.id, refreshGeneration);
-    });
-  }
-
-  if (!gamesCache.length) {
-    empty.classList.remove('hidden');
-    return;
-  }
-
-  empty.classList.add('hidden');
-
-  gamesCache.forEach(game => {
-    if (!cardMap.has(game.id)) {
       const card = createGameCard(game);
       cardMap.set(game.id, card);
       container.appendChild(card);
-    }
-  });
-
-  applySort();
-  applySearchFilter();
+    });
+    hasLoadedGames = true;
+    applySort();
+    return true;
+  } catch (err) {
+    console.error('Failed to load games:', err);
+    loadError = true;
+    document.getElementById('error-title').textContent = isRefresh
+      ? 'Could not refresh games.' : 'Could not load games.';
+    document.getElementById('error-message').textContent =
+      'GameShelf could not get the game library. Check that the server is running and reachable, then retry.' +
+      (hasLoadedGames ? ' The last loaded library is still shown.' : '');
+    error.classList.remove('hidden');
+    return false;
+  } finally {
+    isLoading = false;
+    loading.classList.add('hidden');
+    retry.disabled = false;
+    container.setAttribute('aria-busy', 'false');
+    applySearchFilter();
+  }
 }
 
 /* =============================
@@ -259,6 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const doneText = 'REFRESHED';
 
   let refreshLock = false;
+  let refreshFeedbackTimer;
 
   trigger.addEventListener('mouseenter', () => {
     if (!refreshLock) logoText.textContent = hoverText;
@@ -268,39 +302,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!refreshLock) logoText.textContent = originalText;
   });
 
-  trigger.addEventListener('click', async () => {
-    if (refreshLock) return;
+  async function runRefresh(isRefresh = true) {
+    if (refreshLock || isLoading) return;
 
+    clearTimeout(refreshFeedbackTimer);
     refreshLock = true;
     logoText.textContent = refreshingText;
 
-    // --- Reset Search State ---
-    const searchInput = document.getElementById('search-input');
-    currentSearch = '';
+    const succeeded = await loadGames(isRefresh);
+    logoText.textContent = succeeded ? doneText : 'FAILED';
+    logoText.classList.toggle('bounce', succeeded);
+    refreshLock = false;
 
-    if (searchInput) {
-      searchInput.value = '';
-      searchInput.classList.remove('is-filtering');
-    }
-
-    // Ensure all cards are visible immediately
-    cardMap.forEach(card => {
-      card.style.display = '';
-    });
-
-    // --- Perform Refresh ---
-    await fetch('/api/games?forceRefresh=1');
-    await loadGames(true);
-
-    logoText.textContent = doneText;
-    logoText.classList.add('bounce');
-
-    setTimeout(() => {
+    refreshFeedbackTimer = setTimeout(() => {
       logoText.classList.remove('bounce');
       logoText.textContent = originalText;
-      refreshLock = false;
     }, 1000);
-  });
+  }
+
+  trigger.addEventListener('click', () => runRefresh());
+  document.getElementById('retry-button').addEventListener('click', () => runRefresh(retryRefresh));
 
   /* -------- Sort menu -------- */
   const sortButton = document.getElementById('sort-button');
