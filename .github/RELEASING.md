@@ -2,7 +2,7 @@
 
 This branch owns the backend tests, frontend tests, Docker smoke checks, scan scripts, fixtures, and test package generation. Keep these files on Edge. Keep promotion selective; never merge this entire branch into main. Commit `.github/release-notes/vX.Y.Z.md`, then run **Edge tests and prerelease** from Edge with `promote_version` set to that version and **publish** unchecked. After verification, the promotion job starts from main, copies only application paths and those notes, and opens a draft release PR. Main's README, roadmap, and release automation remain unchanged. Tests, fixtures, and Edge notes are excluded. Application-file deletions are preserved.
 
-Run **Edge tests and prerelease** from `edge`. Leave **publish** unchecked for a downloadable package, or check it to create a prerelease and update `:edge`. Pushes and pull requests to Edge run the same verification without publishing. Update `.github/release-notes/edge.md` with the changes being tested. Notes also record commits since the previous Edge release.
+Run **Edge tests and prerelease** from `edge`. Leave **publish** unchecked for a downloadable package, or check it to create a prerelease and update `:edge`. Pushes and pull requests to Edge run the same verification without publishing. Update `.github/release-notes/edge.md` with the changes being tested. Keep notes brief and update the Edge summary for each test release.
 
 The optional `source_sha`, `stable_version`, and `request_id` inputs are used by main's stable release Action. Leave them blank for development builds. Main requests verification of an exact main commit. The harness checks out that commit separately, overlays Edge's tests into a temporary copy, and runs application tests, Docker smoke tests, and vulnerability scans there. Test reports stay in Edge artifacts. A stable package contains the verified image and an archive of the pristine main checkout, with no test overlay or reports.
 
@@ -14,3 +14,10 @@ Install this Edge change before the main cleanup. Main retains only a launcher f
 Main keeps its maintainer guide in `.github/RELEASING.md` and stable helpers in `.github/scripts/`. The general-user README on main contains no release procedure. Do not promote top-level `docs/` or `scripts/` into main. Main's `public-files` check validates the complete candidate tree before a release; require that check in main's branch rules to block merges as well.
 
 Install the main folder cleanup before this Edge path update. Promotion requires the repository setting that allows GitHub Actions to create pull requests. It explicitly dispatches a `check_only` run of main's release workflow on the draft branch to avoid relying on PR-event triggering or approval for an automation-created PR. That run validates files and skips publication. Promotion opens a draft; it never merges it or publishes a stable release.
+
+
+## Release-note format
+
+Use only `Changes`, `Fixed`, `Added`, `Other`, and `Security` as level-two headings. Omit empty sections and keep bullets to one short sentence where practical. Describe the user-visible result; group related changes. Put patched security issues under `Security`, naming a CVE only when verified. Keep any essential upgrade action to a brief bullet in the relevant section.
+
+Do not append installation instructions, limitations, commit lists, source SHAs, container references, image digests, or build details to the public notes. Installation belongs in README; source and image identity belong in `release.json` and the Action summary. Update the version notes for each stable release and `.github/release-notes/edge.md` for each Edge test release.

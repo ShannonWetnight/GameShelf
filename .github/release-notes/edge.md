@@ -1,9 +1,11 @@
-## Changes under test
+## Changes
 
-- Add separate Edge test packages and stable release workflows.
-- Require release notes and matching source commits before publishing.
-- Run backend, frontend, Docker behavior, and vulnerability checks before packaging.
+- Keep test tooling on Edge and publish clean stable packages from main.
 
-## Known limitations
+## Added
 
-Packages currently support Linux amd64. Edge builds contain experimental changes and may break.
+- Create selective draft release PRs after Edge verification.
+
+## Fixed
+
+- Explain how to recover when release notes are missing.
