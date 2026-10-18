@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: main-release-${{ github.event_name == 'workflow_dispatch' && 'publish' || github.ref }}
+  group: main-release-${{ github.event_name == 'workflow_dispatch' && !inputs.check_only && 'publish' || github.ref }}
   cancel-in-progress: false
 jobs:
   public-files:
