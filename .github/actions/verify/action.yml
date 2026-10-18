@@ -1,0 +1,41 @@
+name: Verify GameShelf
+description: Test and scan the image that will be packaged and published
+runs:
+  using: composite
+  steps:
+    - name: Build runtime and builder
+      shell: bash
+      working-directory: ${{ env.VERIFY_WORKSPACE }}
+      run: |
+        mkdir -p reports
+        docker build --pull --platform linux/amd64 --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=${SOURCE_SHA:-$GITHUB_SHA}" --tag gameshelf:candidate .
+        docker build --platform linux/amd64 --target build --tag gameshelf:builder .
+        docker image inspect gameshelf:candidate > reports/runtime-image.json
+        docker image inspect gameshelf:builder > reports/builder-image.json
+    - name: Go and frontend checks
+      shell: bash
+      working-directory: ${{ env.VERIFY_WORKSPACE }}
+      run: |
+        docker run --rm --mount "type=bind,src=$PWD,dst=/src,readonly" --workdir /src \
+          --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
+        node --check web/app.js
+        node --test tests/frontend.test.cjs
+        PUBLIC_RELEASE_SCRIPT="$GITHUB_WORKSPACE/candidate/scripts/release.py" python3 -m unittest discover -s "$GITHUB_WORKSPACE/tooling/tests" -p 'test_*.py' -v
+    - name: Test Docker behavior and non-root restrictions
+      shell: bash
+      working-directory: ${{ env.VERIFY_WORKSPACE }}
+      run: |
+        set -o pipefail
+        python3 scripts/docker-smoke.py gameshelf:candidate | tee reports/docker-smoke.log
+    - name: Scan builder and runtime
+      shell: bash
+      working-directory: ${{ env.VERIFY_WORKSPACE }}
+      run: bash scripts/scan.sh
+    - name: Preserve verification results
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: verification-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ env.VERIFY_WORKSPACE }}/reports/
+        if-no-files-found: warn
+        retention-days: 30

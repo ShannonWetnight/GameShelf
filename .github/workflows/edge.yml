@@ -1,0 +1,128 @@
+name: Edge tests and prerelease
+run-name: ${{ inputs.request_id || format('Edge {0} / {1}', github.event_name, github.ref_name) }}
+on:
+  push:
+    branches: [edge]
+  pull_request:
+    branches: [edge]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish an Edge test prerelease
+        type: boolean
+        default: false
+      source_sha:
+        description: Exact main commit to verify for a stable release (normally blank)
+        type: string
+      stable_version:
+        description: Stable package version requested by the main release Action
+        type: string
+      request_id:
+        description: Stable release request identifier (normally blank)
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: edge-${{ inputs.request_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+    env:
+      VERIFY_WORKSPACE: ${{ github.workspace }}/verification
+    steps:
+      - name: Checkout the Edge harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: tooling
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate the verification request
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/edge ]]; then
+            echo 'Run the full Edge workflow from edge.' >&2; exit 1
+          fi
+          if [[ -n "$SOURCE_SHA" ]]; then
+            [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$STABLE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            [[ "$REQUEST_ID" =~ ^stable-[0-9]+-[0-9]+$ ]]
+            [[ "$PUBLISH" != true ]]
+            git -C tooling merge-base --is-ancestor "$SOURCE_SHA" origin/main
+            echo 'CHANNEL=stable' >> "$GITHUB_ENV"
+            echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+            echo 'SOURCE_REF=refs/heads/main' >> "$GITHUB_ENV"
+          else
+            [[ -z "$STABLE_VERSION" && -z "$REQUEST_ID" ]]
+            echo 'CHANNEL=edge' >> "$GITHUB_ENV"
+            echo "SOURCE_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
+            echo "SOURCE_REF=$GITHUB_REF" >> "$GITHUB_ENV"
+          fi
+      - name: Checkout the pristine source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: candidate
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare the source-specific package and notes
+        id: prepare
+        working-directory: candidate
+        env:
+          VERSION: ${{ inputs.stable_version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "$CHANNEL" == stable ]]; then
+            python3 scripts/release.py check-tree
+          fi
+          GITHUB_SHA="$SOURCE_SHA" GITHUB_REF="$SOURCE_REF" python3 "$GITHUB_WORKSPACE/tooling/scripts/release.py" prepare
+      - name: Overlay Edge tests into a temporary verification copy
+        run: |
+          mkdir -p "$VERIFY_WORKSPACE"
+          git -C candidate archive "$SOURCE_SHA" | tar -x -C "$VERIFY_WORKSPACE"
+          cp tooling/main_test.go "$VERIFY_WORKSPACE/main_test.go"
+          mkdir -p "$VERIFY_WORKSPACE/tests" "$VERIFY_WORKSPACE/scripts"
+          cp tooling/tests/frontend.test.cjs "$VERIFY_WORKSPACE/tests/"
+          cp tooling/scripts/docker-smoke.py tooling/scripts/scan.sh "$VERIFY_WORKSPACE/scripts/"
+      - uses: ./tooling/.github/actions/verify
+      - name: Package the verified image and pristine source
+        working-directory: candidate
+        run: GITHUB_SHA="$SOURCE_SHA" bash "$GITHUB_WORKSPACE/tooling/scripts/package.sh"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: gameshelf-${{ steps.prepare.outputs.version }}
+          path: candidate/dist/
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && !inputs.source_sha && github.ref == 'refs/heads/edge'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download this run's test package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.test.outputs.version }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
+      - name: Publish Edge prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANNEL: edge
+          VERSION: ${{ needs.test.outputs.version }}
+        run: bash scripts/publish.sh

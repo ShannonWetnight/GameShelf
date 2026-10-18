@@ -13,6 +13,7 @@
 - [Quick Start](#quick-start)
     + [Docker Run](#docker-run)
     + [Docker Compose](#docker-compose)
+    + [Container User and File Permissions](#container-user-and-file-permissions)
     + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
     + [Reverse Proxy](#reverse-proxy)
@@ -23,6 +24,8 @@
         + [How GameShelf Chooses an Image](#how-gameshelf-chooses-an-image)
     + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
+- [Roadmap](#roadmap)
+- [Testing and releases](#testing-and-releases)
 - [Legal Disclaimer](#responsible-use--distribution)
 
 ## Overview
@@ -90,6 +93,39 @@ services:
       - no-new-privileges:true
 ```
 
+### Container User and File Permissions
+
+The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client; it needs no writable data directory, home directory, or temporary volume. The image does not change ownership or permissions on your library.
+
+When upgrading from an older image that ran as root, check access before recreating the container. The runtime identity needs read and search (execute) permission on the mounted collection and every game subdirectory, plus read permission on every game file and cover image. A read-only mount prevents writes but does not grant read access. An inaccessible collection root prevents startup; inaccessible files or subdirectories can cause scan warnings, failed covers, or incomplete ZIP downloads. Check container logs if content is missing.
+
+Publicly readable collections (directories `0755`, files `0644`) work with the default identity. For a private collection, use its existing non-root owner or a group/ACL that grants read and directory search access. Keep these permissions limited to the intended collection; `chmod 777` is unnecessary.
+
+To run as an existing host identity, add `--user 1000:1000` to `docker run`, or set this in the Compose service (replace the example IDs with yours):
+
+```yaml
+    user: "1000:1000"
+```
+
+For group-only access, add `--group-add 2000` to `docker run`, or use:
+
+```yaml
+    group_add:
+      - "2000"
+```
+
+These are numeric Docker settings; the image does not interpret `PUID` or `PGID` environment variables. An arbitrary non-root UID/GID works without a matching account inside the image. Rootless Docker, user namespace remapping, NAS ACLs, and SELinux labeling can affect host access; match permissions to the identity and mount policy used by your deployment.
+
+Keep the collection mount read-only and retain `no-new-privileges:true`. You can also add `--read-only --cap-drop=ALL` to `docker run`, or the following Compose settings; no additional writable mount is required:
+
+```yaml
+    read_only: true
+    cap_drop:
+      - ALL
+```
+
+Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_ADDR`, and `GAMESHELF_REFRESH_INTERVAL` continue to work with the non-root user.
+
 ### Environment Variables
 | Variable                     | Default  | Description                                                                     |
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
@@ -105,6 +141,9 @@ services:
 For ease of use, it is recommended to use a reverse proxy for accessing GameShelf, such as `games.mydomain.com`. Use the service of your choice to accomplish this. The below configuration is a working example from [Traefik](https://doc.traefik.io/traefik/).
 
 #### Traefik Example
+
+Use this dynamic configuration with Traefik's file provider and an existing `https` entry point. Traefik and GameShelf must share a Docker network where `gameshelf` resolves to the GameShelf container. The backend URL uses GameShelf's default internal port, `8080`.
+
 ```yaml
 http:
   routers:
@@ -117,20 +156,16 @@ http:
         - default-chain
       tls: {}
       service: gameshelf
-```
 
-```yaml
-services:
+  services:
 
     gameshelf:
       loadBalancer:
         servers:
-          - url: "http://gameshelf:8086"
+          - url: "http://gameshelf:8080"
         passHostHeader: true
-```
 
-```yaml
-middlewares:
+  middlewares:
 
     https-redirectscheme:
       redirectScheme:
@@ -156,6 +191,10 @@ middlewares:
         - https-redirectscheme
         - default-headers
 ```
+
+Traefik connects directly to the container port on the shared network. Changing only the published host port (for example, `8086:8080`) leaves the backend URL at `http://gameshelf:8080`.
+
+To use a custom internal port, set `GAMESHELF_ADDR=:8086` in GameShelf's environment and change the Traefik backend URL to `http://gameshelf:8086`. If you also publish a host port, update the container side of that mapping to match (for example, `8086:8086`).
 
 ### Single Sign-On
 You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and more, by using forward Auth.
@@ -218,7 +257,11 @@ GameDrive
 2. View and/or download zipped folders from the web UI.
 
 ## Roadmap
-View the [roadmap](https://github.com/ShannonWetnight/gameshelf/blob/main/ROADMAP.md) for a list of features worth considering for GameShelf.
+View the [roadmap](ROADMAP.md) for a list of features worth considering for GameShelf.
+
+## Testing and releases
+
+This branch contains the development tests and package tooling. Use **Edge tests and prerelease** in Actions for test packages and optional prereleases. Promote reviewed application changes and release notes to main individually; keep the test harness on Edge. See the [release guide](docs/RELEASING.md).
 
 ## Responsible Use & Distribution
 GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.

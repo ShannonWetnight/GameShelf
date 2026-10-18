@@ -33,9 +33,10 @@ type gameEntry struct {
 }
 
 var (
-	rootDir  string
-	gamesMu  sync.RWMutex
-	gamesMap = make(map[string]*gameEntry) // id -> entry
+	rootDir   string
+	gamesMu   sync.RWMutex
+	refreshMu sync.Mutex                   // serialize scans without blocking readers
+	gamesMap  = make(map[string]*gameEntry) // id -> entry
 )
 
 func main() {
@@ -126,52 +127,57 @@ func refreshInterval() time.Duration {
 // -------- Game indexing --------
 
 func refreshGames() error {
-    gamesMu.Lock()
-    defer gamesMu.Unlock()
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
 
-    gamesMap = make(map[string]*gameEntry)
+	nextGames := make(map[string]*gameEntry)
 
-    entries, err := os.ReadDir(rootDir)
-    if err != nil {
-        return fmt.Errorf("reading rootDir: %w", err)
-    }
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		return fmt.Errorf("reading rootDir: %w", err)
+	}
 
-    for _, e := range entries {
-        if !e.IsDir() {
-            continue
-        }
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
 
-        dirName := e.Name()
-        id := slugify(dirName)
-        absPath := filepath.Join(rootDir, dirName)
+		dirName := e.Name()
+		id := slugify(dirName)
+		absPath := filepath.Join(rootDir, dirName)
 
-        size, err := dirSize(absPath)
-        if err != nil {
-            log.Printf("warning: size for %s: %v", dirName, err)
-        }
+		size, err := dirSize(absPath)
+		if err != nil {
+			return fmt.Errorf("scanning game %q: %w", dirName, err)
+		}
 
-        cover := findCover(absPath)
-        if cover == "" {
-            // Future: auto-fetch cover via API service
-            // cover = fetchCoverFromService(dirName)
-        }
+		cover := findCover(absPath)
+		if cover == "" {
+			// Future: auto-fetch cover via API service
+			// cover = fetchCoverFromService(dirName)
+		}
 
-        entry := &gameEntry{
-            Game: Game{
-                ID:        id,
-                Name:      dirName,
-                SizeBytes: size,
-                HasCover:  cover != "",
-            },
-            DirName:   dirName,
-            CoverPath: cover,
-        }
+		entry := &gameEntry{
+			Game: Game{
+				ID:        id,
+				Name:      dirName,
+				SizeBytes: size,
+				HasCover:  cover != "",
+			},
+			DirName:   dirName,
+			CoverPath: cover,
+		}
 
-        gamesMap[id] = entry
-    } // <-- THIS CLOSING BRACE WAS MISSING
+		nextGames[id] = entry
+	}
 
-    log.Printf("Indexed %d games", len(gamesMap))
-    return nil
+	// Publish only a complete scan; readers keep the last successful index.
+	gamesMu.Lock()
+	gamesMap = nextGames
+	gamesMu.Unlock()
+
+	log.Printf("Indexed %d games", len(nextGames))
+	return nil
 }
 
 func slugify(name string) string {
@@ -238,15 +244,19 @@ func findCover(dir string) string {
 // -------- Handlers --------
 
 func handleGames(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    // forceRefresh enables client to bypass auto-scan timer
-    if r.URL.Query().Has("forceRefresh") {
-        refreshGames()
-    }
+	// forceRefresh enables client to bypass auto-scan timer
+	if r.URL.Query().Has("forceRefresh") {
+		if err := refreshGames(); err != nil {
+			log.Printf("forced scan error: %v", err)
+			http.Error(w, "Unable to refresh game library. Please try again later.", http.StatusServiceUnavailable)
+			return
+		}
+	}
 
 	gamesMu.RLock()
 	defer gamesMu.RUnlock()

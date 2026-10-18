@@ -1,0 +1,13 @@
+name: Publish stable release
+# Stable publication implementation lives on main.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  main-only:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo 'Select main when running Publish stable release.' >&2
+          exit 1
