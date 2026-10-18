@@ -51,7 +51,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
- - Env to include, optional 
+  - Env to include, optional 
 * [ ] Add support for multiple directories
 * [ ] Add settings wheel and nest ability to change or set default/additional directory 
 
