@@ -1,11 +1,19 @@
 ## Changes
 
-- [Describe a change users will notice.]
+- [Describe a user-visible change.]
 
-## Upgrade notes
+## Fixed
 
-[Add any changed settings, permission requirements, or migration steps.]
+- [Describe a bug fix.]
 
-## Known issues
+## Added
 
-[Add remaining issues, or state that none are currently known.]
+- [Describe a new feature.]
+
+## Other
+
+- [Describe another relevant update.]
+
+## Security
+
+- [Describe a patched security issue.]
