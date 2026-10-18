@@ -20,7 +20,7 @@ runs:
           --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
         node --check web/app.js
         node --test tests/frontend.test.cjs
-        PUBLIC_RELEASE_SCRIPT="$GITHUB_WORKSPACE/candidate/scripts/release.py" python3 -m unittest discover -s "$GITHUB_WORKSPACE/tooling/tests" -p 'test_*.py' -v
+        PUBLIC_RELEASE_SCRIPT="$GITHUB_WORKSPACE/candidate/.github/scripts/release.py" python3 -m unittest discover -s "$GITHUB_WORKSPACE/tooling/tests" -p 'test_*.py' -v
     - name: Test Docker behavior and non-root restrictions
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}

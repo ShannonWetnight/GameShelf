@@ -11,6 +11,9 @@ on:
         description: Publish an Edge test prerelease
         type: boolean
         default: false
+      promote_version:
+        description: Create a selective draft main PR after tests pass (e.g. v2.2.0; blank disables)
+        type: string
       source_sha:
         description: Exact main commit to verify for a stable release (normally blank)
         type: string
@@ -46,6 +49,7 @@ jobs:
           STABLE_VERSION: ${{ inputs.stable_version }}
           REQUEST_ID: ${{ inputs.request_id }}
           PUBLISH: ${{ inputs.publish }}
+          PROMOTE_VERSION: ${{ inputs.promote_version }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/edge ]]; then
             echo 'Run the full Edge workflow from edge.' >&2; exit 1
@@ -54,13 +58,17 @@ jobs:
             [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
             [[ "$STABLE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
             [[ "$REQUEST_ID" =~ ^stable-[0-9]+-[0-9]+$ ]]
-            [[ "$PUBLISH" != true ]]
+            [[ "$PUBLISH" != true && -z "$PROMOTE_VERSION" ]]
             git -C tooling merge-base --is-ancestor "$SOURCE_SHA" origin/main
             echo 'CHANNEL=stable' >> "$GITHUB_ENV"
             echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
             echo 'SOURCE_REF=refs/heads/main' >> "$GITHUB_ENV"
           else
             [[ -z "$STABLE_VERSION" && -z "$REQUEST_ID" ]]
+            if [[ -n "$PROMOTE_VERSION" ]]; then
+              [[ "$PROMOTE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+              [[ "$PUBLISH" != true ]]
+            fi
             echo 'CHANNEL=edge' >> "$GITHUB_ENV"
             echo "SOURCE_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
             echo "SOURCE_REF=$GITHUB_REF" >> "$GITHUB_ENV"
@@ -80,7 +88,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "$CHANNEL" == stable ]]; then
-            python3 scripts/release.py check-tree
+            python3 .github/scripts/release.py check-tree
           fi
           GITHUB_SHA="$SOURCE_SHA" GITHUB_REF="$SOURCE_REF" python3 "$GITHUB_WORKSPACE/tooling/scripts/release.py" prepare
       - name: Overlay Edge tests into a temporary verification copy
@@ -126,3 +134,32 @@ jobs:
           CHANNEL: edge
           VERSION: ${{ needs.test.outputs.version }}
         run: bash scripts/publish.sh
+
+  promote:
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_version != '' && !inputs.source_sha && !inputs.publish && github.ref == 'refs/heads/edge'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout the tested Edge commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout main's public file rules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          path: public
+          persist-credentials: false
+      - name: Create a selective draft release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMOTE_VERSION: ${{ inputs.promote_version }}
+        run: python3 tooling/.github/scripts/promote.py
