@@ -85,7 +85,7 @@ def main():
             'Review this draft before merging. After merge, run the stable release Action from main with this version.')
     pr = api(f'repos/{repo}/pulls', {'title': f'Release {version}: promote tested application from Edge',
                                     'head': branch, 'base': 'main', 'draft': True, 'body': body})
-    # Explicit dispatch is needed for PRs opened with the repository GITHUB_TOKEN.
+    # Explicitly validate the automation-created PR without relying on PR events.
     # check_only skips all stable verification/publication jobs.
     api(f'repos/{repo}/actions/workflows/release.yml/dispatches',
         {'ref': branch, 'inputs': {'version': version, 'check_only': True}})
