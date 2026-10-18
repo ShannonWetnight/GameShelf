@@ -56,6 +56,17 @@ def validate_notes(path):
         raise ValueError(f"Replace unfinished placeholders in {path}.")
     if not re.search(r"^[-*] \S.+", text, re.M):
         raise ValueError(f"Add at least one change bullet to {path}.")
+    sections = re.split(r"^##[ \t]+", text, flags=re.M)
+    if sections[0].strip() or len(sections) == 1:
+        raise ValueError(f"Use brief release-note sections in {path}: Changes, Fixed, Added, Other, Security.")
+    seen = set()
+    for section in sections[1:]:
+        heading, _, content = section.partition("\n")
+        if heading not in {"Changes", "Fixed", "Added", "Other", "Security"} or heading in seen:
+            raise ValueError(f"Unsupported or repeated release-note section in {path}: {heading}.")
+        seen.add(heading)
+        if re.search(r"^#{1,6}[ \t]+", content, re.M) or not re.search(r"^[-*] \S.+", content, re.M):
+            raise ValueError(f"Keep populated sections only in {path}; use brief bullets under {heading}.")
     return text
 
 
@@ -82,22 +93,11 @@ def prepare():
     else:
         raise ValueError("Only stable releases belong on main.")
 
-    commits = run("git", "log", "--format=- %s (%h)", f"{previous}..{sha}" if previous else sha)
-    compare = (f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/compare/{previous}...{version}"
-               if previous else f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/commits/{sha}")
-    body = f"# GameShelf {version}\n\n{notes}\n\n"
-    body += (f"## Included commits\n\n{commits or 'No commits since the previous release.'}\n\n"
-             f"[Full changes]({compare})\n\n## Build and installation\n\n"
-             f"Source commit: `{sha}`\n\nPlatform: Linux amd64.\n\n"
-             f"Container: `{IMAGE}:{version}`\n\n"
-             f"Download the assets and verify them with `sha256sum -c SHA256SUMS.txt`. "
-             f"For offline installation, load the Docker archive with "
-             f"`docker load -i gameshelf-{version}-linux-amd64.docker.tar.gz`. "
-             "Use the included Compose file after setting your library path.\n")
+    body = notes + "\n"
     Path("dist").mkdir(exist_ok=True)
     Path("dist/RELEASE-NOTES.md").write_text(body)
     metadata = {"version": version, "channel": channel, "source_commit": sha,
-                "image": f"{IMAGE}:{version}", "platform": "linux/amd64"}
+                "image": f"{IMAGE}:{version}", "platform": "linux/amd64", "previous_version": previous}
     Path("dist/release.json").write_text(json.dumps(metadata, indent=2) + "\n")
     with open(os.environ["GITHUB_ENV"], "a") as env:
         env.write(f"VERSION={version}\n")
