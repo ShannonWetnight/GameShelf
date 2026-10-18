@@ -38,6 +38,14 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'API failed'):
                 release.check_release('v1.2.3')
 
+    def test_missing_notes_explain_how_to_start_a_new_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'v2.1.2.md'
+            with self.assertRaisesRegex(ValueError, 'Then start a new workflow run') as caught:
+                release.validate_notes(path)
+            self.assertIn(str(path), str(caught.exception))
+            self.assertIn('original source commit', str(caught.exception))
+
     def test_empty_or_template_notes_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'notes.md'
