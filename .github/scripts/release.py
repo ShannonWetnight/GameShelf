@@ -121,25 +121,29 @@ def publication_guard():
 
 
 
-def check_tree():
-    """Reject development files before they can enter a public source release."""
+def is_public_path(path):
     allowed = {
         'Dockerfile', 'LICENSE', 'README.md', 'ROADMAP.md', 'docker-compose.yml',
-        'go.mod', 'go.sum', 'main.go', '.gitignore', 'docs/RELEASING.md',
+        'go.mod', 'go.sum', 'main.go', '.gitignore', '.github/RELEASING.md',
         '.github/workflows/edge.yml', '.github/workflows/release.yml',
-        '.github/release-notes/TEMPLATE.md', 'scripts/release.py', 'scripts/publish.sh',
+        '.github/release-notes/TEMPLATE.md', '.github/scripts/release.py', '.github/scripts/publish.sh',
     }
-    unexpected = []
-    for path in run('git', 'ls-tree', '-r', '--name-only', 'HEAD').splitlines():
-        if path in allowed or re.fullmatch(r'\.github/release-notes/v[0-9]+\.[0-9]+\.[0-9]+\.md', path):
-            continue
-        if (path.startswith(('web/', 'images/'))
+    if path in allowed or re.fullmatch(r'\.github/release-notes/v[0-9]+\.[0-9]+\.[0-9]+\.md', path):
+        return True
+    return bool(path.startswith(('web/', 'images/'))
                 and Path(path).suffix.lower() in {'.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.ico', '.woff', '.woff2'}
-                and not re.search(r'(^|/)(tests?|fixtures?)(/|\.)|\.(test|spec)\.', path, re.I)):
-            continue
-        unexpected.append(path)
+                and not re.search(r'(^|/)(tests?|fixtures?)(/|\.)|\.(test|spec)\.', path, re.I))
+
+
+def validate_public_paths(paths):
+    unexpected = [path for path in paths if not is_public_path(path)]
     if unexpected:
         raise ValueError('Keep development files on edge: ' + ', '.join(unexpected))
+
+
+def check_tree():
+    """Reject development files before they enter main or a public source release."""
+    validate_public_paths(run('git', 'ls-tree', '-r', '--name-only', 'HEAD').splitlines())
     launcher = Path('.github/workflows/edge.yml').read_text()
     if '# Edge launcher only; test implementation lives on edge.' not in launcher or 'actions/verify' in launcher:
         raise ValueError('Main must retain the Edge launcher, not the Edge test workflow.')

@@ -25,7 +25,6 @@
     + [Recommended File Structure](#recommended-file-structure)
 - [Usage](#usage)
 - [Roadmap](#roadmap)
-- [Testing and releases](#testing-and-releases)
 - [Legal Disclaimer](#responsible-use--distribution)
 
 ## Overview
@@ -258,10 +257,6 @@ GameDrive
 
 ## Roadmap
 View the [roadmap](ROADMAP.md) for a list of features worth considering for GameShelf.
-
-## Testing and releases
-
-Use **Edge tests and prerelease** in GitHub Actions for development packages. Its tests and fixtures live on `edge`. Use **Publish stable release** from `main` for public releases with versioned change notes and checksums. Stable publication requires Edge to verify the exact main commit first. See the [release guide](docs/RELEASING.md).
 
 ## Responsible Use & Distribution
 GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.
