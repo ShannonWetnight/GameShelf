@@ -43,6 +43,13 @@ def check_release(version):
 
 
 def validate_notes(path):
+    if not path.is_file():
+        raise ValueError(
+            f"Release notes are missing: {path}. "
+            "Create this file from .github/release-notes/TEMPLATE.md, add the version's changes, "
+            "and commit it to the source branch. Then start a new workflow run; "
+            "rerunning an older run keeps its original source commit."
+        )
     text = path.read_text().strip()
     # Notes should describe changes; copying the template unchanged cannot pass.
     if re.search(r"\b(TODO|TBD)\b|\[PLACEHOLDER\]|\[Describe|\[Add ", text, re.I):
@@ -129,4 +136,7 @@ def publication_guard():
 
 
 if __name__ == "__main__":
-    {"prepare": prepare, "guard": publication_guard}[sys.argv[1]]()
+    try:
+        {"prepare": prepare, "guard": publication_guard}[sys.argv[1]]()
+    except ValueError as error:
+        raise SystemExit(str(error))
