@@ -261,7 +261,7 @@ View the [roadmap](ROADMAP.md) for a list of features worth considering for Game
 
 ## Testing and releases
 
-Use **Edge tests and prerelease** in GitHub Actions to test changes and optionally publish an experimental package from `edge`. Use **Publish stable release** from `main` to publish a new version with release notes, checksums, Docker and source archives, and verification reports. See the [release guide](docs/RELEASING.md) for instructions.
+Use **Edge tests and prerelease** in GitHub Actions for development packages. Its tests and fixtures live on `edge`. Use **Publish stable release** from `main` for public releases with versioned change notes and checksums. Stable publication requires Edge to verify the exact main commit first. See the [release guide](docs/RELEASING.md).
 
 ## Responsible Use & Distribution
 GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.

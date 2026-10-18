@@ -22,10 +22,6 @@ printf '\nPublished image digest: `%s`\n' "$digest" >> dist/RELEASE-NOTES.md
 (cd dist && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 flags=(--latest)
 alias=latest
-if [[ "$CHANNEL" == edge ]]; then
-  flags=(--prerelease --latest=false)
-  alias=edge
-fi
 assets=(dist/*.tar.gz dist/LICENSE dist/RELEASE-NOTES.md dist/release.json dist/docker-compose.yml dist/SHA256SUMS.txt)
 # Create a draft first so an upload failure does not expose a partial release.
 gh release create "$VERSION" "${assets[@]}" --repo "$repo" --verify-tag \
