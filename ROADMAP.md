@@ -8,7 +8,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Responsive UI layout
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
 * [x] Add loading state or skeleton UI while games load
-* [ ] Improve mobile spacing and responsive typography
+* [x] Improve mobile spacing and responsive typography
   - Mobile view, although not entirely necessary as this application is geared towards PC libraries
   - If geared towards mobile, can consider APK file type filter or dedicated tab
 * [x] *(Planned)* Manual refresh button
