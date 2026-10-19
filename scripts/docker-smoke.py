@@ -73,6 +73,11 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         if group:
             assert str(group) in docker("exec", cid, "id", "-G").split()
         assert len(games) == expected, games
+        version = json.loads(get("/api/version"))
+        assert version == {
+            "version": os.getenv("VERSION", "Development"),
+            "channel": os.getenv("CHANNEL", "development"),
+        }, version
         assert b"GameShelf" in get("/")
         assert get("/app.js")
         assert get("/styles.css")
