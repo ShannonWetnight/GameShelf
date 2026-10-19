@@ -26,12 +26,14 @@ data['image_digest'] = os.environ['IMAGE_DIGEST']
 path.write_text(json.dumps(data, indent=2) + '\n')
 PYMETA
 # Keep provenance in metadata, outside the audience-facing release notes.
-(cd dist && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+# Publish only the two verified archives and a checksum for those archives.
+docker_archive="gameshelf-$VERSION-linux-amd64.docker.tar.gz"
+source_archive="gameshelf-$VERSION-source.tar.gz"
+(cd dist && sha256sum "$docker_archive" "$source_archive" > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
 flags=(--latest)
 alias=latest
-# Keep the verified package in Actions; GitHub provides source downloads from the tag.
-gh release create "$VERSION" --repo "$repo" --verify-tag \
-  --target "$GITHUB_SHA" --title "GameShelf $VERSION" \
+gh release create "$VERSION" "dist/$docker_archive" "dist/$source_archive" dist/SHA256SUMS.txt \
+  --repo "$repo" --verify-tag --target "$GITHUB_SHA" --title "GameShelf $VERSION" \
   --notes-file dist/RELEASE-NOTES.md --draft "${flags[@]}"
 gh release edit "$VERSION" --repo "$repo" --draft=false "${flags[@]}"
 # Advance the channel alias only after the versioned release is public.
