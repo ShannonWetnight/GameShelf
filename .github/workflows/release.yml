@@ -75,7 +75,7 @@ jobs:
           VERSION: ${{ inputs.version }}
           EDGE_RUN_ID: ${{ needs.verify.outputs.run_id }}
         run: gh run download "$EDGE_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
-      - name: Publish the verified public bundle
+      - name: Publish the image and source release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANNEL: stable
