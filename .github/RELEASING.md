@@ -5,7 +5,7 @@
 | Action | Purpose |
 | --- | --- |
 | Edge tests and prerelease | Run development checks and optionally publish an Edge prerelease. The small launcher on main starts the implementation on Edge. |
-| Publish stable release | Check the public file list, request verification of the exact main commit on Edge, and publish its verified bundle under a new stable tag. |
+| Publish stable release | Check the public file list, request verification of the exact main commit on Edge, and publish its verified Docker image and create a source release under a new stable tag. |
 
 ## Development
 
@@ -16,16 +16,16 @@ To prepare a release PR, commit the version notes on Edge and run **Edge tests a
 ## Stable releases
 
 1. Finish testing on Edge and promote the approved application changes to main.
-2. Copy `.github/release-notes/TEMPLATE.md` to a new version file such as `.github/release-notes/v2.2.0.md`. Replace the placeholders with changes, upgrade instructions, and known issues. Commit it to main.
+2. Copy `.github/release-notes/TEMPLATE.md` to a new version file such as `.github/release-notes/v2.2.0.md`. Replace the placeholders with brief changes and omit empty sections. Commit it to main.
 3. Run **Publish stable release** from `main` with that same version.
 
 If the notes file is missing, commit it to main before starting a new workflow run. Re-running a failed older run uses its original commit and will still miss the new file.
 
-The release Action validates the source, notes, and version, then starts the Edge harness against that exact main commit. Edge builds and tests a temporary copy using its own tests, scans builder and runtime images, and packages the verified image. It separately archives the pristine main checkout, so the public source archive contains no overlaid test files. Main downloads the package from that specific successful run and checks its source SHA and image ID before publication.
+The release Action validates the source, notes, and version, then starts the Edge harness against that exact main commit. Edge builds and tests a temporary copy using its own tests, scans builder and runtime images, and packages the verified image. It separately archives the pristine main checkout for the internal verification package. Main downloads the package from that specific successful run and checks its source SHA and image ID before publication.
 
-The public bundle contains the Linux amd64 Docker image archive, clean main source archive, version-specific Compose file, license, change notes, build metadata, and SHA-256 checksums. Test fixtures and verification reports are excluded. Notes contain only the reviewed, brief change summary. GitHub's automatic source downloads also follow the clean main tag.
+The public release contains brief change notes and only GitHub's automatic Source code (zip) and Source code (tar.gz) downloads from the clean main tag. Publish the verified Docker image to GHCR. Keep Docker archives, duplicate source archives, Compose copies, metadata, checksums, and verification reports in Actions artifacts; do not attach them to stable GitHub releases. The source downloads already include the license and Compose file.
 
-Publication creates a matching source tag without moving existing tags, uploads a draft release, publishes it, and finally updates `:latest`. Edge prereleases update only `:edge`. A failed check or scan blocks publication. Existing releases cannot be overwritten. An interrupted publication can leave a draft or a versioned image; inspect its run before retrying. GitHub and GHCR cannot be updated as one transaction.
+Publication creates a matching source tag without moving existing tags, creates a draft release with no uploaded assets, publishes it, and finally updates `:latest`. Edge prereleases update only `:edge`. A failed check or scan blocks publication. Existing releases cannot be overwritten. An interrupted publication can leave a draft or a versioned image; inspect its run before retrying. GitHub and GHCR cannot be updated as one transaction.
 
 ## Maintainer files
 
@@ -50,4 +50,4 @@ The built-in `GITHUB_TOKEN` needs Actions write access to dispatch and wait for 
 
 Use only `Changes`, `Fixed`, `Added`, `Other`, and `Security` as level-two headings. Omit empty sections and keep bullets to one short sentence where practical. Describe the user-visible result; group related changes. Put patched security issues under `Security`, naming a CVE only when verified. Keep any essential upgrade action to a brief bullet in the relevant section.
 
-Do not append installation instructions, limitations, commit lists, source SHAs, container references, image digests, or build details to the public notes. Installation belongs in README; source and image identity belong in `release.json` and the Action summary. Update the version notes for each stable release and `.github/release-notes/edge.md` for each Edge test release.
+Do not append installation instructions, limitations, commit lists, source SHAs, container references, image digests, or build details to the public notes. Installation belongs in README; source and image identity belong in the Actions artifact's `release.json` and the Action summary. Update the version notes for each stable release and `.github/release-notes/edge.md` for each Edge test release.
