@@ -18,6 +18,21 @@ const cardMap = new Map(); // game.id -> card element
 /* =============================
    Data Fetching
    ============================= */
+async function loadVersion() {
+  const label = document.getElementById('version-label');
+  try {
+    const res = await fetch('/api/version');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const info = await res.json();
+    if (!info || typeof info.version !== 'string' || typeof info.channel !== 'string') {
+      throw new Error('Invalid version response');
+    }
+    label.textContent = info.channel === 'edge' ? `Edge: ${info.version}` : info.version;
+  } catch {
+    label.textContent = 'Version unavailable';
+  }
+}
+
 async function fetchGames(isRefresh = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
@@ -200,6 +215,15 @@ function applySearchFilter() {
   hint.classList.toggle('hidden', !emptyLibrary);
   searchHint.classList.toggle('hidden', emptyLibrary);
   empty.classList.toggle('hidden', isLoading || loadError || !hasLoadedGames || visibleCount > 0);
+  document.getElementById('clear-search').classList.toggle('hidden', currentSearch.length === 0);
+}
+
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  input.value = '';
+  currentSearch = '';
+  input.classList.remove('is-filtering');
+  applySearchFilter();
 }
 
 /* =============================
@@ -230,10 +254,7 @@ async function loadGames(isRefresh = false) {
       coverVersions.clear();
       refreshGeneration++;
       games.forEach(game => coverVersions.set(game.id, refreshGeneration));
-      currentSearch = '';
-      const searchInput = document.getElementById('search-input');
-      searchInput.value = '';
-      searchInput.classList.remove('is-filtering');
+      clearSearch();
     }
 
     gamesCache = games;
@@ -270,6 +291,7 @@ async function loadGames(isRefresh = false) {
    DOM bindings
    ============================= */
 document.addEventListener('DOMContentLoaded', () => {
+  loadVersion();
   loadGames();
 
   /* -------- Search -------- */
@@ -281,6 +303,10 @@ document.addEventListener('DOMContentLoaded', () => {
       applySearchFilter();
     });
   }
+  document.getElementById('clear-search').addEventListener('click', () => {
+    clearSearch();
+    searchInput.focus();
+  });
 
   /* -------- Refresh -------- */
   const trigger = document.getElementById('gs-refresh-trigger');
@@ -400,16 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (searchInput.value !== '') {
-        searchInput.value = '';
-        currentSearch = '';
-        searchInput.classList.remove('is-filtering');
-
-        // Show all cards immediately
-        cardMap.forEach(card => {
-          card.style.display = '';
-        });
-
-        applySearchFilter();
+        clearSearch();
       }
 
       searchInput.blur();
