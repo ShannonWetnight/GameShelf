@@ -441,8 +441,9 @@ body {
 .gs-grid.list-view .gs-card-body {
   flex-direction: row;
   align-items: center;
+  gap: 0;
   padding: 0;
-  height: auto;
+  min-height: 0;
   width: 100%;
 }
 
@@ -451,7 +452,8 @@ body {
    ============================= */
 
 .gs-grid.list-view .gs-card-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: unset;
   max-height: unset;
 }
@@ -466,6 +468,8 @@ body {
   font-size: 0.8rem;
   margin-left: 12px;
   padding: 0 18px;
+  white-space: nowrap;
+  text-align: left;
 }
 
 /* =============================
@@ -473,8 +477,6 @@ body {
    ============================= */
 
 .gs-grid.list-view .gs-card-actions {
-  position: static;
-  transform: none;
   margin-left: auto;
 }
 
@@ -531,8 +533,9 @@ body {
 .gs-card-body {
   display: flex;
   flex-direction: column;
-  padding: 0.6rem 0.9rem 0.5rem;
-  height: 124px;
+  gap: 0.25rem;
+  padding: 0.6rem 0.9rem 0.7rem;
+  min-height: 132px;
 }
 
 .gs-card-title {
@@ -550,29 +553,21 @@ body {
 .gs-card-meta {
   font-size: 0.8rem;
   color: var(--text-muted);
-  text-align: left;
+  text-align: center;
 }
 
 .gs-card-actions {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
+  justify-content: center;
+  margin-top: auto;
 }
 
 .gs-card-content {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 3.2em;
   max-height: 3.2em;
   overflow: hidden;
-}
-
-.gs-card-footer {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 48px;
 }
 
 .gs-button {
