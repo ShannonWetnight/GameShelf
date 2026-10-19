@@ -11,6 +11,7 @@ let retryRefresh = false;
 
 let currentSort = 'az';
 let currentSearch = '';
+let suggestedGameId = null;
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
 const cardMap = new Map(); // game.id -> card element
@@ -218,6 +219,31 @@ function applySearchFilter() {
   document.getElementById('clear-search').classList.toggle('hidden', currentSearch.length === 0);
 }
 
+function clearSuggestion() {
+  if (suggestedGameId) cardMap.get(suggestedGameId)?.classList.remove('gs-random-selected');
+  suggestedGameId = null;
+  document.getElementById('suggestion-status').textContent = '';
+}
+
+function suggestRandomGame() {
+  if (isLoading || gamesCache.length === 0) return;
+  const choices = gamesCache.length > 1
+    ? gamesCache.filter(game => game.id !== suggestedGameId)
+    : gamesCache;
+  const game = choices[Math.floor(Math.random() * choices.length)];
+  const card = cardMap.get(game.id);
+  if (!card) return;
+
+  clearSuggestion();
+  if (currentSearch) clearSearch();
+  suggestedGameId = game.id;
+  card.classList.add('gs-random-selected');
+  card.setAttribute('tabindex', '-1');
+  card.scrollIntoView?.({ block: 'center' });
+  card.focus({ preventScroll: true });
+  document.getElementById('suggestion-status').textContent = `Suggested game: ${game.name}`;
+}
+
 function clearSearch() {
   const input = document.getElementById('search-input');
   input.value = '';
@@ -235,8 +261,10 @@ async function loadGames(isRefresh = false) {
   const loading = document.getElementById('loading-state');
   const error = document.getElementById('error-state');
   const retry = document.getElementById('retry-button');
+  const randomButton = document.getElementById('random-game');
 
   isLoading = true;
+  randomButton.disabled = true;
   loadError = false;
   retryRefresh = isRefresh;
   loading.textContent = isRefresh ? 'Refreshing games…' : 'Loading games…';
@@ -257,6 +285,7 @@ async function loadGames(isRefresh = false) {
       clearSearch();
     }
 
+    clearSuggestion();
     gamesCache = games;
     cardMap.clear();
     container.innerHTML = '';
@@ -282,6 +311,7 @@ async function loadGames(isRefresh = false) {
     isLoading = false;
     loading.classList.add('hidden');
     retry.disabled = false;
+    randomButton.disabled = gamesCache.length === 0;
     container.setAttribute('aria-busy', 'false');
     applySearchFilter();
   }
@@ -298,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
     searchInput.addEventListener('input', e => {
+      clearSuggestion();
       currentSearch = e.target.value.trim().toLowerCase();
       searchInput.classList.toggle('is-filtering', currentSearch.length > 0);
       applySearchFilter();
@@ -348,6 +379,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   trigger.addEventListener('click', () => runRefresh());
   document.getElementById('retry-button').addEventListener('click', () => runRefresh(retryRefresh));
+
+  document.getElementById('random-game').addEventListener('click', suggestRandomGame);
 
   /* -------- Sort menu -------- */
   const sortButton = document.getElementById('sort-button');
