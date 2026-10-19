@@ -34,13 +34,11 @@ def plan(main, edge, version, guard):
     if not REQUIRED.issubset(edge):
         raise ValueError('Edge is missing a required application file.')
     note = f'.github/release-notes/{version}.md'
-    if note not in edge:
-        raise ValueError(f'Commit {note} on Edge before promotion.')
     if note in main:
         raise ValueError('These version notes already exist on main; choose a new version.')
-    selected = {path for path in edge if production(path, guard)} | {note}
+    selected = {path for path in edge if production(path, guard)}
     removed = {path for path in main if production(path, guard) and path not in edge}
-    final_paths = (set(main) - removed) | selected
+    final_paths = (set(main) - removed) | selected | {note}
     guard.validate_public_paths(sorted(final_paths))
     changes = [edge[path] for path in sorted(selected) if main.get(path) != edge[path]]
     changes += [{**main[path], 'sha': None} for path in sorted(removed)]
@@ -53,6 +51,13 @@ def api(path, payload):
         body.flush()
         data = subprocess.check_output(['gh', 'api', '--method', 'POST', path, '--input', body.name], text=True)
     return json.loads(data) if data.strip() else {}
+
+
+def draft_note_change(public, version, repo):
+    note = f'.github/release-notes/{version}.md'
+    template = (public / '.github/release-notes/TEMPLATE.md').read_text()
+    blob = api(f'repos/{repo}/git/blobs', {'content': template, 'encoding': 'utf-8'})
+    return {'path': note, 'mode': '100644', 'type': 'blob', 'sha': blob['sha']}
 
 
 def main():
@@ -68,8 +73,9 @@ def main():
     if git(edge, 'rev-parse', 'HEAD') != source:
         raise ValueError('Promotion source differs from the tested Edge commit.')
     changes = plan(entries(public), entries(edge), version, guard)
-    guard.validate_notes(edge / f'.github/release-notes/{version}.md')
     repo = os.environ['GITHUB_REPOSITORY']
+    note = f'.github/release-notes/{version}.md'
+    changes.append(draft_note_change(public, version, repo))
     base = git(public, 'rev-parse', 'HEAD')
     tree = api(f'repos/{repo}/git/trees', {'base_tree': git(public, 'rev-parse', 'HEAD^{tree}'), 'tree': changes})
     commit = api(f'repos/{repo}/git/commits', {'message': f'Prepare GameShelf {version} from Edge {source[:12]}',
@@ -77,12 +83,14 @@ def main():
     branch = f'release/{version}-{os.environ["GITHUB_RUN_ID"]}-{os.environ["GITHUB_RUN_ATTEMPT"]}'
     api(f'repos/{repo}/git/refs', {'ref': f'refs/heads/{branch}', 'sha': commit['sha']})
     paths = '\n'.join(f'- `{entry["path"]}`' for entry in changes)
-    body = (f'Promote the application tested at Edge commit `{source}` for GameShelf {version}.\n\n'
-            'This branch starts from main and copies approved application paths and the selected version notes only. '
+    body = (f'Promote the application tested at Edge commit `{source}` for planned GameShelf {version}. '
+            'This does not create a version tag or publish a release.\n\n'
+            'This branch starts from main, copies approved application paths, and creates draft stable release notes from main’s template. '
             "Main's README, roadmap, workflows, and release helpers are retained. Tests, fixtures, Edge notes, "
             'and top-level docs/scripts are excluded.\n\nChanged paths:\n\n' + paths + '\n\n'
             f'Edge verification: https://github.com/{repo}/actions/runs/{os.environ["GITHUB_RUN_ID"]}\n\n'
-            'Review this draft before merging. After merge, run the stable release Action from main with this version.')
+            f'Complete `{note}` on this draft branch, review the application changes, then merge. '
+            'The stable release Action will reject unfinished notes. After merge, run it from main with this version.')
     pr = api(f'repos/{repo}/pulls', {'title': f'Release {version}: promote tested application from Edge',
                                     'head': branch, 'base': 'main', 'draft': True, 'body': body})
     # Explicitly validate the automation-created PR without relying on PR events.

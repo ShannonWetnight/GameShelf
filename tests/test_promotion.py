@@ -2,8 +2,10 @@
 import importlib.util
 import re
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('promote', Path(__file__).parents[1] / '.github/scripts/promote.py')
 promote = importlib.util.module_from_spec(spec)
@@ -36,7 +38,7 @@ class PromotionTests(unittest.TestCase):
 
     def test_only_application_and_selected_notes_are_changed(self):
         changes = promote.plan(self.main, self.edge, 'v2.2.0', self.guard)
-        expected = set(promote.REQUIRED) | {'web/app.js', 'web/old.png', self.note}
+        expected = set(promote.REQUIRED) | {'web/app.js', 'web/old.png'}
         self.assertEqual({e['path'] for e in changes}, expected)
         self.assertEqual(next(e for e in changes if e['path']=='web/old.png')['sha'], None)
         self.assertIn('.github/scripts/release.py', self.checked)
@@ -44,12 +46,15 @@ class PromotionTests(unittest.TestCase):
         self.assertNotIn('scripts/release.py', self.checked)
         self.assertNotIn('web/app.test.js', self.checked)
         self.assertNotIn('.github/release-notes/edge.md', self.checked)
+        self.assertIn(self.note, self.checked)
 
-    def test_missing_notes_or_application_file_stops_promotion(self):
-        for missing in [self.note, 'main.go']:
-            edge = {k:v for k,v in self.edge.items() if k!=missing}
-            with self.assertRaises(ValueError):
-                promote.plan(self.main, edge, 'v2.2.0', self.guard)
+    def test_edge_does_not_need_stable_notes_but_requires_application_files(self):
+        edge = {k:v for k,v in self.edge.items() if k!=self.note}
+        self.assertEqual(promote.plan(self.main, edge, 'v2.2.0', self.guard),
+                         promote.plan(self.main, self.edge, 'v2.2.0', self.guard))
+        edge.pop('main.go')
+        with self.assertRaises(ValueError):
+            promote.plan(self.main, edge, 'v2.2.0', self.guard)
 
     def test_existing_version_notes_and_invalid_versions_are_rejected(self):
         with self.assertRaises(ValueError):
@@ -60,3 +65,15 @@ class PromotionTests(unittest.TestCase):
     def test_main_guard_checks_the_whole_candidate_tree(self):
         with self.assertRaisesRegex(ValueError, 'Polluted main'):
             promote.plan({**self.main,'tests/bad.py':entry('tests/bad.py')},self.edge,'v2.2.0',self.guard)
+
+    def test_draft_notes_come_from_main_template(self):
+        with TemporaryDirectory() as folder:
+            public = Path(folder)
+            template = public / '.github/release-notes/TEMPLATE.md'
+            template.parent.mkdir(parents=True)
+            template.write_text('## Changes\n\n- [Describe a change.]\n')
+            with patch.object(promote, 'api', return_value={'sha': 'c' * 40}) as api:
+                change = promote.draft_note_change(public, 'v2.2.0', 'ShannonWetnight/GameShelf')
+            self.assertEqual(change, entry(self.note, 'c' * 40))
+            api.assert_called_once_with('repos/ShannonWetnight/GameShelf/git/blobs',
+                                        {'content': template.read_text(), 'encoding': 'utf-8'})

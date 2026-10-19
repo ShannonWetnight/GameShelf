@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       promote_version:
-        description: Create a selective draft main PR after tests pass (e.g. v2.2.0; blank disables)
+        description: Planned stable version for a draft main PR (e.g. v2.2.0; no tag is created; blank disables)
         type: string
       source_sha:
         description: Exact main commit to verify for a stable release (normally blank)
