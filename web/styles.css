@@ -367,6 +367,27 @@ body {
   fill: var(--text-muted);
 }
 
+.gs-random svg {
+  color: var(--text-muted);
+  fill: none;
+}
+
+.gs-random svg rect {
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.gs-random svg circle {
+  fill: currentColor;
+}
+
+.gs-random:disabled,
+.gs-random:disabled:hover {
+  background: none;
+  opacity: 0.45;
+  cursor: default;
+}
+
 .gs-build-info {
   position: relative;
 }
@@ -510,6 +531,11 @@ body {
   transform: translateY(-4px);
   border-color: var(--accent-soft);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.8);
+}
+
+.gs-card.gs-random-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(249, 178, 52, 0.65), var(--shadow-soft);
 }
 
 .gs-card-cover {
@@ -681,6 +707,18 @@ body {
 
 .hidden {
   display: none;
+}
+
+.gs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
