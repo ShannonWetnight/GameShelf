@@ -37,6 +37,8 @@ var (
 	gamesMu   sync.RWMutex
 	refreshMu sync.Mutex                   // serialize scans without blocking readers
 	gamesMap  = make(map[string]*gameEntry) // id -> entry
+	buildVersion = "Development"
+	buildChannel = "development"
 )
 
 func main() {
@@ -69,6 +71,7 @@ func main() {
 
 	// API endpoints
 	mux.HandleFunc("/api/games", handleGames)
+	mux.HandleFunc("/api/version", handleVersion)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -113,7 +116,7 @@ func refreshInterval() time.Duration {
 
 	dur, err := time.ParseDuration(value)
 	if err != nil {
-		log.Printf("invalid GAMESHELF_REFRESH_INTERVAL %q, using default 5m", value)
+		log.Printf("invalid GAMESHELF_REFRESH_INTERVAL %q, using default 12h", value)
 		return 12 * time.Hour
 	}
 
@@ -242,6 +245,20 @@ func findCover(dir string) string {
 }
 
 // -------- Handlers --------
+
+func handleVersion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(struct {
+		Version string `json:"version"`
+		Channel string `json:"channel"`
+	}{buildVersion, buildChannel}); err != nil {
+		log.Printf("encode version: %v", err)
+	}
+}
 
 func handleGames(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

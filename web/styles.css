@@ -90,6 +90,17 @@ body {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.gs-refresh:focus-visible,
+.gs-search-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 /* Micro-bounce animation for “Refreshed” */
@@ -162,9 +173,17 @@ body {
   align-items: center;
 }
 
+.gs-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .gs-search-icon {
   position: absolute;
   left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 16px;
   height: 16px;
   fill: var(--text-muted);
@@ -173,6 +192,39 @@ body {
 
 .gs-search {
   padding-left: 36px; /* Make room for icon */
+  padding-right: 42px;
+}
+
+.gs-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.gs-search-clear svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.gs-search-clear:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Remove native search clear button (Chrome / Safari) */
@@ -194,9 +246,14 @@ body {
 
 .gs-sort {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .gs-sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   margin-left: 9px;
@@ -216,6 +273,7 @@ body {
 }
 
 .gs-sort-button svg {
+  display: block;
   width: 32px;
   height: 32px;
   fill: var(--text-muted);
@@ -280,6 +338,10 @@ body {
    ============================= */
 
 .gs-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
   background: none;
   border: none;
   margin-left: 6px;
@@ -299,9 +361,47 @@ body {
 }
 
 .gs-view-toggle svg {
+  display: block;
   width: 32px;
   height: 32px;
   fill: var(--text-muted);
+}
+
+.gs-build-info {
+  position: relative;
+}
+
+.gs-build-info:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.gs-version-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 101;
+  width: max-content;
+  max-width: min(25rem, 80vw);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.gs-build-info:hover .gs-version-tooltip,
+.gs-build-info:focus .gs-version-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* =============================
@@ -581,6 +681,19 @@ body {
 
 .hidden {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .gs-card:hover {
+    transform: none;
+  }
 }
 
 /* =============================
