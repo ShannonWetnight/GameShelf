@@ -11,12 +11,12 @@
 
 Work and test on `edge`. Run **Edge tests and prerelease** with **publish** unchecked for downloadable test packages, or checked to create a prerelease and update `:edge`. Test reports remain in Edge run artifacts and test packages.
 
-To prepare a release PR, commit the version notes on Edge and run **Edge tests and prerelease** from `edge` with `promote_version` set to that version. After the tests pass, the promotion job starts from main and copies only approved application paths and that version's notes into a draft main PR. It preserves main's README, roadmap, workflow files, and release helpers. Review the draft before merging. Do not merge the entire Edge branch into main. The main file check rejects test folders, fixtures, smoke scripts, local test actions, and other files outside the public file list. Update the list deliberately when adding a new production file.
+To prepare a release PR, run **Edge tests and prerelease** from `edge` with `promote_version` set to the planned stable version and **publish** unchecked. This does not tag Edge with that version. After the tests pass, the promotion job starts from main, copies only approved application paths, and adds draft version notes from main's template to a draft main PR. Complete the notes on that PR branch before merging. It preserves main's README, roadmap, workflow files, and release helpers. Do not merge the entire Edge branch into main. The main file check rejects test folders, fixtures, smoke scripts, local test actions, and other files outside the public file list. Update the list deliberately when adding a new production file.
 
 ## Stable releases
 
-1. Finish testing on Edge and promote the approved application changes to main.
-2. Copy `.github/release-notes/TEMPLATE.md` to a new version file such as `.github/release-notes/v2.2.0.md`. Replace the placeholders with brief changes and omit empty sections. Commit it to main.
+1. Finish testing on Edge and open the draft promotion PR against main.
+2. Complete the generated `.github/release-notes/vX.Y.Z.md` in that PR. Replace the placeholders with brief changes, omit empty sections, review the application changes, and merge the PR.
 3. Run **Publish stable release** from `main` with that same version.
 
 If the notes file is missing, commit it to main before starting a new workflow run. Re-running a failed older run uses its original commit and will still miss the new file.
@@ -33,7 +33,7 @@ Keep release instructions here, stable helpers in `.github/scripts/`, version no
 
 ## Promotion safeguards
 
-The promotion copies `Dockerfile`, `main.go`, `go.mod`, optional `go.sum`, `docker-compose.yml`, approved assets under `web/` and `images/`, and only the requested version's notes. Deletions in those application paths are preserved. It validates the resulting complete file list using main's own release guard. Maintainer files, test files, fixture directories, and Edge change notes are never copied. Production README or roadmap changes require a separate reviewed change on main.
+The promotion copies `Dockerfile`, `main.go`, `go.mod`, optional `go.sum`, `docker-compose.yml`, and approved assets under `web/` and `images/`. It also creates the planned version's draft notes from main's template. Deletions in application paths are preserved. It validates the resulting complete file list using main's own release guard. Maintainer files, test files, fixture directories, and Edge change notes are never copied. Production README or roadmap changes require a separate reviewed change on main.
 
 The promotion creates a new branch and draft PR; it does not merge or publish. To avoid relying on PR-event triggering or approval for an automation-created PR, promotion explicitly dispatches main's **Publish stable release** workflow with `check_only` enabled on the new branch. That run checks the public file list and skips verification/publication. Repository Actions settings must allow GitHub Actions to create pull requests.
 
