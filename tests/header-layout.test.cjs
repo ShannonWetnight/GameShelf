@@ -96,3 +96,62 @@ test('header icons remain centered and toolbar buttons share one row', () => {
   }
 });
 
+
+test('narrow screens keep controls and game cards within the viewport', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-mobile-'));
+  try {
+    const probe = `
+      <script>
+        const grid = document.querySelector('#games-container');
+        grid.innerHTML = '<article class="gs-card"><div class="gs-card-cover"></div><div class="gs-card-body"><div class="gs-card-content"><h3 class="gs-card-title">A long game title for mobile layout</h3></div><div class="gs-card-footer"><div class="gs-card-meta">12 GB</div><div class="gs-card-actions"><a class="gs-icon-button" href="#">Download</a></div></div></div></article>';
+        const bounds = selector => {
+          const r = document.querySelector(selector).getBoundingClientRect();
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+        };
+        const result = {
+          viewportWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          logo: bounds('.gs-refresh'),
+          search: bounds('#search-input'),
+          sort: bounds('#sort-button'),
+          view: bounds('#view-toggle'),
+          info: bounds('#build-info'),
+          card: bounds('.gs-card')
+        };
+        grid.classList.add('list-view');
+        result.listCard = bounds('.gs-card');
+        result.listButton = bounds('.gs-icon-button');
+        result.listScrollWidth = document.documentElement.scrollWidth;
+        const report = document.createElement('pre');
+        report.id = 'mobile-report';
+        report.textContent = JSON.stringify(result);
+        document.body.append(report);
+      </script>`;
+    const source = html
+      .replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
+      .replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'mobile.html');
+    fs.writeFileSync(file, source);
+    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
+      '--disable-dev-shm-usage', '--window-size=390,800', '--dump-dom',
+      pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+    assert.equal(run.status, 0, run.stderr || run.error?.message);
+    const match = run.stdout.match(/<pre id="mobile-report">([^<]+)<\\/pre>/);
+    assert.ok(match, 'Chrome did not report the mobile layout');
+    const result = JSON.parse(match[1]);
+    assert.ok(result.viewportWidth <= 680, 'mobile breakpoint was not exercised');
+    assert.ok(result.scrollWidth <= result.viewportWidth, 'grid view overflows horizontally');
+    assert.ok(result.listScrollWidth <= result.viewportWidth, 'list view overflows horizontally');
+    const within = (box, name) => {
+      assert.ok(box.left >= -1 && box.right <= result.viewportWidth + 1,
+        `${name} extends past the viewport`);
+    };
+    for (const name of ['logo', 'search', 'sort', 'view', 'info', 'card', 'listCard', 'listButton']) {
+      within(result[name], name);
+    }
+    assert.ok(result.search.top >= result.logo.bottom,
+      'mobile search should sit below the logo');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
