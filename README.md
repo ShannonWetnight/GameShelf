@@ -83,10 +83,10 @@ services:
     environment:
       # Directory containing indexable folders. 
       - GAMESHELF_ROOT=/games
-      # Optional: v
+      # Optional: change the internal bind address (default :8080)
       #- GAMESHELF_ADDR=:8080
-      # Optional: Set a refresh interval to override library refresh (default unless uncommented: 0) | Options: 1m 1h (replace "1" with desired variable, or "0" without a time denomination to disable auto-refresh)
-      #- GAMESHELF_REFRESH_INTERVAL= 12h
+      # Optional: rescan every 12h by default; set 0 to disable or use a duration such as 1h.
+      #- GAMESHELF_REFRESH_INTERVAL=1h
     volumes:
       - /path/to/games:/games:ro
     security_opt:
@@ -131,7 +131,7 @@ Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivilege
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                                         |
 | `GAMESHELF_ADDR`             | `:8080`  | Optional: Change GameShelf's default (`8080`) internal bind address.                                           |
-| `GAMESHELF_REFRESH_INTERVAL` | `0`    | Optional: auto-scan interval (`1d`, `1h`,`1m`, `1s`, - `0` disables auto-refresh) |
+| `GAMESHELF_REFRESH_INTERVAL` | `12h`  | Optional rescan interval; set `0` to disable, or use a duration such as `1h` or `30m`. |
 
 **After successful installation, navigate to GameShelf's `IP:8080` address to view the indexed content.**
 
