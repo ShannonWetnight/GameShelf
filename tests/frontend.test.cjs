@@ -146,7 +146,7 @@ test('download link stays inside the card body and names its game', async () => 
   const body = card.children[1];
   const action = body.children[2].children[0];
   assert.equal(body.children[0].children[0].textContent, 'Alpha');
-  assert.equal(body.children[1].textContent, '1 KB');
+  assert.equal(body.children[1].textContent, '1.0 KB');
   assert.equal(action.href, '/download/alpha');
   assert.equal(action.attributes['aria-label'], 'Download Alpha');
 });
