@@ -136,7 +136,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
       '--disable-dev-shm-usage', '--window-size=390,800', '--dump-dom',
       pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
     assert.equal(run.status, 0, run.stderr || run.error?.message);
-    const match = run.stdout.match(/<pre id="mobile-report">([^<]+)<\\/pre>/);
+    const match = run.stdout.match(/<pre id="mobile-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the mobile layout');
     const result = JSON.parse(match[1]);
     assert.ok(result.viewportWidth <= 680, 'mobile breakpoint was not exercised');
