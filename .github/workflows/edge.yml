@@ -97,7 +97,7 @@ jobs:
           git -C candidate archive "$SOURCE_SHA" | tar -x -C "$VERIFY_WORKSPACE"
           cp tooling/main_test.go "$VERIFY_WORKSPACE/main_test.go"
           mkdir -p "$VERIFY_WORKSPACE/tests" "$VERIFY_WORKSPACE/scripts"
-          cp tooling/tests/frontend.test.cjs "$VERIFY_WORKSPACE/tests/"
+          cp tooling/tests/frontend.test.cjs tooling/tests/header-layout.test.cjs "$VERIFY_WORKSPACE/tests/"
           cp tooling/scripts/docker-smoke.py tooling/scripts/scan.sh "$VERIFY_WORKSPACE/scripts/"
       - uses: ./tooling/.github/actions/verify
       - name: Package the verified image and pristine source
