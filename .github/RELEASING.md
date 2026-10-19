@@ -48,6 +48,8 @@ The built-in `GITHUB_TOKEN` needs Actions write access to dispatch and wait for 
 
 ## Release-note format
 
+The generator adds the standard GameShelf cover image, a `vX.Y.Z Changes` heading (the actual tag for Edge), and blank-line spacing. Keep this header out of the maintained notes files; their sections become level-three headings in the published body.
+
 Use only `Changes`, `Fixed`, `Added`, `Other`, and `Security` as level-two headings. Omit empty sections and keep bullets to one short sentence where practical. Describe the user-visible result; group related changes. Put patched security issues under `Security`, naming a CVE only when verified. Keep any essential upgrade action to a brief bullet in the relevant section.
 
 Do not append installation instructions, limitations, commit lists, source SHAs, container references, image digests, or build details to the public notes. Installation belongs in README; source and image identity belong in the Actions artifact's `release.json` and the Action summary. Update the version notes for each stable release and `.github/release-notes/edge.md` for each Edge test release.
