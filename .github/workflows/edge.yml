@@ -1,10 +1,10 @@
-name: Edge tests and prerelease
+name: Edge tests and Docker image
 # Edge launcher only; test implementation lives on edge.
 on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish a test prerelease from Edge
+        description: Update the Edge Docker image (no GitHub Release)
         type: boolean
         default: false
 permissions:
