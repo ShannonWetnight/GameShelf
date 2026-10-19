@@ -25,6 +25,7 @@ class StablePublishTests(unittest.TestCase):
             (root / 'dist/RELEASE-NOTES.md').write_text(notes)
             (root / 'dist/release.json').write_text(json.dumps({'source_commit': 'a' * 40}))
             (root / 'dist/gameshelf-v2.2.0-linux-amd64.docker.tar.gz').write_bytes(b'tested image')
+            (root / 'dist/gameshelf-v2.2.0-source.tar.gz').write_bytes(b'pristine source')
             sums = ''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n'
                            for p in sorted((root / 'dist').iterdir()))
             (root / 'dist/SHA256SUMS.txt').write_text(sums)
@@ -59,15 +60,22 @@ if command == 'gh' and sys.argv[1:3] == ['release', 'create'] and os.environ['FA
             if not fail_release:
                 subprocess.run(['sha256sum', '-c', 'SHA256SUMS.txt'], cwd=root / 'dist',
                                check=True, capture_output=True)
+                checked = [line.split('  ', 1)[1] for line in
+                           (root / 'dist/SHA256SUMS.txt').read_text().splitlines()]
+                self.assertEqual(checked, ['gameshelf-v2.2.0-linux-amd64.docker.tar.gz',
+                                           'gameshelf-v2.2.0-source.tar.gz'])
             return result, calls
 
-    def test_source_only_release_keeps_verification_and_image_publication(self):
+    def test_three_asset_release_keeps_verification_and_image_publication(self):
         result, calls = self.publish()
         self.assertEqual(result.returncode, 0, result.stderr)
         create = next(call for call in calls if call[:3] == ['gh', 'release', 'create'])
-        self.assertEqual(create, ['gh', 'release', 'create', 'v2.2.0', '--repo', 'owner/repo',
-                                 '--verify-tag', '--target', 'a' * 40, '--title', 'GameShelf v2.2.0',
-                                 '--notes-file', 'dist/RELEASE-NOTES.md', '--draft', '--latest'])
+        self.assertEqual(create, ['gh', 'release', 'create', 'v2.2.0',
+                                 'dist/gameshelf-v2.2.0-linux-amd64.docker.tar.gz',
+                                 'dist/gameshelf-v2.2.0-source.tar.gz', 'dist/SHA256SUMS.txt',
+                                 '--repo', 'owner/repo', '--verify-tag', '--target', 'a' * 40,
+                                 '--title', 'GameShelf v2.2.0', '--notes-file',
+                                 'dist/RELEASE-NOTES.md', '--draft', '--latest'])
         self.assertEqual(sum(call == ['release.py', 'guard'] for call in calls), 2)
         self.assertIn(['docker', 'push', 'ghcr.io/shannonwetnight/gameshelf:v2.2.0'], calls)
         edit = next(i for i, call in enumerate(calls) if call[:3] == ['gh', 'release', 'edit'])
