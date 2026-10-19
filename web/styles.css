@@ -90,6 +90,17 @@ body {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.gs-refresh:focus-visible,
+.gs-search-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 /* Micro-bounce animation for “Refreshed” */
@@ -162,6 +173,10 @@ body {
   align-items: center;
 }
 
+.gs-search-field {
+  position: relative;
+}
+
 .gs-search-icon {
   position: absolute;
   left: 12px;
@@ -173,6 +188,30 @@ body {
 
 .gs-search {
   padding-left: 36px; /* Make room for icon */
+  padding-right: 42px;
+}
+
+.gs-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gs-search-clear:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Remove native search clear button (Chrome / Safari) */
@@ -581,6 +620,19 @@ body {
 
 .hidden {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .gs-card:hover {
+    transform: none;
+  }
 }
 
 /* =============================
