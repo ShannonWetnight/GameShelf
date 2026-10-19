@@ -65,3 +65,15 @@ class PublicTreeTests(unittest.TestCase):
                  patch.object(release, 'gh', side_effect=self.dispatch(result)):
                 with self.assertRaises(ValueError):
                     release.verify_on_edge()
+
+
+class ReleasePresentationTests(unittest.TestCase):
+    def test_header_matches_previous_releases(self):
+        notes = '## Fixed\n\n- Preserve the library.\n\n## Security\n\n- Patch dependencies.'
+        cover = '<img width="100" height="100" alt="gameshelf_icon" src="https://github.com/user-attachments/assets/8a218c22-cd59-497e-8f53-17e8eaaed681" />'
+        for version in ('v2.2.0', 'edge-20261019-123.1-aaaaaaaaaaaa'):
+            with self.subTest(version=version):
+                expected = (f'{cover}\n\n## {version} Changes\n\n'
+                            '### Fixed\n\n- Preserve the library.\n\n'
+                            '### Security\n\n- Patch dependencies.\n')
+                self.assertEqual(release.render_notes(version, notes), expected)

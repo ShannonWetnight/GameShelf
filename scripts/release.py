@@ -70,6 +70,12 @@ def validate_notes(path):
     return text
 
 
+def render_notes(version, notes):
+    cover = '<img width="100" height="100" alt="gameshelf_icon" src="https://github.com/user-attachments/assets/8a218c22-cd59-497e-8f53-17e8eaaed681" />'
+    sections = re.sub(r"^## ", "### ", notes, flags=re.M)
+    return f"{cover}\n\n## {version} Changes\n\n{sections}\n"
+
+
 def prepare():
     channel = os.environ["CHANNEL"]
     ref = os.environ["GITHUB_REF"]
@@ -100,7 +106,7 @@ def prepare():
     else:
         raise ValueError("Unknown release channel.")
 
-    body = notes + "\n"
+    body = render_notes(version, notes)
     Path("dist").mkdir(exist_ok=True)
     Path("dist/RELEASE-NOTES.md").write_text(body)
     metadata = {"version": version, "channel": channel, "source_commit": sha,
