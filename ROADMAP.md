@@ -13,11 +13,13 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
   - If geared towards mobile, can consider APK file type filter or dedicated tab
 * [x] *(Planned)* Manual refresh button
 * [x] Integrate refresh button into GAMESHELF header text and remove button
+* [x] Make the header refresh control keyboard-accessible
 * [ ] Add theme support (drop-in CSS files)
 * [x] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
 * [x] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
 * [ ] Add a toggle UI effects option
+* [x] Respect the device's reduced-motion preference
 * [ ] Add a dark/light mode toggle
 * [ ] Integrate download button into card main body
 * [x] Add graceful fallback UI when `/api/games` fails
@@ -35,7 +37,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Metadata & Sorting
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
-* [x] *(Planned)* Add sorting options (name, size, date added)
+* [x] *(Planned)* Add sorting options (name and size)
+* [ ] Add date-added sorting once its meaning and data source are defined
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
 * [x] Add functional search bar
@@ -43,7 +46,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add ability to group games together by adding tags (requires lightweight database integration)
 * [x] Reintroduce "no games found" subheader directing users where to store/add games
     * [x] Create a second error message and link it to search when no games are found
-* [ ] Reintroduce "x" to clear search bar (revisit browser defaults, possibly add custom svg for clear)
+* [x] Reintroduce an accessible "x" to clear the search bar
 
 ### Downloads & File Handling
 * [x] *(Planned)* ZIP download streaming
@@ -53,11 +56,14 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
   - Env to include, optional 
 * [ ] Add support for multiple directories
-* [ ] Add settings wheel and nest ability to change or set default/additional directory 
+* [ ] Explore a first-launch setup page for library paths, multiple directories, and clearly explained download/ZIP streaming options; define where settings persist and preserve read-only library access
+* [ ] Keep cover reads and ZIP contents within the selected game directory, including symlinks and files changed during a request
+* [ ] Handle unreadable files and interrupted ZIP downloads cleanly; avoid holding every streamed file open
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
 * [ ] Add `/api/stats` for UI integrations
+* [ ] Detect game ID collisions so similarly named folders cannot hide each other
 
 ### Docker / GHCR
 * [ ] Add multi-arch builds (amd64 + arm64)

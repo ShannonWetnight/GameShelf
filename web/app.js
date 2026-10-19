@@ -200,6 +200,15 @@ function applySearchFilter() {
   hint.classList.toggle('hidden', !emptyLibrary);
   searchHint.classList.toggle('hidden', emptyLibrary);
   empty.classList.toggle('hidden', isLoading || loadError || !hasLoadedGames || visibleCount > 0);
+  document.getElementById('clear-search').classList.toggle('hidden', currentSearch.length === 0);
+}
+
+function clearSearch() {
+  const input = document.getElementById('search-input');
+  input.value = '';
+  currentSearch = '';
+  input.classList.remove('is-filtering');
+  applySearchFilter();
 }
 
 /* =============================
@@ -230,10 +239,7 @@ async function loadGames(isRefresh = false) {
       coverVersions.clear();
       refreshGeneration++;
       games.forEach(game => coverVersions.set(game.id, refreshGeneration));
-      currentSearch = '';
-      const searchInput = document.getElementById('search-input');
-      searchInput.value = '';
-      searchInput.classList.remove('is-filtering');
+      clearSearch();
     }
 
     gamesCache = games;
@@ -281,6 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
       applySearchFilter();
     });
   }
+  document.getElementById('clear-search').addEventListener('click', () => {
+    clearSearch();
+    searchInput.focus();
+  });
 
   /* -------- Refresh -------- */
   const trigger = document.getElementById('gs-refresh-trigger');
@@ -400,16 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (searchInput.value !== '') {
-        searchInput.value = '';
-        currentSearch = '';
-        searchInput.classList.remove('is-filtering');
-
-        // Show all cards immediately
-        cardMap.forEach(card => {
-          card.style.display = '';
-        });
-
-        applySearchFilter();
+        clearSearch();
       }
 
       searchInput.blur();

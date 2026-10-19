@@ -113,7 +113,7 @@ func refreshInterval() time.Duration {
 
 	dur, err := time.ParseDuration(value)
 	if err != nil {
-		log.Printf("invalid GAMESHELF_REFRESH_INTERVAL %q, using default 5m", value)
+		log.Printf("invalid GAMESHELF_REFRESH_INTERVAL %q, using default 12h", value)
 		return 12 * time.Hour
 	}
 
