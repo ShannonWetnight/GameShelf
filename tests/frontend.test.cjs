@@ -52,7 +52,7 @@ class Element {
   focus() { this.focused = true; }
 }
 
-function app() {
+function app(versionInfo = { version: 'edge-20261019-16.1-abc123def456', channel: 'edge' }) {
   const elements = new Map();
   for (const match of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
     elements.set(match[1], new Element(match[0].match(/class="([^"]*)"/)?.[1]));
@@ -76,6 +76,9 @@ function app() {
     },
     clearTimeout: id => timers.delete(id),
     fetch(url, options) {
+      if (url === '/api/version') {
+        return Promise.resolve(versionInfo ? response(versionInfo) : response({}, 503));
+      }
       return new Promise((resolve, reject) => {
         requests.push({ url, resolve, reject });
         options.signal.addEventListener('abort', () => reject(new Error('Aborted')));
@@ -100,6 +103,19 @@ function app() {
     }
   };
 }
+
+test('build information shows the exact Edge tag, stable tag, or an unavailable state', async () => {
+  for (const [info, expected] of [
+    [{ version: 'edge-20261019-16.1-abc123def456', channel: 'edge' }, 'Edge: edge-20261019-16.1-abc123def456'],
+    [{ version: 'v2.1.3', channel: 'stable' }, 'v2.1.3'],
+    [null, 'Version unavailable']
+  ]) {
+    const ui = app(info);
+    ui.start();
+    await settle();
+    assert.equal(ui.element('version-label').textContent, expected);
+  }
+});
 
 test('loading cannot be mistaken for an empty library; overlapping refresh is ignored', async () => {
   const ui = app();
