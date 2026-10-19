@@ -4,14 +4,14 @@
 
 | Action | Purpose |
 | --- | --- |
-| Edge tests and prerelease | Run development checks and optionally publish an Edge prerelease. The small launcher on main starts the implementation on Edge. |
+| Edge tests and Docker image | Run development checks and optionally update the Edge Docker image without creating a GitHub Release. The small launcher on main starts the implementation on Edge. |
 | Publish stable release | Check the public file list, request verification of the exact main commit on Edge, and publish its verified Docker image and create a source release under a new stable tag. |
 
 ## Development
 
-Work and test on `edge`. Run **Edge tests and prerelease** with **publish** unchecked for downloadable test packages, or checked to create a prerelease and update `:edge`. Test reports remain in Edge run artifacts and test packages.
+Work and test on `edge`. Run **Edge tests and Docker image** with **publish** unchecked for downloadable Actions artifacts, or checked to publish a verified, versioned image and update `:edge`. This does not create an Edge Git tag or GitHub Release. Test reports remain in Edge run artifacts and test packages.
 
-To prepare a release PR, run **Edge tests and prerelease** from `edge` with `promote_version` set to the planned stable version and **publish** unchecked. This does not tag Edge with that version. After the tests pass, the promotion job starts from main, copies only approved application paths, and adds draft version notes from main's template to a draft main PR. Complete the notes on that PR branch before merging. It preserves main's README, roadmap, workflow files, and release helpers. Do not merge the entire Edge branch into main. The main file check rejects test folders, fixtures, smoke scripts, local test actions, and other files outside the public file list. Update the list deliberately when adding a new production file.
+To prepare a release PR, run **Edge tests and Docker image** from `edge` with `promote_version` set to the planned stable version and **publish** unchecked. This does not tag Edge with that version. After the tests pass, the promotion job starts from main, copies only approved application paths, and adds draft version notes from main's template to a draft main PR. Complete the notes on that PR branch before merging. It preserves main's README, roadmap, workflow files, and release helpers. Do not merge the entire Edge branch into main. The main file check rejects test folders, fixtures, smoke scripts, local test actions, and other files outside the public file list. Update the list deliberately when adding a new production file.
 
 ## Stable releases
 
@@ -25,7 +25,7 @@ The release Action validates the source, notes, and version, then starts the Edg
 
 The public release contains brief change notes and only GitHub's automatic Source code (zip) and Source code (tar.gz) downloads from the clean main tag. Publish the verified Docker image to GHCR. Keep Docker archives, duplicate source archives, Compose copies, metadata, checksums, and verification reports in Actions artifacts; do not attach them to stable GitHub releases. The source downloads already include the license and Compose file.
 
-Publication creates a matching source tag without moving existing tags, creates a draft release with no uploaded assets, publishes it, and finally updates `:latest`. Edge prereleases update only `:edge`. A failed check or scan blocks publication. Existing releases cannot be overwritten. An interrupted publication can leave a draft or a versioned image; inspect its run before retrying. GitHub and GHCR cannot be updated as one transaction.
+Publication creates a matching source tag without moving existing tags, creates a draft release with no uploaded assets, publishes it, and finally updates `:latest`. Edge image runs publish a versioned GHCR image and update only `:edge`; they create no Git tag or GitHub Release. A failed check or scan blocks publication. Existing releases cannot be overwritten. An interrupted publication can leave a draft or a versioned image; inspect its run before retrying. GitHub and GHCR cannot be updated as one transaction.
 
 ## Maintainer files
 
@@ -48,7 +48,7 @@ The built-in `GITHUB_TOKEN` needs Actions write access to dispatch and wait for 
 
 ## Release-note format
 
-The generator adds the standard GameShelf cover image, a `vX.Y.Z Changes` heading (the actual tag for Edge), and blank-line spacing. Keep this header out of the maintained notes files; their sections become level-three headings in the published body.
+The generator adds the standard GameShelf cover image, a versioned Changes heading (the Edge Docker image tag for Edge), and blank-line spacing. Keep this header out of the maintained notes files; their sections become level-three headings in the published body.
 
 Use only `Changes`, `Fixed`, `Added`, `Other`, and `Security` as level-two headings. Omit empty sections and keep bullets to one short sentence where practical. Describe the user-visible result; group related changes. Put patched security issues under `Security`, naming a CVE only when verified. Keep any essential upgrade action to a brief bullet in the relevant section.
 
