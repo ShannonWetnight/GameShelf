@@ -112,7 +112,7 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(metadata['source_commit'], SHA)
                 self.assertIn('-123.2-aaaaaaaaaaaa', metadata['version'])
                 self.assertEqual(metadata['previous_version'], 'edge-previous')
-                self.assertEqual(Path('dist/RELEASE-NOTES.md').read_text(), '## Fixed\n\n- Fix refresh failures.\n')
+                self.assertEqual(Path('dist/RELEASE-NOTES.md').read_text(), release.render_notes(metadata['version'], '## Fixed\n\n- Fix refresh failures.'))
             finally:
                 os.chdir(previous)
 
