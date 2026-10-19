@@ -56,6 +56,29 @@ func decodeGames(t *testing.T, w *httptest.ResponseRecorder) []Game {
 	return games
 }
 
+func TestHandleVersion(t *testing.T) {
+	previousVersion, previousChannel := buildVersion, buildChannel
+	t.Cleanup(func() { buildVersion, buildChannel = previousVersion, previousChannel })
+	buildVersion, buildChannel = "edge-20261019-16.1-abc123def456", "edge"
+	w := httptest.NewRecorder()
+	handleVersion(w, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("version status = %d, content type = %q", w.Code, w.Header().Get("Content-Type"))
+	}
+	var info struct {
+		Version string `json:"version"`
+		Channel string `json:"channel"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &info); err != nil || info.Version != buildVersion || info.Channel != buildChannel {
+		t.Fatalf("version response = %#v (%v)", info, err)
+	}
+	w = httptest.NewRecorder()
+	handleVersion(w, httptest.NewRequest(http.MethodPost, "/api/version", nil))
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST status = %d", w.Code)
+	}
+}
+
 func TestRefreshGamesReadDirFailurePreservesIndex(t *testing.T) {
 	for _, kind := range []string{"missing", "file"} {
 		t.Run(kind, func(t *testing.T) {

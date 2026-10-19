@@ -343,6 +343,43 @@ body {
   fill: var(--text-muted);
 }
 
+.gs-build-info {
+  position: relative;
+}
+
+.gs-build-info:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.gs-version-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 101;
+  width: max-content;
+  max-width: min(25rem, 80vw);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.gs-build-info:hover .gs-version-tooltip,
+.gs-build-info:focus .gs-version-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* =============================
    Toggle list
    ============================= */
