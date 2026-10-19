@@ -246,9 +246,14 @@ body {
 
 .gs-sort {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .gs-sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   margin-left: 9px;
@@ -268,6 +273,7 @@ body {
 }
 
 .gs-sort-button svg {
+  display: block;
   width: 32px;
   height: 32px;
   fill: var(--text-muted);
