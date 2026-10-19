@@ -18,6 +18,21 @@ const cardMap = new Map(); // game.id -> card element
 /* =============================
    Data Fetching
    ============================= */
+async function loadVersion() {
+  const label = document.getElementById('version-label');
+  try {
+    const res = await fetch('/api/version');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const info = await res.json();
+    if (!info || typeof info.version !== 'string' || typeof info.channel !== 'string') {
+      throw new Error('Invalid version response');
+    }
+    label.textContent = info.channel === 'edge' ? `Edge: ${info.version}` : info.version;
+  } catch {
+    label.textContent = 'Version unavailable';
+  }
+}
+
 async function fetchGames(isRefresh = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
@@ -276,6 +291,7 @@ async function loadGames(isRefresh = false) {
    DOM bindings
    ============================= */
 document.addEventListener('DOMContentLoaded', () => {
+  loadVersion();
   loadGames();
 
   /* -------- Search -------- */
