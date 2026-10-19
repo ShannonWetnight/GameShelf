@@ -34,6 +34,15 @@ test('header icons remain centered and toolbar buttons share one row', () => {
           '#clear-search svg', '#sort-button', '#sort-button svg',
           '#view-toggle', '#view-toggle svg', '#build-info', '#build-info svg'];
         const result = Object.fromEntries(selectors.map(selector => [selector, box(selector)]));
+        const gear = document.querySelector('#build-info svg');
+        const artwork = gear.querySelector('path').getBBox();
+        const viewport = gear.viewBox.baseVal;
+        result.gearArtwork = {
+          cx: artwork.x + artwork.width / 2,
+          cy: artwork.y + artwork.height / 2,
+          viewportCx: viewport.x + viewport.width / 2,
+          viewportCy: viewport.y + viewport.height / 2
+        };
         const report = document.createElement('pre');
         report.id = 'layout-report';
         report.textContent = JSON.stringify(result);
@@ -68,6 +77,10 @@ test('header icons remain centered and toolbar buttons share one row', () => {
     centered('#sort-button svg', '#sort-button');
     centered('#view-toggle svg', '#view-toggle');
     centered('#build-info svg', '#build-info');
+    assert.ok(Math.abs(boxes.gearArtwork.cx - boxes.gearArtwork.viewportCx) <= 0.5,
+      'gear artwork is horizontally off-center within its SVG');
+    assert.ok(Math.abs(boxes.gearArtwork.cy - boxes.gearArtwork.viewportCy) <= 0.5,
+      'gear artwork is vertically off-center within its SVG');
     const toolbar = ['#sort-button', '#view-toggle', '#build-info'];
     for (const button of toolbar) {
       assert.ok(Math.abs(boxes[button].cy - boxes['#search-input'].cy) <= 1,
