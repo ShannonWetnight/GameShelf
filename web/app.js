@@ -122,9 +122,6 @@ function createGameCard(game) {
   const content = document.createElement('div');
   content.className = 'gs-card-content';
 
-  const footer = document.createElement('div');
-  footer.className = 'gs-card-footer';
-
   const title = document.createElement('h3');
   title.className = 'gs-card-title';
   title.textContent = game.name;
@@ -139,6 +136,7 @@ function createGameCard(game) {
   const dl = document.createElement('a');
   dl.className = 'gs-icon-button';
   dl.href = `/download/${encodeURIComponent(game.id)}`;
+  dl.setAttribute('aria-label', `Download ${game.name}`);
   dl.innerHTML = `
     <svg viewBox="0 0 24 24">
       <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
@@ -147,11 +145,9 @@ function createGameCard(game) {
 
   actions.appendChild(dl);
   content.appendChild(title);
-  footer.appendChild(meta);
-  footer.appendChild(actions);
-
   body.appendChild(content);
-  body.appendChild(footer);
+  body.appendChild(meta);
+  body.appendChild(actions);
 
   card.appendChild(cover);
   card.appendChild(body);
