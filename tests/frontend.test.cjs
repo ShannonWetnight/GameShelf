@@ -49,6 +49,7 @@ class Element {
     return this.listeners[event]?.({ target: this, ...payload });
   }
   blur() {}
+  focus() { this.focused = true; }
 }
 
 function app() {
@@ -130,9 +131,16 @@ test('populated library, search miss, clear search, sort and view still work', a
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   ui.search('zzz');
   assert.equal(ui.hidden('empty-state'), false);
+  assert.equal(ui.hidden('clear-search'), false);
   assert.equal(ui.element('empty-title').textContent, 'No matching games!');
   assert.equal(ui.hidden('empty-hint'), true);
   assert.equal(ui.hidden('search-hint'), false);
+  ui.click('clear-search');
+  assert.equal(ui.element('search-input').value, '');
+  assert.equal(ui.element('search-input').focused, true);
+  assert.equal(ui.hidden('clear-search'), true);
+  assert.equal(ui.hidden('empty-state'), true);
+  ui.search('zzz');
   ui.document.emit('keydown', { key: 'Escape' });
   assert.equal(ui.hidden('empty-state'), true);
   assert.ok(ui.cards().every(card => card.style.display === ''));
