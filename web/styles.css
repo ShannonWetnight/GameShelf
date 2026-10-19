@@ -477,6 +477,7 @@ body {
    ============================= */
 
 .gs-grid.list-view .gs-card-actions {
+  margin-top: 0;
   margin-left: auto;
 }
 
