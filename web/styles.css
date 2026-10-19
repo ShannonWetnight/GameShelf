@@ -175,11 +175,15 @@ body {
 
 .gs-search-field {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .gs-search-icon {
   position: absolute;
   left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 16px;
   height: 16px;
   fill: var(--text-muted);
@@ -196,6 +200,8 @@ body {
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
+  display: grid;
+  place-items: center;
   width: 28px;
   height: 28px;
   padding: 0;
@@ -203,10 +209,17 @@ body {
   border-radius: 50%;
   background: transparent;
   color: var(--text-muted);
-  font: inherit;
-  font-size: 1.5rem;
-  line-height: 1;
   cursor: pointer;
+}
+
+.gs-search-clear svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .gs-search-clear:hover {
@@ -319,6 +332,10 @@ body {
    ============================= */
 
 .gs-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
   background: none;
   border: none;
   margin-left: 6px;
@@ -338,6 +355,7 @@ body {
 }
 
 .gs-view-toggle svg {
+  display: block;
   width: 32px;
   height: 32px;
   fill: var(--text-muted);
