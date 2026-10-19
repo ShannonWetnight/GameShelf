@@ -1,4 +1,4 @@
-name: Edge tests and prerelease
+name: Edge tests and Docker image
 run-name: ${{ inputs.request_id || format('Edge {0} / {1}', github.event_name, github.ref_name) }}
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish an Edge test prerelease
+        description: Update the Edge Docker image (no GitHub Release)
         type: boolean
         default: false
       promote_version:
@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write
+      contents: read
       packages: write
       actions: read
     steps:
@@ -128,12 +128,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.test.outputs.version }}
         run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
-      - name: Publish Edge prerelease
+      - name: Update Edge Docker image
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANNEL: edge
           VERSION: ${{ needs.test.outputs.version }}
-        run: bash scripts/publish.sh
+        run: bash scripts/publish-edge.sh
 
   promote:
     if: github.event_name == 'workflow_dispatch' && inputs.promote_version != '' && !inputs.source_sha && !inputs.publish && github.ref == 'refs/heads/edge'
