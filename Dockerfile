@@ -11,7 +11,11 @@ RUN go mod download
 COPY main.go .
 COPY web/ ./web/
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o gameshelf main.go
+ARG GAMESHELF_BUILD_VERSION=Development
+ARG GAMESHELF_BUILD_CHANNEL=development
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags "-X main.buildVersion=${GAMESHELF_BUILD_VERSION} -X main.buildChannel=${GAMESHELF_BUILD_CHANNEL}" \
+    -o gameshelf main.go
 
 # Runtime stage
 FROM alpine:3.24.2
