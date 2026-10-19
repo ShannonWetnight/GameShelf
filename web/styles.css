@@ -734,6 +734,14 @@ body {
     justify-self: center;
   }
 
+  .gs-card-title {
+    font-size: clamp(0.95rem, 3.8vw, 1.05rem);
+  }
+
+  .gs-empty h2 {
+    font-size: clamp(1.2rem, 5vw, 1.5rem);
+  }
+
   .gs-grid.list-view .gs-card {
     max-width: none;
     height: auto;
