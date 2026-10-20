@@ -64,7 +64,8 @@ test('dice selection shows one centered card and reset restores the library', ()
       'sizeAscNames:sizeAscNames,alphaNames:alphaNames,listView:listView,' +
       'gearCenterDifference:gearCenterDifference,shuffleCount:visible().length,' +
       'shuffleAnimation:getComputedStyle(preview).animationName,' +
-      'diceDisabled:document.querySelector("#random-game").disabled};' +
+      'diceDisabled:document.querySelector("#random-game").disabled,' +
+      'returnHiddenDuringShuffle:getComputedStyle(document.querySelector("#spotlight-actions")).visibility==="hidden"};' +
       'setTimeout(function() {' +
       'const selected = visible()[0];' +
       'const gridBox = grid.getBoundingClientRect();' +
@@ -72,6 +73,9 @@ test('dice selection shows one centered card and reset restores the library', ()
       'result.selectedCount = visible().length;' +
       'result.centerDifference = Math.abs((gridBox.left + gridBox.right)/2 - (cardBox.left + cardBox.right)/2);' +
       'result.animationName = getComputedStyle(selected).animationName;' +
+      'result.selectedFocused = document.activeElement===selected;' +
+      'result.returnBelowCard = document.querySelector("#show-all-games").getBoundingClientRect().top>=cardBox.bottom;' +
+      'result.returnAnimation = getComputedStyle(document.querySelector("#spotlight-actions")).animationName;' +
       'result.resetVisible = getComputedStyle(document.querySelector("#spotlight-actions")).display !== "none";' +
       'document.querySelector("#show-all-games").click();' +
       'result.restoredCount = visible().length;' +
@@ -83,6 +87,7 @@ test('dice selection shows one centered card and reset restores the library', ()
       'slow.click();' +
       'document.querySelector("#settings-dialog").close();' +
       'document.querySelector("#random-game").click();' +
+      'result.returnResetOnReroll=getComputedStyle(document.querySelector("#spotlight-actions")).visibility==="hidden";' +
       'result.slowDiceDuration = getComputedStyle(document.querySelector("#random-game svg")).animationDuration;' +
       'result.slowShuffleDuration = getComputedStyle(visible()[0]).animationDuration;' +
       'const report = document.createElement("pre");' +
@@ -115,14 +120,19 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.shuffleCount, 1);
     assert.match(result.shuffleAnimation, /^gs-card-shuffle/);
     assert.equal(result.diceDisabled, true);
+    assert.equal(result.returnHiddenDuringShuffle, true);
     assert.equal(result.selectedCount, 1);
     assert.ok(result.centerDifference <= 1, 'selected card is not centered');
     assert.equal(result.animationName, 'gs-spotlight-bounce');
+    assert.equal(result.selectedFocused, false);
+    assert.equal(result.returnBelowCard, true);
+    assert.equal(result.returnAnimation, 'gs-return-appear');
     assert.equal(result.resetVisible, true);
     assert.equal(result.restoredCount, 3);
     assert.equal(result.resetHidden, true);
     assert.equal(result.settingsOpen, true);
     assert.equal(result.slowDefault, false);
+    assert.equal(result.returnResetOnReroll, true);
     assert.equal(result.slowDiceDuration, '1.2s');
     assert.equal(result.slowShuffleDuration, '0.26s');
   } finally {

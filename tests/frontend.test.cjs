@@ -163,6 +163,12 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(body.children.length, 1);
   assert.equal(action.href, '/download/alpha');
   assert.equal(action.attributes['aria-label'], 'Download Alpha');
+  action.focus();
+  action.emit('click');
+  assert.equal(action.focused, false);
+  assert.equal(card.classList.contains('gs-hover-suppressed'), true);
+  card.emit('pointerleave');
+  assert.equal(card.classList.contains('gs-hover-suppressed'), false);
   details.emit('click');
   assert.equal(ui.element('game-details-dialog').open, true);
   assert.equal(ui.element('game-details-path').textContent, '/GameShelf/Alpha');
@@ -174,6 +180,30 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(ui.element('game-details-dialog').open, false);
   assert.equal(card.classList.contains('gs-hover-suppressed'), true);
   assert.equal(card.focused, true);
+});
+
+test('game information lists only the selected game files on request', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  const alpha = ui.cards().find(card => card.dataset.id === 'alpha');
+  alpha.children[0].children[1].children[1].emit('click');
+  assert.equal(ui.requests.length, 1);
+  ui.click('toggle-game-files');
+  assert.equal(ui.requests[1].url, '/api/game-files/alpha');
+  assert.equal(ui.element('toggle-game-files').attributes['aria-expanded'], 'true');
+  ui.requests[1].resolve(response({ files: [
+    { path: 'data/level.dat', sizeBytes: 2048 },
+    { path: 'cover.png', sizeBytes: 1024 }
+  ], truncated: false }));
+  await settle();
+  assert.deepEqual(ui.element('game-files-list').children.map(item => item.children[0].textContent),
+    ['data/level.dat', 'cover.png']);
+  ui.click('toggle-game-files');
+  assert.equal(ui.hidden('game-files-panel'), true);
+  ui.click('game-details-close');
+  assert.equal(ui.element('game-details-dialog').open, false);
 });
 
 test('both dialogs close on backdrop clicks, while inside clicks stay open', async () => {
@@ -278,13 +308,14 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(selected().length, 1);
   assert.equal(ui.element('random-game').disabled, false);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
+  assert.equal(ui.element('library-stage').classList.contains('gs-spotlight-stage'), true);
   assert.equal(ui.hidden('spotlight-actions'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   const firstId = selected()[0].dataset.id;
   assert.equal(ui.element('search-input').value, '');
-  assert.equal(selected()[0].focused, true);
+  assert.equal(selected()[0].focused, undefined);
   assert.equal(ui.element('suggestion-status').textContent,
-    `Showing only ${games.find(game => game.id === firstId).name}. Use Show all games to return to the library.`);
+    `Showing only ${games.find(game => game.id === firstId).name}. Use Return to all games to return to the library.`);
 
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
@@ -301,7 +332,7 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(ui.element('suggestion-status').textContent, '');
 });
 
-test('spotlight resets through Show all games or Escape and restores list view', async () => {
+test('spotlight resets through Return to all games or Escape and restores list view', async () => {
   const ui = app();
   ui.start();
   ui.requests[0].resolve(response(games));

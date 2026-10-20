@@ -17,6 +17,22 @@ const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
   : 'google-chrome');
 
+function readLayoutProbe(file, width, reportId) {
+  let diagnostic = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const profile = path.join(path.dirname(file), `chrome-${width}-${attempt}`);
+    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
+      '--disable-dev-shm-usage', '--no-first-run', `--user-data-dir=${profile}`,
+      `--window-size=${width},800`, '--virtual-time-budget=2000', '--dump-dom',
+      pathToFileURL(file).href], { encoding: 'utf8', timeout: 30000 });
+    const match = run.stdout?.match(new RegExp(`<pre id="${reportId}">([^<]+)<\\/pre>`));
+    if (run.status === 0 && match) return JSON.parse(match[1]);
+    diagnostic = `Chrome attempt ${attempt + 1}: ${run.error?.message || `exit ${run.status}`}; ` +
+      `stderr: ${(run.stderr || '').slice(-500)}; stdout: ${(run.stdout || '').slice(-500)}`;
+  }
+  assert.fail(`${reportId} was not reported. ${diagnostic}`);
+}
+
 test('header icons remain centered and toolbar buttons share one row', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-layout-'));
   try {
@@ -63,13 +79,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
     assert.notEqual(source, html, 'layout probe must use real page markup and styles');
     const file = path.join(dir, 'header.html');
     fs.writeFileSync(file, source);
-    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
-      '--disable-dev-shm-usage', '--window-size=1280,800', '--dump-dom',
-      pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
-    assert.equal(run.status, 0, run.stderr || run.error?.message);
-    const match = run.stdout.match(/<pre id="layout-report">([^<]+)<\/pre>/);
-    assert.ok(match, 'Chrome did not report the header layout');
-    const boxes = JSON.parse(match[1]);
+    const boxes = readLayoutProbe(file, 1280, 'layout-report');
     const centered = (inner, outer) => {
       assert.ok(Math.abs(boxes[inner].cx - boxes[outer].cx) <= 1,
         `${inner} is horizontally off-center in ${outer}`);
@@ -155,13 +165,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
       .replace('<script src="/app.js"></script>', probe);
     const file = path.join(dir, 'mobile.html');
     fs.writeFileSync(file, source);
-    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
-      '--disable-dev-shm-usage', '--window-size=390,800', '--dump-dom',
-      pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
-    assert.equal(run.status, 0, run.stderr || run.error?.message);
-    const match = run.stdout.match(/<pre id="mobile-report">([^<]+)<\/pre>/);
-    assert.ok(match, 'Chrome did not report the mobile layout');
-    const result = JSON.parse(match[1]);
+    const result = readLayoutProbe(file, 390, 'mobile-report');
     assert.ok(result.viewportWidth <= 680, 'mobile breakpoint was not exercised');
     assert.ok(result.scrollWidth <= result.viewportWidth, 'grid view overflows horizontally');
     assert.ok(result.listScrollWidth <= result.viewportWidth, 'list view overflows horizontally');

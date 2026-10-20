@@ -20,6 +20,8 @@ let showHoverText = localStorage.getItem('gameshelf:show-hover-text') !== 'false
 let showGameTitles = localStorage.getItem('gameshelf:show-game-titles') === 'true';
 let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-images') === 'true';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
+let detailsGameId = null;
+let fileListController = null;
 
 const cardMap = new Map(); // game.id -> card element
 
@@ -135,6 +137,13 @@ function createGameCard(game) {
     coverTitle.className = 'gs-cover-title';
     coverTitle.textContent = game.name;
     cover.appendChild(coverTitle);
+
+    const placeholderTitle = document.createElement('span');
+    placeholderTitle.className = 'gs-placeholder-title';
+    const placeholderText = document.createElement('span');
+    placeholderText.textContent = game.name;
+    placeholderTitle.appendChild(placeholderText);
+    cover.appendChild(placeholderTitle);
   }
 
   const actions = document.createElement('div');
@@ -146,9 +155,13 @@ function createGameCard(game) {
   dl.setAttribute('aria-label', `Download ${game.name}`);
   dl.innerHTML = `
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
+      <path d="M12 3.5v11m0 0 4-4m-4 4-4-4M5 17.5v2h14v-2"/>
     </svg>
   `;
+  dl.addEventListener('click', () => {
+    dl.blur();
+    card.classList.add('gs-hover-suppressed');
+  });
 
   const details = document.createElement('button');
   details.className = 'gs-card-info';
@@ -181,6 +194,15 @@ function createGameCard(game) {
 
 function openGameDetails(game, trigger, card) {
   const dialog = document.getElementById('game-details-dialog');
+  fileListController?.abort();
+  fileListController = null;
+  detailsGameId = game.id;
+  const fileToggle = document.getElementById('toggle-game-files');
+  fileToggle.textContent = 'Show files';
+  fileToggle.setAttribute('aria-expanded', 'false');
+  document.getElementById('game-files-panel').classList.add('hidden');
+  document.getElementById('game-files-status').textContent = '';
+  document.getElementById('game-files-list').innerHTML = '';
   document.getElementById('game-details-title').textContent = game.name;
   document.getElementById('game-details-path').textContent = game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
@@ -194,6 +216,56 @@ function openGameDetails(game, trigger, card) {
     card.classList.add('gs-hover-suppressed');
     card.focus({ preventScroll: true });
   }, { once: true });
+}
+
+async function toggleGameFiles() {
+  const panel = document.getElementById('game-files-panel');
+  const toggle = document.getElementById('toggle-game-files');
+  const status = document.getElementById('game-files-status');
+  const list = document.getElementById('game-files-list');
+  const opening = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden', !opening);
+  toggle.textContent = opening ? 'Hide files' : 'Show files';
+  toggle.setAttribute('aria-expanded', String(opening));
+  if (!opening) {
+    fileListController?.abort();
+    fileListController = null;
+    return;
+  }
+  if (!detailsGameId) return;
+
+  fileListController?.abort();
+  const controller = new AbortController();
+  fileListController = controller;
+  status.textContent = 'Loading files…';
+  list.innerHTML = '';
+  try {
+    const response = await fetch(`/api/game-files/${encodeURIComponent(detailsGameId)}`, {
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    if (!result || !Array.isArray(result.files)) throw new Error('Invalid file list');
+    if (fileListController !== controller || panel.classList.contains('hidden')) return;
+    for (const file of result.files) {
+      if (typeof file.path !== 'string' || !Number.isFinite(file.sizeBytes)) continue;
+      const item = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = file.path;
+      const size = document.createElement('span');
+      size.textContent = formatSize(file.sizeBytes);
+      item.appendChild(name);
+      item.appendChild(size);
+      list.appendChild(item);
+    }
+    status.textContent = result.truncated
+      ? `Showing the first ${list.children.length} files.`
+      : list.children.length === 0 ? 'No files found.' : '';
+  } catch (error) {
+    if (fileListController === controller && !controller.signal.aborted) {
+      status.textContent = 'Could not load this game’s files. Try again.';
+    }
+  }
 }
 
 function closeOnBackdropClick(dialog) {
@@ -282,7 +354,10 @@ function clearSuggestion() {
   diceButton.disabled = isLoading || gamesCache.length === 0;
   diceButton.dataset.tooltip = 'Suggest a random game';
   document.getElementById('games-container').classList.remove('gs-spotlight');
-  document.getElementById('spotlight-actions').classList.add('hidden');
+  document.getElementById('library-stage').classList.remove('gs-spotlight-stage');
+  const returnActions = document.getElementById('spotlight-actions');
+  returnActions.classList.add('hidden');
+  returnActions.classList.remove('gs-return-visible');
   document.getElementById('suggestion-status').textContent = '';
   applyViewMode();
   applySearchFilter();
@@ -305,7 +380,7 @@ function suggestRandomGame() {
   clearSuggestion();
   if (currentSearch) clearSearch();
   document.getElementById('games-container').classList.add('gs-spotlight');
-  document.getElementById('spotlight-actions').classList.remove('hidden');
+  document.getElementById('library-stage').classList.add('gs-spotlight-stage');
 
   function showFinalGame() {
     shuffleTimers = [];
@@ -321,9 +396,12 @@ function suggestRandomGame() {
     applyViewMode();
     applySearchFilter();
     card.scrollIntoView?.({ block: 'center' });
-    card.focus({ preventScroll: true });
+    const returnActions = document.getElementById('spotlight-actions');
+    returnActions.classList.remove('hidden');
+    void returnActions.offsetWidth;
+    returnActions.classList.add('gs-return-visible');
     document.getElementById('suggestion-status').textContent =
-      `Showing only ${game.name}. Use Show all games to return to the library.`;
+      `Showing only ${game.name}. Use Return to all games to return to the library.`;
   }
 
   const alternatives = gamesCache.filter(candidate => candidate.id !== game.id);
@@ -524,8 +602,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
+  document.getElementById('toggle-game-files').addEventListener('click', toggleGameFiles);
   closeOnBackdropClick(settingsDialog);
   closeOnBackdropClick(detailsDialog);
+  detailsDialog.addEventListener('close', () => {
+    fileListController?.abort();
+    fileListController = null;
+    detailsGameId = null;
+  });
   settingsDialog.addEventListener('close', () => settingsButton.focus());
   slowAnimationsInput.addEventListener('change', () => {
     slowAnimations = slowAnimationsInput.checked;
