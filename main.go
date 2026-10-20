@@ -24,6 +24,9 @@ type Game struct {
 	Name      string `json:"name"`
 	SizeBytes int64  `json:"sizeBytes"`
 	HasCover  bool   `json:"hasCover"`
+	Path      string `json:"path"`
+	FileCount int    `json:"fileCount"`
+	AddedAt   string `json:"addedAt"`
 }
 
 type gameEntry struct {
@@ -149,7 +152,7 @@ func refreshGames() error {
 		id := slugify(dirName)
 		absPath := filepath.Join(rootDir, dirName)
 
-		size, err := dirSize(absPath)
+		size, fileCount, err := dirStats(absPath)
 		if err != nil {
 			return fmt.Errorf("scanning game %q: %w", dirName, err)
 		}
@@ -166,6 +169,9 @@ func refreshGames() error {
 				Name:      dirName,
 				SizeBytes: size,
 				HasCover:  cover != "",
+				Path:      absPath,
+				FileCount: fileCount,
+				AddedAt:   "", // Filesystem creation time is not a reliable import date.
 			},
 			DirName:   dirName,
 			CoverPath: cover,
@@ -211,8 +217,9 @@ func slugify(name string) string {
     return s
 }
 
-func dirSize(root string) (int64, error) {
+func dirStats(root string) (int64, int, error) {
 	var size int64
+	var files int
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -225,9 +232,10 @@ func dirSize(root string) (int64, error) {
 			return err
 		}
 		size += info.Size()
+		files++
 		return nil
 	})
-	return size, err
+	return size, files, err
 }
 
 func findCover(dir string) string {

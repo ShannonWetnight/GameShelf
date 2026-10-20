@@ -15,33 +15,35 @@ const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
   : 'google-chrome');
 
-test('download action stays inside the card body in grid and list views', () => {
+test('compact cards show hover actions and retain actions in list view', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-card-layout-'));
   try {
     const fetchStub = '<script>window.fetch = function(url) {' +
       'const data = url === "/api/version" ? {version:"v-test",channel:"stable"} :' +
-      '[{id:"sample",name:"A Sample Game",sizeBytes:1024}];' +
+      '[{id:"sample",name:"A Sample Game",sizeBytes:1024,path:"/GameShelf/A Sample Game",fileCount:2,hasCover:true,addedAt:""}];' +
       'return Promise.resolve({ok:true,json:function(){return Promise.resolve(data);}});' +
       '};</script>';
     const probe = '<script>window.addEventListener("load", function() {' +
       'setTimeout(function() {' +
-      'const box = function(el) { const r = el.getBoundingClientRect();' +
-      'return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; };' +
       'const card = document.querySelector(".gs-card");' +
-      'const body = card.querySelector(".gs-card-body");' +
-      'const title = card.querySelector(".gs-card-title");' +
-      'const meta = card.querySelector(".gs-card-meta");' +
-      'const action = card.querySelector(".gs-icon-button");' +
-      'const result = {grid:{body:box(body),title:box(title),meta:box(meta),action:box(action)},' +
-      'href:action.getAttribute("href"),label:action.getAttribute("aria-label")};' +
+      'const cover = card.querySelector(".gs-card-cover");' +
+      'const actions = card.querySelector(".gs-card-actions");' +
+      'const dl = card.querySelector(".gs-card-download");' +
+      'const info = card.querySelector(".gs-card-info");' +
+      'const inside = function(a,b) {const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();' +
+      'return x.left>=y.left-1&&x.right<=y.right+1&&x.top>=y.top-1&&x.bottom<=y.bottom+1;};' +
+      'const result = {compact:card.getBoundingClientRect().height<500,' +
+      'gridDownloadInside:inside(dl,cover),gridInfoInside:inside(info,cover),' +
+      'gridActionsOpacity:getComputedStyle(actions).opacity,' +
+      'href:dl.getAttribute("href"),label:dl.getAttribute("aria-label")};' +
       'document.querySelector("#view-toggle").click();' +
-      'result.list = {body:box(body),title:box(title),meta:box(meta),action:box(action)};' +
-      'const report = document.createElement("pre");' +
-      'report.id = "card-layout-report";' +
-      'report.textContent = JSON.stringify(result);' +
-      'document.body.append(report);' +
-      '}, 0);' +
-      '});</script>';
+      'result.listDownloadVisible=getComputedStyle(dl).display!=="none";' +
+      'result.listInfoVisible=getComputedStyle(info).display!=="none";' +
+      'result.listDownloadInside=inside(dl,card);' +
+      'result.listInfoInside=inside(info,card);' +
+      'const report=document.createElement("pre");report.id="card-layout-report";' +
+      'report.textContent=JSON.stringify(result);document.body.append(report);' +
+      '},0);});</script>';
     const source = html
       .replace('<link rel="stylesheet" href="/styles.css">', '<style>' + css + '</style>')
       .replace('<script src="/app.js"></script>', fetchStub + '<script>' + app + '</script>' + probe);
@@ -56,15 +58,14 @@ test('download action stays inside the card body in grid and list views', () => 
     const result = JSON.parse(match[1]);
     assert.equal(result.href, '/download/sample');
     assert.equal(result.label, 'Download A Sample Game');
-    const inside = (inner, outer) => inner.left >= outer.left - 1 &&
-      inner.right <= outer.right + 1 && inner.top >= outer.top - 1 &&
-      inner.bottom <= outer.bottom + 1;
-    assert.ok(inside(result.grid.action, result.grid.body), 'grid action escapes card body');
-    assert.ok(result.grid.action.top >= result.grid.meta.bottom - 1,
-      'grid action overlaps the size text');
-    assert.ok(inside(result.list.action, result.list.body), 'list action escapes card body');
-    assert.ok(result.list.action.left >= result.list.meta.right - 1,
-      'list action overlaps the size text');
+    assert.equal(result.compact, true);
+    assert.equal(result.gridDownloadInside, true);
+    assert.equal(result.gridInfoInside, true);
+    assert.equal(result.gridActionsOpacity, '0');
+    assert.equal(result.listDownloadVisible, true);
+    assert.equal(result.listInfoVisible, true);
+    assert.equal(result.listDownloadInside, true);
+    assert.equal(result.listInfoInside, true);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
