@@ -479,9 +479,57 @@ body {
 .gs-details-list dt { color: var(--text-muted); }
 .gs-details-list dd { margin: 0; overflow-wrap: anywhere; min-height: 1.4em; }
 
+.gs-files-toggle {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 17, 31, 0.55);
+  color: var(--text);
+  font: 600 0.85rem var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gs-files-toggle:hover,
+.gs-files-toggle:focus-visible { border-color: var(--accent); }
+
+.gs-files-panel {
+  max-height: min(40vh, 320px);
+  overflow: auto;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(5, 10, 20, 0.45);
+}
+
+.gs-files-panel #game-files-status {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.gs-files-panel #game-files-status:empty { display: none; }
+
+.gs-files-panel ul { list-style: none; margin: 0; padding: 0; }
+.gs-files-panel li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.78rem;
+}
+.gs-files-panel li span:first-child { overflow-wrap: anywhere; min-width: 0; }
+.gs-files-panel li span:last-child { color: var(--text-muted); white-space: nowrap; }
+
 .gs-settings-dialog {
   width: min(420px, calc(100vw - 32px));
   max-width: none;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
   padding: 1.25rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -605,7 +653,10 @@ body {
   display: none;
 }
 
+.gs-grid.list-view .gs-no-cover .gs-card-cover img { display: none; }
+
 .gs-grid.list-view .gs-cover-title { display: none; }
+.gs-grid.list-view .gs-placeholder-title { display: none !important; }
 
 .gs-grid.list-view .gs-card-actions {
   position: static;
@@ -714,17 +765,58 @@ body {
   box-shadow: 0 0 0 2px rgba(249, 178, 52, 0.65), var(--shadow-soft);
 }
 
+.gs-library-stage.gs-spotlight-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: min(70vh, 700px);
+}
+
 .gs-spotlight-actions {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
 }
+
+.gs-spotlight-stage .gs-spotlight-actions.hidden {
+  display: flex;
+  visibility: hidden;
+}
+
+.gs-spotlight-actions.gs-return-visible {
+  animation: gs-return-appear 700ms ease-out 500ms both;
+}
+
+@keyframes gs-return-appear {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.gs-return-button {
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(14, 23, 40, 0.85);
+  color: var(--text);
+  font: 600 0.85rem var(--font-sans);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.gs-return-button:hover,
+.gs-return-button:focus-visible {
+  border-color: var(--accent);
+  background: rgba(249, 178, 52, 0.12);
+}
+
+.gs-return-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .gs-grid.gs-spotlight {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: min(70vh, 700px);
+  width: 100%;
 }
 
 .gs-grid.gs-spotlight .gs-card {
@@ -791,8 +883,21 @@ body {
   background: radial-gradient(circle at 50% 35%, #263759, #0a1324 75%);
 }
 
+.gs-show-placeholders .gs-no-cover .gs-card-cover { background: #222; }
+
 .gs-no-cover .gs-card-cover img { display: none; }
-.gs-show-placeholders .gs-no-cover .gs-card-cover img { display: block; }
+.gs-show-placeholders .gs-no-cover .gs-card-cover img {
+  display: block;
+  bottom: 2.75rem;
+  height: calc(100% - 2.75rem);
+  object-fit: contain;
+  transform-origin: center center;
+}
+
+.gs-show-placeholders.gs-show-game-titles .gs-no-cover .gs-card-cover img {
+  bottom: 0;
+  height: 100%;
+}
 
 .gs-cover-title {
   position: absolute;
@@ -812,6 +917,32 @@ body {
 .gs-show-placeholders .gs-cover-title,
 .gs-show-game-titles .gs-cover-title { display: none; }
 
+.gs-placeholder-title { display: none; }
+
+.gs-show-placeholders:not(.gs-show-game-titles) .gs-no-cover .gs-placeholder-title {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  padding: 0.3rem 0.65rem;
+  background: #0a101d;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.gs-placeholder-title > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .gs-no-cover:not(.gs-hover-suppressed):hover .gs-cover-title,
 .gs-no-cover:not(.gs-hover-suppressed):focus-within .gs-cover-title { opacity: 0.2; }
 
@@ -823,8 +954,7 @@ body {
   min-height: 2.7rem;
 }
 
-.gs-show-game-titles .gs-card-body,
-.gs-show-placeholders .gs-no-cover .gs-card-body { display: flex; }
+.gs-show-game-titles .gs-card-body { display: flex; }
 
 .gs-card-title {
   margin: 0;
@@ -917,8 +1047,8 @@ body {
 }
 
 .gs-icon-button {
-  width: 62px;
-  height: 62px;
+  width: 54px;
+  height: 54px;
   padding: 0;
   flex-shrink: 0;
 
@@ -926,11 +1056,11 @@ body {
   align-items: center;
   justify-content: center;
 
-  border-radius: 50%;
-  background: rgba(8, 15, 27, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 13px;
+  background: rgba(10, 18, 32, 0.78);
+  border: 1px solid rgba(174, 190, 219, 0.42);
   color: var(--text);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
   cursor: pointer;
 
   transition:
@@ -943,15 +1073,20 @@ body {
   filter: none;
   transform: translateY(-2px);
   border-color: var(--accent);
-  background: rgba(249, 178, 52, 0.22);
+  background: rgba(19, 30, 48, 0.94);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.35);
 }
 
 .gs-icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .gs-icon-button svg {
-  width: 26px;
-  height: 26px;
-  fill: currentColor;
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* =============================
@@ -1115,7 +1250,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .gs-random.is-rolling svg,
   .gs-card.gs-spotlight-enter,
-  .gs-card.gs-shuffle-preview {
+  .gs-card.gs-shuffle-preview,
+  .gs-spotlight-actions.gs-return-visible {
     animation: none;
   }
 

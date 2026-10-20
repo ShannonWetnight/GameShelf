@@ -79,6 +79,54 @@ func TestHandleVersion(t *testing.T) {
 	}
 }
 
+func TestHandleGameFilesIsScopedToSelectedGame(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	if err := os.MkdirAll(filepath.Join(rootDir, "Alpha", "data"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "data", "save.dat"), []byte("save"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleGameFiles(w, httptest.NewRequest(http.MethodGet, "/api/game-files/alpha", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d; body: %s", w.Code, w.Body.String())
+	}
+	var result struct {
+		Files []gameFile `json:"files"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	paths := make([]string, 0, len(result.Files))
+	for _, file := range result.Files {
+		paths = append(paths, file.Path)
+	}
+	if !reflect.DeepEqual(paths, []string{"data/save.dat", "game.txt"}) {
+		t.Fatalf("files = %q", paths)
+	}
+	for _, request := range []struct {
+		method string
+		path   string
+		status int
+	}{
+		{http.MethodGet, "/api/game-files/missing", http.StatusNotFound},
+		{http.MethodGet, "/api/game-files/alpha/other", http.StatusNotFound},
+		{http.MethodPost, "/api/game-files/alpha", http.StatusMethodNotAllowed},
+	} {
+		w := httptest.NewRecorder()
+		handleGameFiles(w, httptest.NewRequest(request.method, request.path, nil))
+		if w.Code != request.status {
+			t.Fatalf("%s %s status = %d, want %d", request.method, request.path, w.Code, request.status)
+		}
+	}
+}
+
 func TestRefreshGamesReadDirFailurePreservesIndex(t *testing.T) {
 	for _, kind := range []string{"missing", "file"} {
 		t.Run(kind, func(t *testing.T) {

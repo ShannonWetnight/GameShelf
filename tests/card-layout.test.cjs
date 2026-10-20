@@ -34,6 +34,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'const missing=document.querySelector(".gs-no-cover");' +
       'const missingImage=missing.querySelector("img");' +
       'const missingTitle=missing.querySelector(".gs-cover-title");' +
+      'const placeholderTitle=missing.querySelector(".gs-placeholder-title");' +
       'const inside = function(a,b) {const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();' +
       'return x.left>=y.left-1&&x.right<=y.right+1&&x.top>=y.top-1&&x.bottom<=y.bottom+1;};' +
       'const result = {compact:card.getBoundingClientRect().height<500,' +
@@ -47,18 +48,29 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'placeholder.checked=true;placeholder.dispatchEvent(new Event("change"));' +
       'result.placeholderImage=getComputedStyle(missingImage).display;' +
       'result.placeholderTitle=getComputedStyle(missingTitle).display;' +
+      'result.placeholderOverlay=getComputedStyle(placeholderTitle).display;' +
+      'result.placeholderText=placeholderTitle.textContent;' +
+      'result.placeholderNoOverlap=missingImage.getBoundingClientRect().bottom<=placeholderTitle.getBoundingClientRect().top+1;' +
       'result.placeholderFooter=getComputedStyle(missing.querySelector(".gs-card-body")).display;' +
+      'result.realCoverFooter=getComputedStyle(card.querySelector(".gs-card-body")).display;' +
       'const titles=document.querySelector("#show-game-titles");' +
       'titles.checked=true;titles.dispatchEvent(new Event("change"));' +
       'result.allTitlesFooter=getComputedStyle(card.querySelector(".gs-card-body")).display;' +
       'result.missingCenteredTitle=getComputedStyle(missingTitle).display;' +
       'document.querySelector("#view-toggle").click();' +
+      'result.listMissingImage=getComputedStyle(missingImage).display;' +
+      'result.listMissingTitle=getComputedStyle(placeholderTitle).display;' +
       'result.listDownloadVisible=getComputedStyle(dl).display!=="none";' +
       'result.listInfoVisible=getComputedStyle(info).display!=="none";' +
       'result.listDownloadInside=inside(dl,card);' +
       'result.listInfoInside=inside(info,card);' +
       'result.listActionsPointer=getComputedStyle(actions).pointerEvents;' +
       'dl.focus();result.listFocusedPointer=getComputedStyle(actions).pointerEvents;' +
+      'dl.addEventListener("click",function(e){e.preventDefault();},{once:true});dl.click();' +
+      'result.downloadSuppressed=card.classList.contains("gs-hover-suppressed");' +
+      'result.downloadPointer=getComputedStyle(actions).pointerEvents;' +
+      'card.dispatchEvent(new PointerEvent("pointerleave"));' +
+      'result.downloadRestored=!card.classList.contains("gs-hover-suppressed");' +
       'info.click();document.querySelector("#game-details-dialog").close();' +
       'setTimeout(function(){' +
       'result.suppressed=card.classList.contains("gs-hover-suppressed");' +
@@ -89,15 +101,24 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.notEqual(result.defaultMissingTitle, 'none');
     assert.notEqual(result.placeholderImage, 'none');
     assert.equal(result.placeholderTitle, 'none');
-    assert.notEqual(result.placeholderFooter, 'none');
+    assert.notEqual(result.placeholderOverlay, 'none');
+    assert.equal(result.placeholderText, 'No Cover');
+    assert.equal(result.placeholderNoOverlap, true);
+    assert.equal(result.placeholderFooter, 'none');
+    assert.equal(result.realCoverFooter, 'none');
     assert.notEqual(result.allTitlesFooter, 'none');
     assert.equal(result.missingCenteredTitle, 'none');
+    assert.equal(result.listMissingImage, 'none');
+    assert.equal(result.listMissingTitle, 'none');
     assert.equal(result.listDownloadVisible, true);
     assert.equal(result.listInfoVisible, true);
     assert.equal(result.listDownloadInside, true);
     assert.equal(result.listInfoInside, true);
     assert.equal(result.listActionsPointer, 'none');
     assert.equal(result.listFocusedPointer, 'auto');
+    assert.equal(result.downloadSuppressed, true);
+    assert.equal(result.downloadPointer, 'none');
+    assert.equal(result.downloadRestored, true);
     assert.equal(result.suppressed, true);
     assert.equal(result.closedPointer, 'none');
   } finally {

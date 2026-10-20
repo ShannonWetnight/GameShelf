@@ -99,13 +99,14 @@
       <button id="retry-button" class="gs-button" type="button">Retry</button>
     </section>
 
-    <div id="spotlight-actions" class="gs-spotlight-actions hidden">
-      <button id="show-all-games" class="gs-button" type="button">Show all games</button>
+    <div id="library-stage" class="gs-library-stage">
+      <section id="games-container" class="gs-grid">
+        <!-- Cards inserted by app.js -->
+      </section>
+      <div id="spotlight-actions" class="gs-spotlight-actions hidden">
+        <button id="show-all-games" class="gs-return-button" type="button">← Return to all games</button>
+      </div>
     </div>
-
-    <section id="games-container" class="gs-grid">
-      <!-- Cards inserted by app.js -->
-    </section>
 
     <section id="empty-state" class="gs-empty hidden" role="status">
       <h2 id="empty-title">No games found!</h2>
@@ -166,6 +167,12 @@
       <div><dt>Cover art</dt><dd id="game-details-cover"></dd></div>
       <div><dt>Date added</dt><dd id="game-details-added"></dd></div>
     </dl>
+    <button id="toggle-game-files" class="gs-files-toggle" type="button"
+            aria-expanded="false" aria-controls="game-files-panel">Show files</button>
+    <div id="game-files-panel" class="gs-files-panel hidden">
+      <p id="game-files-status" role="status"></p>
+      <ul id="game-files-list"></ul>
+    </div>
   </dialog>
 
   <script src="/app.js"></script>

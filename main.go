@@ -74,6 +74,7 @@ func main() {
 
 	// API endpoints
 	mux.HandleFunc("/api/games", handleGames)
+	mux.HandleFunc("/api/game-files/", handleGameFiles)
 	mux.HandleFunc("/api/version", handleVersion)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
@@ -294,6 +295,66 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(list); err != nil {
 		log.Printf("encode games: %v", err)
+	}
+}
+
+type gameFile struct {
+	Path      string `json:"path"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
+func handleGameFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/api/game-files/")
+	entry := getGameEntryByID(id)
+	if id == "" || entry == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	dirPath := filepath.Join(rootDir, entry.DirName)
+	files := make([]gameFile, 0)
+	const maxFiles = 2000
+	truncated := false
+	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		// WalkDir does not follow directory links. Omit file links too so
+		// this list only describes files physically inside the selected game.
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		if len(files) == maxFiles {
+			truncated = true
+			return fs.SkipAll
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, gameFile{Path: filepath.ToSlash(rel), SizeBytes: info.Size()})
+		return nil
+	})
+	if err != nil {
+		log.Printf("list files for %s: %v", entry.Game.Name, err)
+		http.Error(w, "Unable to list game files.", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(struct {
+		Files     []gameFile `json:"files"`
+		Truncated bool       `json:"truncated"`
+	}{files, truncated}); err != nil {
+		log.Printf("encode game files: %v", err)
 	}
 }
 
