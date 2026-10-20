@@ -15,7 +15,7 @@ let suggestedGameId = null;
 let shuffleGameId = null;
 let isShuffling = false;
 let shuffleTimers = [];
-let slowRoll = localStorage.getItem('gameshelf:slow-roll') === 'true';
+let slowAnimations = localStorage.getItem('gameshelf:slow-animations') === 'true';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
 const cardMap = new Map(); // game.id -> card element
@@ -291,6 +291,7 @@ function suggestRandomGame() {
   diceButton.title = 'Choosing a game…';
   applyViewMode();
   const frames = Math.min(4, alternatives.length * 2);
+  const frameDelay = slowAnimations ? 250 : 125;
   let lastId = null;
   for (let step = 0; step < frames; step++) {
     const options = alternatives.filter(candidate => candidate.id !== lastId);
@@ -309,9 +310,9 @@ function suggestRandomGame() {
       applySearchFilter();
     };
     if (step === 0) showPreview();
-    else shuffleTimers.push(setTimeout(showPreview, step * 125));
+    else shuffleTimers.push(setTimeout(showPreview, step * frameDelay));
   }
-  shuffleTimers.push(setTimeout(showFinalGame, frames * 125 + 50));
+  shuffleTimers.push(setTimeout(showFinalGame, frames * frameDelay + (slowAnimations ? 100 : 50)));
 }
 
 function clearSearch() {
@@ -465,20 +466,22 @@ document.addEventListener('DOMContentLoaded', () => {
   /* -------- Settings -------- */
   const settingsButton = document.getElementById('build-info');
   const settingsDialog = document.getElementById('settings-dialog');
-  const slowRollInput = document.getElementById('slow-roll');
-  slowRollInput.checked = slowRoll;
-  randomButton.classList.toggle('gs-slow-roll', slowRoll);
+  const slowAnimationsInput = document.getElementById('slow-animations');
+  slowAnimationsInput.checked = slowAnimations;
+  randomButton.classList.toggle('gs-slow-animations', slowAnimations);
+  document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
 
   settingsButton.addEventListener('click', () => {
     settingsDialog.showModal();
-    slowRollInput.focus();
+    slowAnimationsInput.focus();
   });
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   settingsDialog.addEventListener('close', () => settingsButton.focus());
-  slowRollInput.addEventListener('change', () => {
-    slowRoll = slowRollInput.checked;
-    localStorage.setItem('gameshelf:slow-roll', String(slowRoll));
-    randomButton.classList.toggle('gs-slow-roll', slowRoll);
+  slowAnimationsInput.addEventListener('change', () => {
+    slowAnimations = slowAnimationsInput.checked;
+    localStorage.setItem('gameshelf:slow-animations', String(slowAnimations));
+    randomButton.classList.toggle('gs-slow-animations', slowAnimations);
+    document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
   });
 
   /* -------- Sort menu -------- */
