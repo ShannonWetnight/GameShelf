@@ -22,8 +22,8 @@ class Element {
   constructor(classes = '') {
     const tokens = new Set(classes.split(/\s+/).filter(Boolean));
     this.classList = {
-      add: token => tokens.add(token),
-      remove: token => tokens.delete(token),
+      add: (...items) => items.forEach(token => tokens.add(token)),
+      remove: (...items) => items.forEach(token => tokens.delete(token)),
       contains: token => tokens.has(token),
       toggle(token, force = !tokens.has(token)) {
         force ? tokens.add(token) : tokens.delete(token);
@@ -56,7 +56,8 @@ class Element {
 
 function app(
   versionInfo = { version: 'edge-20261019-16.1-abc123def456', channel: 'edge' },
-  storage = new Map()
+  storage = new Map(),
+  reducedMotion = false
 ) {
   const elements = new Map();
   for (const match of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
@@ -73,7 +74,7 @@ function app(
   const timers = new Map();
   let timerId = 0;
   const context = vm.createContext({
-    document, localStorage: {
+    document, matchMedia: () => ({ matches: reducedMotion }), localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value)
     },
@@ -211,7 +212,13 @@ test('random suggestion highlights a game without downloading and avoids immedia
   ui.element('random-game').emit('animationend');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), false);
   const selected = () => ui.cards().filter(card => card.classList.contains('gs-random-selected'));
+  assert.equal(selected().length, 0);
+  assert.equal(ui.element('random-game').disabled, true);
+  assert.equal(ui.cards().filter(card => card.classList.contains('gs-shuffle-preview')).length, 1);
+  ui.tick(125);
+  ui.tick(300);
   assert.equal(selected().length, 1);
+  assert.equal(ui.element('random-game').disabled, false);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
   assert.equal(ui.hidden('spotlight-actions'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -223,6 +230,9 @@ test('random suggestion highlights a game without downloading and avoids immedia
 
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
+  assert.equal(selected().length, 0);
+  ui.tick(125);
+  ui.tick(300);
   assert.equal(selected().length, 1);
   assert.notEqual(selected()[0].dataset.id, firstId);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -245,6 +255,8 @@ test('spotlight resets through Show all games or Escape and restores list view',
   assert.equal(ui.element('games-container').classList.contains('list-view'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   ui.click('show-all-games');
+  ui.tick(125);
+  ui.tick(300);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   assert.equal(ui.hidden('spotlight-actions'), true);
@@ -252,8 +264,34 @@ test('spotlight resets through Show all games or Escape and restores list view',
 
   ui.click('random-game');
   ui.document.emit('keydown', { key: 'Escape' });
+  ui.tick(125);
+  ui.tick(300);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
+});
+
+test('search cancels a pending shuffle and reduced motion skips it', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('random-game');
+  ui.search('Alpha');
+  ui.tick(125);
+  ui.tick(300);
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
+  assert.equal(ui.hidden('spotlight-actions'), true);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
+  assert.equal(ui.cards().find(card => card.style.display !== 'none').dataset.id, 'alpha');
+
+  const reduced = app(undefined, new Map(), true);
+  reduced.start();
+  reduced.requests[0].resolve(response(games));
+  await settle();
+  reduced.click('random-game');
+  assert.equal(reduced.cards().filter(card => card.classList.contains('gs-random-selected')).length, 1);
+  assert.equal(reduced.cards().filter(card => card.classList.contains('gs-shuffle-preview')).length, 0);
+  assert.equal(reduced.element('random-game').disabled, false);
 });
 
 test('settings dialog saves slow dice motion in this browser', async () => {
