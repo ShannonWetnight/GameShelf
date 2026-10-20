@@ -21,7 +21,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add a toggle UI effects option
 * [x] Respect the device's reduced-motion preference
 * [ ] Add a dark/light mode toggle
-* [ ] Integrate download button into card main body
+* [x] Integrate download button into card main body
 * [x] Add graceful fallback UI when `/api/games` fails
   - Show an error with retry; keep the last loaded cards when refresh fails
 * [ ] Toggle for "Game card is download button"

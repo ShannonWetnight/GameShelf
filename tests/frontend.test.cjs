@@ -136,6 +136,21 @@ test('loading cannot be mistaken for an empty library; overlapping refresh is ig
   assert.equal(ui.hidden('search-hint'), true);
 });
 
+test('download link stays inside the card body and names its game', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+
+  const card = ui.cards().find(item => item.dataset.id === 'alpha');
+  const body = card.children[1];
+  const action = body.children[2].children[0];
+  assert.equal(body.children[0].children[0].textContent, 'Alpha');
+  assert.equal(body.children[1].textContent, '1.0 KB');
+  assert.equal(action.href, '/download/alpha');
+  assert.equal(action.attributes['aria-label'], 'Download Alpha');
+});
+
 test('populated library, search miss, clear search, sort and view still work', async () => {
   const ui = app();
   ui.start();
