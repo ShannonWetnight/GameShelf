@@ -230,6 +230,11 @@ function suggestRandomGame() {
   const card = cardMap.get(game.id);
   if (!card) return;
 
+  const diceButton = document.getElementById('random-game');
+  diceButton.classList.remove('is-rolling');
+  void diceButton.offsetWidth;
+  diceButton.classList.add('is-rolling');
+
   clearSuggestion();
   if (currentSearch) clearSearch();
   suggestedGameId = game.id;
@@ -261,6 +266,7 @@ async function loadGames(isRefresh = false) {
 
   isLoading = true;
   randomButton.disabled = true;
+  randomButton.title = 'Loading games…';
   loadError = false;
   retryRefresh = isRefresh;
   loading.textContent = isRefresh ? 'Refreshing games…' : 'Loading games…';
@@ -308,6 +314,8 @@ async function loadGames(isRefresh = false) {
     loading.classList.add('hidden');
     retry.disabled = false;
     randomButton.disabled = gamesCache.length === 0;
+    randomButton.title = gamesCache.length === 0
+      ? 'Add games to enable random suggestions' : 'Suggest a random game';
     container.setAttribute('aria-busy', 'false');
     applySearchFilter();
   }
@@ -376,7 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
   trigger.addEventListener('click', () => runRefresh());
   document.getElementById('retry-button').addEventListener('click', () => runRefresh(retryRefresh));
 
-  document.getElementById('random-game').addEventListener('click', suggestRandomGame);
+  const randomButton = document.getElementById('random-game');
+  randomButton.addEventListener('click', suggestRandomGame);
+  randomButton.addEventListener('animationend', () => randomButton.classList.remove('is-rolling'));
 
   /* -------- Sort menu -------- */
   const sortButton = document.getElementById('sort-button');
