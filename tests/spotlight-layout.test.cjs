@@ -20,9 +20,9 @@ test('dice selection shows one centered card and reset restores the library', ()
   try {
     const fetchStub = '<script>window.fetch = function(url) {' +
       'const data = url === "/api/version" ? {version:"v-test",channel:"stable"} :' +
-      '[{id:"first",name:"First Game",sizeBytes:1024},' +
-      '{id:"second",name:"Second Game",sizeBytes:2048},' +
-      '{id:"third",name:"Third Game",sizeBytes:4096}];' +
+      '[{id:"first",name:"First Game",sizeBytes:2048},' +
+      '{id:"second",name:"Second Game",sizeBytes:4096},' +
+      '{id:"third",name:"Third Game",sizeBytes:1024}];' +
       'return Promise.resolve({ok:true,json:function(){return Promise.resolve(data);}});' +
       '};</script>';
     const probe = '<script>window.addEventListener("load", function() {' +
@@ -31,9 +31,38 @@ test('dice selection shows one centered card and reset restores the library', ()
       'const cards = Array.from(grid.querySelectorAll(".gs-card"));' +
       'const visible = function() { return cards.filter(function(card) {' +
       'return getComputedStyle(card).display !== "none"; }); };' +
+      'const sortButton = document.querySelector("#sort-button");' +
+      'const sortMenu = document.querySelector("#sort-menu");' +
+      'sortButton.click();' +
+      'const sortOpen = getComputedStyle(sortMenu).display !== "none";' +
+      'sortMenu.querySelector("[data-sort=za]").click();' +
+      'const names = function() { return Array.from(grid.querySelectorAll(".gs-card")).map(function(card) {' +
+      'return card.querySelector("h3").textContent; }); };' +
+      'const sortedNames = names();' +
+      'sortButton.click(); sortMenu.querySelector("[data-sort=size-desc]").click();' +
+      'const sizeDescNames = names();' +
+      'sortButton.click(); sortMenu.querySelector("[data-sort=size-asc]").click();' +
+      'const sizeAscNames = names();' +
+      'sortButton.click(); sortMenu.querySelector("[data-sort=az]").click();' +
+      'const alphaNames = names();' +
+      'const viewButton = document.querySelector("#view-toggle");' +
+      'viewButton.click();' +
+      'const listView = grid.classList.contains("list-view");' +
+      'viewButton.click();' +
+      'const gear = document.querySelector("#build-info");' +
+      'const svg = gear.querySelector("svg");' +
+      'const iconBox = svg.querySelector("path").getBBox();' +
+      'const svgRect = svg.getBoundingClientRect();' +
+      'const buttonRect = gear.getBoundingClientRect();' +
+      'const iconCenterX = svgRect.left + (iconBox.x + iconBox.width / 2 - svg.viewBox.baseVal.x) * svgRect.width / svg.viewBox.baseVal.width;' +
+      'const iconCenterY = svgRect.top + (iconBox.y + iconBox.height / 2 - svg.viewBox.baseVal.y) * svgRect.height / svg.viewBox.baseVal.height;' +
+      'const gearCenterDifference = Math.max(Math.abs(iconCenterX - (buttonRect.left + buttonRect.right) / 2),' +
+      'Math.abs(iconCenterY - (buttonRect.top + buttonRect.bottom) / 2));' +
       'document.querySelector("#random-game").click();' +
       'const preview = visible()[0];' +
-      'const result = {shuffleCount:visible().length,' +
+      'const result = {sortOpen:sortOpen,sortedNames:sortedNames,sizeDescNames:sizeDescNames,' +
+      'sizeAscNames:sizeAscNames,alphaNames:alphaNames,listView:listView,' +
+      'gearCenterDifference:gearCenterDifference,shuffleCount:visible().length,' +
       'shuffleAnimation:getComputedStyle(preview).animationName,' +
       'diceDisabled:document.querySelector("#random-game").disabled};' +
       'setTimeout(function() {' +
@@ -49,6 +78,13 @@ test('dice selection shows one centered card and reset restores the library', ()
       'result.resetHidden = getComputedStyle(document.querySelector("#spotlight-actions")).display === "none";' +
       'document.querySelector("#build-info").click();' +
       'result.settingsOpen = document.querySelector("#settings-dialog").open;' +
+      'const slow = document.querySelector("#slow-animations");' +
+      'result.slowDefault = slow.checked;' +
+      'slow.click();' +
+      'document.querySelector("#settings-dialog").close();' +
+      'document.querySelector("#random-game").click();' +
+      'result.slowDiceDuration = getComputedStyle(document.querySelector("#random-game svg")).animationDuration;' +
+      'result.slowShuffleDuration = getComputedStyle(visible()[0]).animationDuration;' +
       'const report = document.createElement("pre");' +
       'report.id = "spotlight-report";' +
       'report.textContent = JSON.stringify(result);' +
@@ -68,6 +104,14 @@ test('dice selection shows one centered card and reset restores the library', ()
     const match = run.stdout.match(/<pre id="spotlight-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the spotlight layout');
     const result = JSON.parse(match[1]);
+    assert.match(html, /<link rel="icon" type="image\/png" href="\/gameshelf_icon\.png">/);
+    assert.equal(result.sortOpen, true);
+    assert.deepEqual(result.sortedNames, ['Third Game', 'Second Game', 'First Game']);
+    assert.deepEqual(result.sizeDescNames, ['Second Game', 'First Game', 'Third Game']);
+    assert.deepEqual(result.sizeAscNames, ['Third Game', 'First Game', 'Second Game']);
+    assert.deepEqual(result.alphaNames, ['First Game', 'Second Game', 'Third Game']);
+    assert.equal(result.listView, true);
+    assert.ok(result.gearCenterDifference <= 1, 'settings icon is not centered');
     assert.equal(result.shuffleCount, 1);
     assert.match(result.shuffleAnimation, /^gs-card-shuffle/);
     assert.equal(result.diceDisabled, true);
@@ -78,6 +122,9 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.restoredCount, 3);
     assert.equal(result.resetHidden, true);
     assert.equal(result.settingsOpen, true);
+    assert.equal(result.slowDefault, false);
+    assert.equal(result.slowDiceDuration, '1.2s');
+    assert.equal(result.slowShuffleDuration, '0.26s');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
