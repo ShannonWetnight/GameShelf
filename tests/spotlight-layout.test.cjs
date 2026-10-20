@@ -21,7 +21,8 @@ test('dice selection shows one centered card and reset restores the library', ()
     const fetchStub = '<script>window.fetch = function(url) {' +
       'const data = url === "/api/version" ? {version:"v-test",channel:"stable"} :' +
       '[{id:"first",name:"First Game",sizeBytes:1024},' +
-      '{id:"second",name:"Second Game",sizeBytes:2048}];' +
+      '{id:"second",name:"Second Game",sizeBytes:2048},' +
+      '{id:"third",name:"Third Game",sizeBytes:4096}];' +
       'return Promise.resolve({ok:true,json:function(){return Promise.resolve(data);}});' +
       '};</script>';
     const probe = '<script>window.addEventListener("load", function() {' +
@@ -31,13 +32,18 @@ test('dice selection shows one centered card and reset restores the library', ()
       'const visible = function() { return cards.filter(function(card) {' +
       'return getComputedStyle(card).display !== "none"; }); };' +
       'document.querySelector("#random-game").click();' +
+      'const preview = visible()[0];' +
+      'const result = {shuffleCount:visible().length,' +
+      'shuffleAnimation:getComputedStyle(preview).animationName,' +
+      'diceDisabled:document.querySelector("#random-game").disabled};' +
+      'setTimeout(function() {' +
       'const selected = visible()[0];' +
       'const gridBox = grid.getBoundingClientRect();' +
       'const cardBox = selected.getBoundingClientRect();' +
-      'const result = {selectedCount:visible().length,' +
-      'centerDifference:Math.abs((gridBox.left + gridBox.right)/2 - (cardBox.left + cardBox.right)/2),' +
-      'animationName:getComputedStyle(selected).animationName,' +
-      'resetVisible:getComputedStyle(document.querySelector("#spotlight-actions")).display !== "none"};' +
+      'result.selectedCount = visible().length;' +
+      'result.centerDifference = Math.abs((gridBox.left + gridBox.right)/2 - (cardBox.left + cardBox.right)/2);' +
+      'result.animationName = getComputedStyle(selected).animationName;' +
+      'result.resetVisible = getComputedStyle(document.querySelector("#spotlight-actions")).display !== "none";' +
       'document.querySelector("#show-all-games").click();' +
       'result.restoredCount = visible().length;' +
       'result.resetHidden = getComputedStyle(document.querySelector("#spotlight-actions")).display === "none";' +
@@ -47,6 +53,7 @@ test('dice selection shows one centered card and reset restores the library', ()
       'report.id = "spotlight-report";' +
       'report.textContent = JSON.stringify(result);' +
       'document.body.append(report);' +
+      '}, 600);' +
       '}, 0);' +
       '});</script>';
     const source = html
@@ -61,11 +68,14 @@ test('dice selection shows one centered card and reset restores the library', ()
     const match = run.stdout.match(/<pre id="spotlight-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the spotlight layout');
     const result = JSON.parse(match[1]);
+    assert.equal(result.shuffleCount, 1);
+    assert.match(result.shuffleAnimation, /^gs-card-shuffle/);
+    assert.equal(result.diceDisabled, true);
     assert.equal(result.selectedCount, 1);
     assert.ok(result.centerDifference <= 1, 'selected card is not centered');
     assert.equal(result.animationName, 'gs-spotlight-bounce');
     assert.equal(result.resetVisible, true);
-    assert.equal(result.restoredCount, 2);
+    assert.equal(result.restoredCount, 3);
     assert.equal(result.resetHidden, true);
     assert.equal(result.settingsOpen, true);
   } finally {
