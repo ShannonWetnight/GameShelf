@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>GameShelf</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" href="/gameshelf_icon.png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -70,7 +71,8 @@
           </button>
 
           <button id="build-info" class="gs-view-toggle gs-build-info" type="button"
-                  aria-label="Version information" aria-describedby="version-label">
+                  aria-label="Open settings" aria-haspopup="dialog" aria-controls="settings-dialog"
+                  aria-describedby="version-label" title="Settings">
             <svg viewBox="0.8 0 24 24" aria-hidden="true">
               <path d="M19.14 12.94a7.98 7.98 0 000-1.88l2.03-1.58-2-3.46-2.39.96a8.1 8.1 0 00-1.63-.94L14.8 3h-4l-.35 3.04c-.58.23-1.12.55-1.63.94l-2.39-.96-2 3.46 2.03 1.58a7.98 7.98 0 000 1.88l-2.03 1.58 2 3.46 2.39-.96c.51.39 1.05.71 1.63.94L10.8 21h4l.35-3.04c.58-.23 1.12-.55 1.63-.94l2.39.96 2-3.46-2.03-1.58zM12.8 16a4 4 0 110-8 4 4 0 010 8z"/>
             </svg>
@@ -98,6 +100,10 @@
       <button id="retry-button" class="gs-button" type="button">Retry</button>
     </section>
 
+    <div id="spotlight-actions" class="gs-spotlight-actions hidden">
+      <button id="show-all-games" class="gs-button" type="button">Show all games</button>
+    </div>
+
     <section id="games-container" class="gs-grid">
       <!-- Cards inserted by app.js -->
     </section>
@@ -112,6 +118,21 @@
         View the <a href="https://github.com/ShannonWetnight/gameshelf?tab=readme-ov-file#recommended-file-structure" target="_blank">GameShelf README</a> for more information.</p>
     </section>
   </main>
+
+  <dialog id="settings-dialog" class="gs-settings-dialog" aria-labelledby="settings-title">
+    <div class="gs-settings-header">
+      <h2 id="settings-title">Settings</h2>
+      <button id="settings-close" class="gs-settings-close" type="button" aria-label="Close settings">×</button>
+    </div>
+    <label class="gs-settings-option">
+      <input id="slow-animations" type="checkbox">
+      <span>
+        <strong>Slow motion animations</strong>
+        <small>Slow down the dice roll and card shuffle.</small>
+      </span>
+    </label>
+    <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>
+  </dialog>
 
   <script src="/app.js"></script>
 </body>

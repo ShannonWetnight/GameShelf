@@ -1,0 +1,131 @@
+// Run with Node.js 18+ and Chrome: node --test tests/spotlight-layout.test.cjs
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const { pathToFileURL } = require('node:url');
+
+const root = path.join(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8');
+const app = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
+const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
+  ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+  : 'google-chrome');
+
+test('dice selection shows one centered card and reset restores the library', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-spotlight-'));
+  try {
+    const fetchStub = '<script>window.fetch = function(url) {' +
+      'const data = url === "/api/version" ? {version:"v-test",channel:"stable"} :' +
+      '[{id:"first",name:"First Game",sizeBytes:2048},' +
+      '{id:"second",name:"Second Game",sizeBytes:4096},' +
+      '{id:"third",name:"Third Game",sizeBytes:1024}];' +
+      'return Promise.resolve({ok:true,json:function(){return Promise.resolve(data);}});' +
+      '};</script>';
+    const probe = '<script>window.addEventListener("load", function() {' +
+      'setTimeout(function() {' +
+      'const grid = document.querySelector("#games-container");' +
+      'const cards = Array.from(grid.querySelectorAll(".gs-card"));' +
+      'const visible = function() { return cards.filter(function(card) {' +
+      'return getComputedStyle(card).display !== "none"; }); };' +
+      'const sortButton = document.querySelector("#sort-button");' +
+      'const sortMenu = document.querySelector("#sort-menu");' +
+      'sortButton.click();' +
+      'const sortOpen = getComputedStyle(sortMenu).display !== "none";' +
+      'sortMenu.querySelector("[data-sort=za]").click();' +
+      'const names = function() { return Array.from(grid.querySelectorAll(".gs-card")).map(function(card) {' +
+      'return card.querySelector("h3").textContent; }); };' +
+      'const sortedNames = names();' +
+      'sortButton.click(); sortMenu.querySelector("[data-sort=size-desc]").click();' +
+      'const sizeDescNames = names();' +
+      'sortButton.click(); sortMenu.querySelector("[data-sort=size-asc]").click();' +
+      'const sizeAscNames = names();' +
+      'sortButton.click(); sortMenu.querySelector("[data-sort=az]").click();' +
+      'const alphaNames = names();' +
+      'const viewButton = document.querySelector("#view-toggle");' +
+      'viewButton.click();' +
+      'const listView = grid.classList.contains("list-view");' +
+      'viewButton.click();' +
+      'const gear = document.querySelector("#build-info");' +
+      'const svg = gear.querySelector("svg");' +
+      'const iconBox = svg.querySelector("path").getBBox();' +
+      'const svgRect = svg.getBoundingClientRect();' +
+      'const buttonRect = gear.getBoundingClientRect();' +
+      'const iconCenterX = svgRect.left + (iconBox.x + iconBox.width / 2 - svg.viewBox.baseVal.x) * svgRect.width / svg.viewBox.baseVal.width;' +
+      'const iconCenterY = svgRect.top + (iconBox.y + iconBox.height / 2 - svg.viewBox.baseVal.y) * svgRect.height / svg.viewBox.baseVal.height;' +
+      'const gearCenterDifference = Math.max(Math.abs(iconCenterX - (buttonRect.left + buttonRect.right) / 2),' +
+      'Math.abs(iconCenterY - (buttonRect.top + buttonRect.bottom) / 2));' +
+      'document.querySelector("#random-game").click();' +
+      'const preview = visible()[0];' +
+      'const result = {sortOpen:sortOpen,sortedNames:sortedNames,sizeDescNames:sizeDescNames,' +
+      'sizeAscNames:sizeAscNames,alphaNames:alphaNames,listView:listView,' +
+      'gearCenterDifference:gearCenterDifference,shuffleCount:visible().length,' +
+      'shuffleAnimation:getComputedStyle(preview).animationName,' +
+      'diceDisabled:document.querySelector("#random-game").disabled};' +
+      'setTimeout(function() {' +
+      'const selected = visible()[0];' +
+      'const gridBox = grid.getBoundingClientRect();' +
+      'const cardBox = selected.getBoundingClientRect();' +
+      'result.selectedCount = visible().length;' +
+      'result.centerDifference = Math.abs((gridBox.left + gridBox.right)/2 - (cardBox.left + cardBox.right)/2);' +
+      'result.animationName = getComputedStyle(selected).animationName;' +
+      'result.resetVisible = getComputedStyle(document.querySelector("#spotlight-actions")).display !== "none";' +
+      'document.querySelector("#show-all-games").click();' +
+      'result.restoredCount = visible().length;' +
+      'result.resetHidden = getComputedStyle(document.querySelector("#spotlight-actions")).display === "none";' +
+      'document.querySelector("#build-info").click();' +
+      'result.settingsOpen = document.querySelector("#settings-dialog").open;' +
+      'const slow = document.querySelector("#slow-animations");' +
+      'result.slowDefault = slow.checked;' +
+      'slow.click();' +
+      'document.querySelector("#settings-dialog").close();' +
+      'document.querySelector("#random-game").click();' +
+      'result.slowDiceDuration = getComputedStyle(document.querySelector("#random-game svg")).animationDuration;' +
+      'result.slowShuffleDuration = getComputedStyle(visible()[0]).animationDuration;' +
+      'const report = document.createElement("pre");' +
+      'report.id = "spotlight-report";' +
+      'report.textContent = JSON.stringify(result);' +
+      'document.body.append(report);' +
+      '}, 600);' +
+      '}, 0);' +
+      '});</script>';
+    const source = html
+      .replace('<link rel="stylesheet" href="/styles.css">', '<style>' + css + '</style>')
+      .replace('<script src="/app.js"></script>', fetchStub + '<script>' + app + '</script>' + probe);
+    const file = path.join(dir, 'spotlight.html');
+    fs.writeFileSync(file, source);
+    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
+      '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=2000',
+      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+    assert.equal(run.status, 0, run.stderr || run.error?.message);
+    const match = run.stdout.match(/<pre id="spotlight-report">([^<]+)<\/pre>/);
+    assert.ok(match, 'Chrome did not report the spotlight layout');
+    const result = JSON.parse(match[1]);
+    assert.match(html, /<link rel="icon" type="image\/png" href="\/gameshelf_icon\.png">/);
+    assert.equal(result.sortOpen, true);
+    assert.deepEqual(result.sortedNames, ['Third Game', 'Second Game', 'First Game']);
+    assert.deepEqual(result.sizeDescNames, ['Second Game', 'First Game', 'Third Game']);
+    assert.deepEqual(result.sizeAscNames, ['Third Game', 'First Game', 'Second Game']);
+    assert.deepEqual(result.alphaNames, ['First Game', 'Second Game', 'Third Game']);
+    assert.equal(result.listView, true);
+    assert.ok(result.gearCenterDifference <= 1, 'settings icon is not centered');
+    assert.equal(result.shuffleCount, 1);
+    assert.match(result.shuffleAnimation, /^gs-card-shuffle/);
+    assert.equal(result.diceDisabled, true);
+    assert.equal(result.selectedCount, 1);
+    assert.ok(result.centerDifference <= 1, 'selected card is not centered');
+    assert.equal(result.animationName, 'gs-spotlight-bounce');
+    assert.equal(result.resetVisible, true);
+    assert.equal(result.restoredCount, 3);
+    assert.equal(result.resetHidden, true);
+    assert.equal(result.settingsOpen, true);
+    assert.equal(result.slowDefault, false);
+    assert.equal(result.slowDiceDuration, '1.2s');
+    assert.equal(result.slowShuffleDuration, '0.26s');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
