@@ -10,7 +10,7 @@
 <body>
   <header class="gs-header">
     <div class="gs-header-row">
-      <button id="gs-refresh-trigger" class="gs-refresh gs-has-tooltip" type="button" aria-label="Refresh game library" data-tooltip="Refresh game library">
+      <button id="gs-refresh-trigger" class="gs-refresh" type="button" aria-label="Refresh game library">
         <img src="gameshelf_icon.png" class="gs-logo-icon" alt="">
         <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
       </button>
@@ -128,6 +128,27 @@
       <span>
         <strong>Slow motion animations</strong>
         <small>Slow down the dice roll and card shuffle.</small>
+      </span>
+    </label>
+    <label class="gs-settings-option">
+      <input id="show-hover-text" type="checkbox" checked>
+      <span>
+        <strong>Show button hints</strong>
+        <small>Show the small labels when hovering over toolbar buttons.</small>
+      </span>
+    </label>
+    <label class="gs-settings-option">
+      <input id="show-game-titles" type="checkbox">
+      <span>
+        <strong>Show game titles</strong>
+        <small>Show a short title banner below every cover.</small>
+      </span>
+    </label>
+    <label class="gs-settings-option">
+      <input id="show-placeholder-images" type="checkbox">
+      <span>
+        <strong>Show placeholder images</strong>
+        <small>Use the GameShelf image for games without cover art.</small>
       </span>
     </label>
     <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>

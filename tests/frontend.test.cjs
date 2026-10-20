@@ -48,8 +48,10 @@ class Element {
   emit(event, payload = {}) {
     return this.listeners[event]?.({ target: this, stopPropagation() {}, ...payload });
   }
-  blur() {}
+  blur() { this.focused = false; }
+  contains(other) { return this === other || this.children.some(child => child.contains(other)); }
   focus() { this.focused = true; }
+  getBoundingClientRect() { return { left: 100, top: 100, right: 500, bottom: 500 }; }
   showModal() { this.open = true; }
   close() { this.open = false; this.emit('close'); }
 }
@@ -64,6 +66,7 @@ function app(
     elements.set(match[1], new Element(match[0].match(/class="([^"]*)"/)?.[1]));
   }
   const document = new Element();
+  document.body = new Element();
   document.getElementById = id => {
     assert.ok(elements.has(id), `Missing HTML element: ${id}`);
     return elements.get(id);
@@ -169,6 +172,51 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(ui.element('game-details-added').textContent, '');
   ui.click('game-details-close');
   assert.equal(ui.element('game-details-dialog').open, false);
+  assert.equal(card.classList.contains('gs-hover-suppressed'), true);
+  assert.equal(card.focused, true);
+});
+
+test('both dialogs close on backdrop clicks, while inside clicks stay open', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  const settings = ui.element('settings-dialog');
+  ui.click('build-info');
+  settings.emit('click', { target: settings, clientX: 150, clientY: 150 });
+  assert.equal(settings.open, true);
+  settings.emit('click', { target: settings, clientX: 0, clientY: 0 });
+  assert.equal(settings.open, false);
+  const info = ui.cards()[0].children[0].children[1].children[1];
+  info.emit('click');
+  const details = ui.element('game-details-dialog');
+  details.emit('click', { target: details, clientX: 0, clientY: 0 });
+  assert.equal(details.open, false);
+});
+
+test('display preferences default to hints on and persist changes', () => {
+  const storage = new Map();
+  const ui = app(undefined, storage);
+  ui.start();
+  assert.equal(ui.element('show-hover-text').checked, true);
+  assert.equal(ui.element('show-game-titles').checked, false);
+  assert.equal(ui.element('show-placeholder-images').checked, false);
+  for (const [id, key, bodyClass, checked] of [
+    ['show-hover-text', 'gameshelf:show-hover-text', 'gs-hide-tooltips', false],
+    ['show-game-titles', 'gameshelf:show-game-titles', 'gs-show-game-titles', true],
+    ['show-placeholder-images', 'gameshelf:show-placeholder-images', 'gs-show-placeholders', true]
+  ]) {
+    const input = ui.element(id);
+    input.checked = checked;
+    input.emit('change');
+    assert.equal(storage.get(key), String(checked));
+    assert.equal(ui.document.body.classList.contains(bodyClass), true);
+  }
+  const revisit = app(undefined, storage);
+  revisit.start();
+  assert.equal(revisit.element('show-hover-text').checked, false);
+  assert.equal(revisit.element('show-game-titles').checked, true);
+  assert.equal(revisit.element('show-placeholder-images').checked, true);
 });
 
 test('populated library, search miss, clear search, sort and view still work', async () => {
