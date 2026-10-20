@@ -92,8 +92,11 @@ def prepare():
         notes = validate_notes(Path(f".github/release-notes/{version}.md"))
         check_tag(version, sha)
         check_release(version)
-        previous = next((tag for tag in run("git", "tag", "--merged", sha,
-                        "--sort=-version:refname").splitlines() if STABLE.fullmatch(tag) and tag != version), None)
+        # Stable tags remain valid release markers even if main's commit history
+        # is rewritten. Select the highest earlier version across all tags.
+        previous = next((tag for tag in run("git", "tag", "--list",
+                        "--sort=-version:refname").splitlines()
+                         if STABLE.fullmatch(tag) and tag != version), None)
         if previous and tuple(map(int, version[1:].split('.'))) <= tuple(map(int, previous[1:].split('.'))):
             raise ValueError(f"Choose a version newer than {previous}.")
     else:
