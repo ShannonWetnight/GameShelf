@@ -460,10 +460,7 @@ body {
   visibility: visible;
 }
 
-.gs-refresh.gs-has-tooltip::after {
-  left: 0;
-  right: auto;
-}
+.gs-hide-tooltips .gs-has-tooltip::after { display: none; }
 
 .gs-details-list {
   display: grid;
@@ -543,6 +540,8 @@ body {
   cursor: pointer;
 }
 
+.gs-settings-option + .gs-settings-option { margin-top: 0.55rem; }
+
 .gs-settings-option input {
   width: 18px;
   height: 18px;
@@ -606,13 +605,21 @@ body {
   display: none;
 }
 
+.gs-grid.list-view .gs-cover-title { display: none; }
+
 .gs-grid.list-view .gs-card-actions {
   position: static;
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   transform: none;
   display: flex;
   gap: 0.5rem;
+}
+
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover .gs-card-actions,
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):focus-within .gs-card-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .gs-grid.list-view .gs-card-download {
@@ -625,6 +632,7 @@ body {
    ============================= */
 
 .gs-grid.list-view .gs-card-body {
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 0;
@@ -695,7 +703,7 @@ body {
               border-color 0.16s ease;
 }
 
-.gs-card:hover {
+.gs-card:not(.gs-hover-suppressed):hover {
   transform: translateY(-4px);
   border-color: var(--accent-soft);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.8);
@@ -773,23 +781,54 @@ body {
   transition: filter 0.18s ease, transform 0.18s ease;
 }
 
-.gs-card:hover .gs-card-cover img,
-.gs-card:focus-within .gs-card-cover img {
+.gs-card:not(.gs-hover-suppressed):hover .gs-card-cover img,
+.gs-card:not(.gs-hover-suppressed):focus-within .gs-card-cover img {
   filter: blur(3px) brightness(0.55);
   transform: scale(1.025);
 }
 
-.gs-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.7rem 0.9rem 0.85rem;
-  min-height: 4.3rem;
+.gs-no-cover .gs-card-cover {
+  background: radial-gradient(circle at 50% 35%, #263759, #0a1324 75%);
 }
+
+.gs-no-cover .gs-card-cover img { display: none; }
+.gs-show-placeholders .gs-no-cover .gs-card-cover img { display: block; }
+
+.gs-cover-title {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  color: var(--text);
+  text-align: center;
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  transition: opacity 0.18s ease;
+}
+
+.gs-show-placeholders .gs-cover-title,
+.gs-show-game-titles .gs-cover-title { display: none; }
+
+.gs-no-cover:not(.gs-hover-suppressed):hover .gs-cover-title,
+.gs-no-cover:not(.gs-hover-suppressed):focus-within .gs-cover-title { opacity: 0.2; }
+
+.gs-card-body {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.4rem 0.7rem;
+  min-height: 2.7rem;
+}
+
+.gs-show-game-titles .gs-card-body,
+.gs-show-placeholders .gs-no-cover .gs-card-body { display: flex; }
 
 .gs-card-title {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.88rem;
   font-weight: 600;
   text-align: center;
   display: -webkit-box;
@@ -816,8 +855,8 @@ body {
   transition: opacity 0.18s ease;
 }
 
-.gs-card:hover .gs-card-actions,
-.gs-card:focus-within .gs-card-actions {
+.gs-card:not(.gs-hover-suppressed):hover .gs-card-actions,
+.gs-card:not(.gs-hover-suppressed):focus-within .gs-card-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -851,13 +890,13 @@ body {
 
 .gs-card-content {
   flex: 0 0 auto;
-  min-height: 3.2em;
-  max-height: 3.2em;
+  max-height: 2.4em;
   overflow: hidden;
 }
 
 @media (hover: none) {
-  .gs-card .gs-card-actions { opacity: 1; pointer-events: auto; }
+  .gs-card .gs-card-actions { opacity: 1; pointer-events: auto; align-items: flex-end; padding-bottom: 1rem; }
+  .gs-grid.list-view .gs-card .gs-card-actions { opacity: 1; pointer-events: auto; }
   .gs-card .gs-card-cover img { filter: brightness(0.72); }
 }
 
@@ -877,25 +916,21 @@ body {
   transition: filter 0.15s ease, transform 0.12s ease;
 }
 
-.gs-icon-button:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(249, 178, 52, 0.25);
-}
-
 .gs-icon-button {
-  width: 120px;
-  height: 42px;
-  padding: 0 16px;
+  width: 62px;
+  height: 62px;
+  padding: 0;
   flex-shrink: 0;
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
 
-  border-radius: var(--radius-lg); /* Match game card corner radius */
-  background: linear-gradient(135deg, var(--accent), #f69500);
-  border: none;
+  border-radius: 50%;
+  background: rgba(8, 15, 27, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  color: var(--text);
+  backdrop-filter: blur(8px);
   cursor: pointer;
 
   transition:
@@ -905,14 +940,18 @@ body {
 }
 
 .gs-icon-button:hover {
-  filter: brightness(1.10);
-  transform: translateY(-1px);
+  filter: none;
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  background: rgba(249, 178, 52, 0.22);
 }
 
+.gs-icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
 .gs-icon-button svg {
-  width: 20px;
-  height: 20px;
-  fill: #1a1304;
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
 }
 
 /* =============================
@@ -1087,7 +1126,7 @@ body {
     scroll-behavior: auto !important;
   }
 
-  .gs-card:hover {
+  .gs-card:not(.gs-hover-suppressed):hover {
     transform: none;
   }
 }

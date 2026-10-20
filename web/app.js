@@ -16,6 +16,9 @@ let shuffleGameId = null;
 let isShuffling = false;
 let shuffleTimers = [];
 let slowAnimations = localStorage.getItem('gameshelf:slow-animations') === 'true';
+let showHoverText = localStorage.getItem('gameshelf:show-hover-text') !== 'false';
+let showGameTitles = localStorage.getItem('gameshelf:show-game-titles') === 'true';
+let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-images') === 'true';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
 const cardMap = new Map(); // game.id -> card element
@@ -106,6 +109,12 @@ function applyViewMode() {
 function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
+  card.classList.toggle('gs-no-cover', game.hasCover === false);
+  card.tabIndex = -1;
+  card.addEventListener('pointerleave', () => card.classList.remove('gs-hover-suppressed'));
+  card.addEventListener('focusout', event => {
+    if (!card.contains(event.relatedTarget)) card.classList.remove('gs-hover-suppressed');
+  });
   card.dataset.id = game.id;
   card.dataset.name = game.name.toLowerCase();
   card.dataset.size = game.sizeBytes;
@@ -120,6 +129,13 @@ function createGameCard(game) {
   img.alt = `${game.name} cover`;
 
   cover.appendChild(img);
+
+  if (game.hasCover === false) {
+    const coverTitle = document.createElement('span');
+    coverTitle.className = 'gs-cover-title';
+    coverTitle.textContent = game.name;
+    cover.appendChild(coverTitle);
+  }
 
   const actions = document.createElement('div');
   actions.className = 'gs-card-actions';
@@ -139,7 +155,7 @@ function createGameCard(game) {
   details.type = 'button';
   details.setAttribute('aria-label', `Information about ${game.name}`);
   details.textContent = 'i';
-  details.addEventListener('click', () => openGameDetails(game, details));
+  details.addEventListener('click', () => openGameDetails(game, details, card));
   actions.appendChild(dl);
   actions.appendChild(details);
   cover.appendChild(actions);
@@ -163,7 +179,7 @@ function createGameCard(game) {
   return card;
 }
 
-function openGameDetails(game, trigger) {
+function openGameDetails(game, trigger, card) {
   const dialog = document.getElementById('game-details-dialog');
   document.getElementById('game-details-title').textContent = game.name;
   document.getElementById('game-details-path').textContent = game.path || '';
@@ -173,7 +189,22 @@ function openGameDetails(game, trigger) {
   document.getElementById('game-details-added').textContent = game.addedAt || '';
   dialog.showModal();
   document.getElementById('game-details-close').focus();
-  dialog.addEventListener('close', () => trigger.focus(), { once: true });
+  dialog.addEventListener('close', () => {
+    trigger.blur();
+    card.classList.add('gs-hover-suppressed');
+    card.focus({ preventScroll: true });
+  }, { once: true });
+}
+
+function closeOnBackdropClick(dialog) {
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right ||
+        event.clientY < rect.top || event.clientY > rect.bottom) {
+      dialog.close();
+    }
+  });
 }
 
 /* =============================
@@ -411,6 +442,9 @@ async function loadGames(isRefresh = false) {
    DOM bindings
    ============================= */
 document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
+  document.body.classList.toggle('gs-show-game-titles', showGameTitles);
+  document.body.classList.toggle('gs-show-placeholders', showPlaceholderImages);
   loadVersion();
   loadGames();
 
@@ -434,20 +468,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const logoText = document.getElementById('gs-logo-text');
 
   const originalText = 'GAMESHELF';
-  const hoverText = 'REFRESH';
   const refreshingText = 'REFRESHING';
   const doneText = 'REFRESHED';
 
   let refreshLock = false;
   let refreshFeedbackTimer;
-
-  trigger.addEventListener('mouseenter', () => {
-    if (!refreshLock) logoText.textContent = hoverText;
-  });
-
-  trigger.addEventListener('mouseleave', () => {
-    if (!refreshLock) logoText.textContent = originalText;
-  });
 
   async function runRefresh(isRefresh = true) {
     if (refreshLock || isLoading) return;
@@ -481,8 +506,15 @@ document.addEventListener('DOMContentLoaded', () => {
   /* -------- Settings -------- */
   const settingsButton = document.getElementById('build-info');
   const settingsDialog = document.getElementById('settings-dialog');
+  const detailsDialog = document.getElementById('game-details-dialog');
   const slowAnimationsInput = document.getElementById('slow-animations');
+  const hoverTextInput = document.getElementById('show-hover-text');
+  const gameTitlesInput = document.getElementById('show-game-titles');
+  const placeholderInput = document.getElementById('show-placeholder-images');
   slowAnimationsInput.checked = slowAnimations;
+  hoverTextInput.checked = showHoverText;
+  gameTitlesInput.checked = showGameTitles;
+  placeholderInput.checked = showPlaceholderImages;
   randomButton.classList.toggle('gs-slow-animations', slowAnimations);
   document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
 
@@ -491,13 +523,30 @@ document.addEventListener('DOMContentLoaded', () => {
     slowAnimationsInput.focus();
   });
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
-  document.getElementById('game-details-close').addEventListener('click', () => document.getElementById('game-details-dialog').close());
+  document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
+  closeOnBackdropClick(settingsDialog);
+  closeOnBackdropClick(detailsDialog);
   settingsDialog.addEventListener('close', () => settingsButton.focus());
   slowAnimationsInput.addEventListener('change', () => {
     slowAnimations = slowAnimationsInput.checked;
     localStorage.setItem('gameshelf:slow-animations', String(slowAnimations));
     randomButton.classList.toggle('gs-slow-animations', slowAnimations);
     document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
+  });
+  hoverTextInput.addEventListener('change', () => {
+    showHoverText = hoverTextInput.checked;
+    localStorage.setItem('gameshelf:show-hover-text', String(showHoverText));
+    document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
+  });
+  gameTitlesInput.addEventListener('change', () => {
+    showGameTitles = gameTitlesInput.checked;
+    localStorage.setItem('gameshelf:show-game-titles', String(showGameTitles));
+    document.body.classList.toggle('gs-show-game-titles', showGameTitles);
+  });
+  placeholderInput.addEventListener('change', () => {
+    showPlaceholderImages = placeholderInput.checked;
+    localStorage.setItem('gameshelf:show-placeholder-images', String(showPlaceholderImages));
+    document.body.classList.toggle('gs-show-placeholders', showPlaceholderImages);
   });
 
   /* -------- Sort menu -------- */
@@ -558,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* -------- Keyboard Shortcuts -------- */
   document.addEventListener('keydown', e => {
-    if (settingsDialog.open) return;
+    if (settingsDialog.open || detailsDialog.open) return;
     const searchInput = document.getElementById('search-input');
     if (!searchInput) return;
 

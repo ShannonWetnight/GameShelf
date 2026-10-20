@@ -20,7 +20,8 @@ test('compact cards show hover actions and retain actions in list view', () => {
   try {
     const fetchStub = '<script>window.fetch = function(url) {' +
       'const data = url === "/api/version" ? {version:"v-test",channel:"stable"} :' +
-      '[{id:"sample",name:"A Sample Game",sizeBytes:1024,path:"/GameShelf/A Sample Game",fileCount:2,hasCover:true,addedAt:""}];' +
+      '[{id:"sample",name:"A Sample Game",sizeBytes:1024,path:"/GameShelf/A Sample Game",fileCount:2,hasCover:true,addedAt:""},' +
+      '{id:"missing",name:"No Cover",sizeBytes:100,path:"/GameShelf/No Cover",fileCount:1,hasCover:false,addedAt:""}];' +
       'return Promise.resolve({ok:true,json:function(){return Promise.resolve(data);}});' +
       '};</script>';
     const probe = '<script>window.addEventListener("load", function() {' +
@@ -30,20 +31,41 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'const actions = card.querySelector(".gs-card-actions");' +
       'const dl = card.querySelector(".gs-card-download");' +
       'const info = card.querySelector(".gs-card-info");' +
+      'const missing=document.querySelector(".gs-no-cover");' +
+      'const missingImage=missing.querySelector("img");' +
+      'const missingTitle=missing.querySelector(".gs-cover-title");' +
       'const inside = function(a,b) {const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();' +
       'return x.left>=y.left-1&&x.right<=y.right+1&&x.top>=y.top-1&&x.bottom<=y.bottom+1;};' +
       'const result = {compact:card.getBoundingClientRect().height<500,' +
       'gridDownloadInside:inside(dl,cover),gridInfoInside:inside(info,cover),' +
       'gridActionsOpacity:getComputedStyle(actions).opacity,' +
-      'href:dl.getAttribute("href"),label:dl.getAttribute("aria-label")};' +
+      'href:dl.getAttribute("href"),label:dl.getAttribute("aria-label"),' +
+      'defaultFooter:getComputedStyle(card.querySelector(".gs-card-body")).display,' +
+      'defaultMissingImage:getComputedStyle(missingImage).display,' +
+      'defaultMissingTitle:getComputedStyle(missingTitle).display};' +
+      'const placeholder=document.querySelector("#show-placeholder-images");' +
+      'placeholder.checked=true;placeholder.dispatchEvent(new Event("change"));' +
+      'result.placeholderImage=getComputedStyle(missingImage).display;' +
+      'result.placeholderTitle=getComputedStyle(missingTitle).display;' +
+      'result.placeholderFooter=getComputedStyle(missing.querySelector(".gs-card-body")).display;' +
+      'const titles=document.querySelector("#show-game-titles");' +
+      'titles.checked=true;titles.dispatchEvent(new Event("change"));' +
+      'result.allTitlesFooter=getComputedStyle(card.querySelector(".gs-card-body")).display;' +
+      'result.missingCenteredTitle=getComputedStyle(missingTitle).display;' +
       'document.querySelector("#view-toggle").click();' +
       'result.listDownloadVisible=getComputedStyle(dl).display!=="none";' +
       'result.listInfoVisible=getComputedStyle(info).display!=="none";' +
       'result.listDownloadInside=inside(dl,card);' +
       'result.listInfoInside=inside(info,card);' +
+      'result.listActionsPointer=getComputedStyle(actions).pointerEvents;' +
+      'dl.focus();result.listFocusedPointer=getComputedStyle(actions).pointerEvents;' +
+      'info.click();document.querySelector("#game-details-dialog").close();' +
+      'setTimeout(function(){' +
+      'result.suppressed=card.classList.contains("gs-hover-suppressed");' +
+      'result.closedPointer=getComputedStyle(actions).pointerEvents;' +
       'const report=document.createElement("pre");report.id="card-layout-report";' +
       'report.textContent=JSON.stringify(result);document.body.append(report);' +
-      '},0);});</script>';
+      '},0);},0);});</script>';
     const source = html
       .replace('<link rel="stylesheet" href="/styles.css">', '<style>' + css + '</style>')
       .replace('<script src="/app.js"></script>', fetchStub + '<script>' + app + '</script>' + probe);
@@ -62,10 +84,22 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.gridDownloadInside, true);
     assert.equal(result.gridInfoInside, true);
     assert.equal(result.gridActionsOpacity, '0');
+    assert.equal(result.defaultFooter, 'none');
+    assert.equal(result.defaultMissingImage, 'none');
+    assert.notEqual(result.defaultMissingTitle, 'none');
+    assert.notEqual(result.placeholderImage, 'none');
+    assert.equal(result.placeholderTitle, 'none');
+    assert.notEqual(result.placeholderFooter, 'none');
+    assert.notEqual(result.allTitlesFooter, 'none');
+    assert.equal(result.missingCenteredTitle, 'none');
     assert.equal(result.listDownloadVisible, true);
     assert.equal(result.listInfoVisible, true);
     assert.equal(result.listDownloadInside, true);
     assert.equal(result.listInfoInside, true);
+    assert.equal(result.listActionsPointer, 'none');
+    assert.equal(result.listFocusedPointer, 'auto');
+    assert.equal(result.suppressed, true);
+    assert.equal(result.closedPointer, 'none');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
