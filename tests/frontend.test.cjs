@@ -50,9 +50,14 @@ class Element {
   }
   blur() {}
   focus() { this.focused = true; }
+  showModal() { this.open = true; }
+  close() { this.open = false; this.emit('close'); }
 }
 
-function app(versionInfo = { version: 'edge-20261019-16.1-abc123def456', channel: 'edge' }) {
+function app(
+  versionInfo = { version: 'edge-20261019-16.1-abc123def456', channel: 'edge' },
+  storage = new Map()
+) {
   const elements = new Map();
   for (const match of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
     elements.set(match[1], new Element(match[0].match(/class="([^"]*)"/)?.[1]));
@@ -68,7 +73,10 @@ function app(versionInfo = { version: 'edge-20261019-16.1-abc123def456', channel
   const timers = new Map();
   let timerId = 0;
   const context = vm.createContext({
-    document, localStorage: { getItem: () => null, setItem() {} },
+    document, localStorage: {
+      getItem: key => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value)
+    },
     console: { error() {} }, AbortController,
     setTimeout(callback, delay) {
       timers.set(++timerId, { callback, delay });
@@ -87,7 +95,7 @@ function app(versionInfo = { version: 'edge-20261019-16.1-abc123def456', channel
   });
   vm.runInContext(source, context);
   return {
-    requests, document, element: id => elements.get(id),
+    requests, document, storage, element: id => elements.get(id),
     hidden: id => elements.get(id).classList.contains('hidden'),
     cards: () => elements.get('games-container').children,
     start: () => document.emit('DOMContentLoaded'),
@@ -114,6 +122,7 @@ test('build information shows the exact Edge tag, stable tag, or an unavailable 
     ui.start();
     await settle();
     assert.equal(ui.element('version-label').textContent, expected);
+    assert.equal(ui.element('settings-version').textContent, expected);
   }
 });
 
@@ -203,19 +212,69 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), false);
   const selected = () => ui.cards().filter(card => card.classList.contains('gs-random-selected'));
   assert.equal(selected().length, 1);
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
+  assert.equal(ui.hidden('spotlight-actions'), false);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   const firstId = selected()[0].dataset.id;
   assert.equal(ui.element('search-input').value, '');
   assert.equal(selected()[0].focused, true);
   assert.equal(ui.element('suggestion-status').textContent,
-    `Suggested game: ${games.find(game => game.id === firstId).name}`);
+    `Showing only ${games.find(game => game.id === firstId).name}. Use Show all games to return to the library.`);
 
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
   assert.equal(selected().length, 1);
   assert.notEqual(selected()[0].dataset.id, firstId);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   ui.search('Beta');
   assert.equal(selected().length, 0);
+  assert.equal(ui.hidden('spotlight-actions'), true);
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('suggestion-status').textContent, '');
+});
+
+test('spotlight resets through Show all games or Escape and restores list view', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('view-toggle');
+  assert.equal(ui.element('games-container').classList.contains('list-view'), true);
+
+  ui.click('random-game');
+  assert.equal(ui.element('games-container').classList.contains('list-view'), false);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
+  ui.click('show-all-games');
+  assert.equal(ui.element('games-container').classList.contains('list-view'), true);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
+  assert.equal(ui.hidden('spotlight-actions'), true);
+  assert.equal(ui.element('random-game').focused, true);
+
+  ui.click('random-game');
+  ui.document.emit('keydown', { key: 'Escape' });
+  assert.equal(ui.element('games-container').classList.contains('list-view'), true);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
+});
+
+test('settings dialog saves slow dice motion in this browser', async () => {
+  const storage = new Map();
+  const ui = app(undefined, storage);
+  ui.start();
+  ui.click('build-info');
+  assert.equal(ui.element('settings-dialog').open, true);
+  assert.equal(ui.element('slow-roll').focused, true);
+  ui.element('slow-roll').checked = true;
+  ui.element('slow-roll').emit('change');
+  assert.equal(storage.get('gameshelf:slow-roll'), 'true');
+  assert.equal(ui.element('random-game').classList.contains('gs-slow-roll'), true);
+  ui.click('settings-close');
+  assert.equal(ui.element('settings-dialog').open, false);
+  assert.equal(ui.element('build-info').focused, true);
+
+  const nextVisit = app(undefined, storage);
+  nextVisit.start();
+  assert.equal(nextVisit.element('slow-roll').checked, true);
+  assert.equal(nextVisit.element('random-game').classList.contains('gs-slow-roll'), true);
 });
 
 for (const failure of ['network', 'http', 'json', 'shape', 'game', 'timeout']) {
