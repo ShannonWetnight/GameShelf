@@ -396,7 +396,7 @@ body {
   animation: gs-dice-roll var(--dice-roll-duration, 480ms) ease-in-out;
 }
 
-.gs-random.gs-slow-roll {
+.gs-random.gs-slow-animations {
   --dice-roll-duration: 1200ms;
 }
 
@@ -670,8 +670,12 @@ body {
   flex: 0 0 auto;
 }
 
+.gs-grid.gs-slow-animations {
+  --shuffle-duration: 260ms;
+}
+
 .gs-card.gs-shuffle-preview {
-  animation: gs-card-shuffle 130ms ease-out both;
+  animation: gs-card-shuffle var(--shuffle-duration, 130ms) ease-out both;
 }
 
 .gs-card.gs-shuffle-preview.gs-shuffle-reverse {
