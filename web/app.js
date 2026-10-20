@@ -12,6 +12,7 @@ let retryRefresh = false;
 let currentSort = 'az';
 let currentSearch = '';
 let suggestedGameId = null;
+let slowRoll = localStorage.getItem('gameshelf:slow-roll') === 'true';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
 const cardMap = new Map(); // game.id -> card element
@@ -32,6 +33,7 @@ async function loadVersion() {
   } catch {
     label.textContent = 'Version unavailable';
   }
+  document.getElementById('settings-version').textContent = label.textContent;
 }
 
 async function fetchGames(isRefresh = false) {
@@ -90,7 +92,7 @@ function applyViewMode() {
 
   if (!container || !toggle) return;
 
-  const isList = currentView === 'list';
+  const isList = currentView === 'list' && !suggestedGameId;
 
   container.classList.toggle('list-view', isList);
   toggle.classList.toggle('gs-control-active', isList);
@@ -197,7 +199,9 @@ function applySearchFilter() {
   let visibleCount = 0;
 
   cardMap.forEach(card => {
-    const match = fuzzyMatch(card.dataset.name, currentSearch);
+    const match = suggestedGameId
+      ? card.dataset.id === suggestedGameId
+      : fuzzyMatch(card.dataset.name, currentSearch);
 
     if (match) {
       card.style.display = '';
@@ -216,9 +220,16 @@ function applySearchFilter() {
 }
 
 function clearSuggestion() {
-  if (suggestedGameId) cardMap.get(suggestedGameId)?.classList.remove('gs-random-selected');
+  if (!suggestedGameId) return;
+  const selected = cardMap.get(suggestedGameId);
+  selected?.classList.remove('gs-random-selected');
+  selected?.classList.remove('gs-spotlight-enter');
   suggestedGameId = null;
+  document.getElementById('games-container').classList.remove('gs-spotlight');
+  document.getElementById('spotlight-actions').classList.add('hidden');
   document.getElementById('suggestion-status').textContent = '';
+  applyViewMode();
+  applySearchFilter();
 }
 
 function suggestRandomGame() {
@@ -239,10 +250,17 @@ function suggestRandomGame() {
   if (currentSearch) clearSearch();
   suggestedGameId = game.id;
   card.classList.add('gs-random-selected');
+  card.classList.add('gs-spotlight-enter');
+  card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
   card.setAttribute('tabindex', '-1');
+  document.getElementById('games-container').classList.add('gs-spotlight');
+  document.getElementById('spotlight-actions').classList.remove('hidden');
+  applyViewMode();
+  applySearchFilter();
   card.scrollIntoView?.({ block: 'center' });
   card.focus({ preventScroll: true });
-  document.getElementById('suggestion-status').textContent = `Suggested game: ${game.name}`;
+  document.getElementById('suggestion-status').textContent =
+    `Showing only ${game.name}. Use Show all games to return to the library.`;
 }
 
 function clearSearch() {
@@ -387,6 +405,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const randomButton = document.getElementById('random-game');
   randomButton.addEventListener('click', suggestRandomGame);
   randomButton.addEventListener('animationend', () => randomButton.classList.remove('is-rolling'));
+  document.getElementById('show-all-games').addEventListener('click', () => {
+    clearSuggestion();
+    randomButton.focus();
+  });
+
+  /* -------- Settings -------- */
+  const settingsButton = document.getElementById('build-info');
+  const settingsDialog = document.getElementById('settings-dialog');
+  const slowRollInput = document.getElementById('slow-roll');
+  slowRollInput.checked = slowRoll;
+  randomButton.classList.toggle('gs-slow-roll', slowRoll);
+
+  settingsButton.addEventListener('click', () => {
+    settingsDialog.showModal();
+    slowRollInput.focus();
+  });
+  document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
+  settingsDialog.addEventListener('close', () => settingsButton.focus());
+  slowRollInput.addEventListener('change', () => {
+    slowRoll = slowRollInput.checked;
+    localStorage.setItem('gameshelf:slow-roll', String(slowRoll));
+    randomButton.classList.toggle('gs-slow-roll', slowRoll);
+  });
 
   /* -------- Sort menu -------- */
   const sortButton = document.getElementById('sort-button');
@@ -432,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (viewToggle) {
     viewToggle.addEventListener('click', () => {
+      clearSuggestion();
       currentView = currentView === 'grid' ? 'list' : 'grid';
       localStorage.setItem('gameshelf:view', currentView);
       applyViewMode();
@@ -444,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* -------- Keyboard Shortcuts -------- */
   document.addEventListener('keydown', e => {
+    if (settingsDialog.open) return;
     const searchInput = document.getElementById('search-input');
     if (!searchInput) return;
 
@@ -457,7 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    /* "Escape" clears search and closes sort menu */
+    /* "Escape" clears search or the random spotlight and closes sort menu */
     if (e.key === 'Escape') {
       const sortMenu = document.getElementById('sort-menu');
       if (sortMenu) {
@@ -467,8 +510,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (searchInput.value !== '') {
         clearSearch();
       }
-
-      searchInput.blur();
+      if (suggestedGameId) {
+        clearSuggestion();
+        randomButton.focus();
+      } else {
+        searchInput.blur();
+      }
     }
   });
 
