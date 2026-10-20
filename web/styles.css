@@ -709,6 +709,98 @@ body {
   display: none;
 }
 
+@media (max-width: 680px) {
+  .gs-header {
+    padding: 1rem;
+  }
+
+  .gs-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .gs-logo-text {
+    min-width: 0;
+    font-size: clamp(1.4rem, 6vw, 2rem);
+  }
+
+  .gs-search-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .gs-search-field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .gs-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .gs-sort {
+    flex: 0 0 auto;
+  }
+
+  .gs-main {
+    padding: 1rem 1rem 2rem;
+  }
+
+  .gs-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 1rem;
+  }
+
+  .gs-card {
+    width: 100%;
+    max-width: 22rem;
+    min-height: 0;
+    justify-self: center;
+  }
+
+  .gs-card-title {
+    font-size: clamp(0.95rem, 3.8vw, 1.05rem);
+  }
+
+  .gs-empty h2 {
+    font-size: clamp(1.2rem, 5vw, 1.5rem);
+  }
+
+  .gs-grid.list-view .gs-card {
+    max-width: none;
+    height: auto;
+    min-height: 72px;
+    padding: 0.75rem;
+  }
+
+  .gs-grid.list-view .gs-card-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .gs-grid.list-view .gs-card-content,
+  .gs-grid.list-view .gs-card-footer {
+    width: 100%;
+  }
+
+  .gs-grid.list-view .gs-card-footer {
+    height: auto;
+    min-height: 42px;
+  }
+
+  .gs-grid.list-view .gs-card-meta {
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .gs-footer {
+    padding: 0.75rem 1rem 1rem;
+  }
+}
+
 .gs-sr-only {
   position: absolute;
   width: 1px;
