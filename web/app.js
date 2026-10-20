@@ -12,6 +12,9 @@ let retryRefresh = false;
 let currentSort = 'az';
 let currentSearch = '';
 let suggestedGameId = null;
+let shuffleGameId = null;
+let isShuffling = false;
+let shuffleTimers = [];
 let slowRoll = localStorage.getItem('gameshelf:slow-roll') === 'true';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 
@@ -92,7 +95,7 @@ function applyViewMode() {
 
   if (!container || !toggle) return;
 
-  const isList = currentView === 'list' && !suggestedGameId;
+  const isList = currentView === 'list' && !suggestedGameId && !isShuffling;
 
   container.classList.toggle('list-view', isList);
   toggle.classList.toggle('gs-control-active', isList);
@@ -199,8 +202,9 @@ function applySearchFilter() {
   let visibleCount = 0;
 
   cardMap.forEach(card => {
-    const match = suggestedGameId
-      ? card.dataset.id === suggestedGameId
+    const spotlightId = shuffleGameId || suggestedGameId;
+    const match = spotlightId
+      ? card.dataset.id === spotlightId
       : fuzzyMatch(card.dataset.name, currentSearch);
 
     if (match) {
@@ -220,11 +224,17 @@ function applySearchFilter() {
 }
 
 function clearSuggestion() {
-  if (!suggestedGameId) return;
-  const selected = cardMap.get(suggestedGameId);
-  selected?.classList.remove('gs-random-selected');
-  selected?.classList.remove('gs-spotlight-enter');
+  if (!suggestedGameId && !isShuffling) return;
+  shuffleTimers.forEach(clearTimeout);
+  shuffleTimers = [];
+  cardMap.get(suggestedGameId)?.classList.remove('gs-random-selected', 'gs-spotlight-enter');
+  cardMap.get(shuffleGameId)?.classList.remove('gs-shuffle-preview', 'gs-shuffle-reverse');
   suggestedGameId = null;
+  shuffleGameId = null;
+  isShuffling = false;
+  const diceButton = document.getElementById('random-game');
+  diceButton.disabled = isLoading || gamesCache.length === 0;
+  diceButton.title = 'Suggest a random game';
   document.getElementById('games-container').classList.remove('gs-spotlight');
   document.getElementById('spotlight-actions').classList.add('hidden');
   document.getElementById('suggestion-status').textContent = '';
@@ -233,7 +243,7 @@ function clearSuggestion() {
 }
 
 function suggestRandomGame() {
-  if (isLoading || gamesCache.length === 0) return;
+  if (isLoading || isShuffling || gamesCache.length === 0) return;
   const choices = gamesCache.length > 1
     ? gamesCache.filter(game => game.id !== suggestedGameId)
     : gamesCache;
@@ -248,19 +258,60 @@ function suggestRandomGame() {
 
   clearSuggestion();
   if (currentSearch) clearSearch();
-  suggestedGameId = game.id;
-  card.classList.add('gs-random-selected');
-  card.classList.add('gs-spotlight-enter');
-  card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
-  card.setAttribute('tabindex', '-1');
   document.getElementById('games-container').classList.add('gs-spotlight');
   document.getElementById('spotlight-actions').classList.remove('hidden');
+
+  function showFinalGame() {
+    shuffleTimers = [];
+    cardMap.get(shuffleGameId)?.classList.remove('gs-shuffle-preview', 'gs-shuffle-reverse');
+    shuffleGameId = null;
+    isShuffling = false;
+    suggestedGameId = game.id;
+    card.classList.add('gs-random-selected', 'gs-spotlight-enter');
+    card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
+    card.setAttribute('tabindex', '-1');
+    diceButton.disabled = false;
+    diceButton.title = 'Suggest a random game';
+    applyViewMode();
+    applySearchFilter();
+    card.scrollIntoView?.({ block: 'center' });
+    card.focus({ preventScroll: true });
+    document.getElementById('suggestion-status').textContent =
+      `Showing only ${game.name}. Use Show all games to return to the library.`;
+  }
+
+  const alternatives = gamesCache.filter(candidate => candidate.id !== game.id);
+  if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || alternatives.length === 0) {
+    showFinalGame();
+    return;
+  }
+
+  isShuffling = true;
+  diceButton.disabled = true;
+  diceButton.title = 'Choosing a game…';
   applyViewMode();
-  applySearchFilter();
-  card.scrollIntoView?.({ block: 'center' });
-  card.focus({ preventScroll: true });
-  document.getElementById('suggestion-status').textContent =
-    `Showing only ${game.name}. Use Show all games to return to the library.`;
+  const frames = Math.min(4, alternatives.length * 2);
+  let lastId = null;
+  for (let step = 0; step < frames; step++) {
+    const options = alternatives.filter(candidate => candidate.id !== lastId);
+    const preview = (options.length ? options : alternatives)[
+      Math.floor(Math.random() * (options.length || alternatives.length))
+    ];
+    lastId = preview.id;
+    const showPreview = () => {
+      cardMap.get(shuffleGameId)?.classList.remove('gs-shuffle-preview', 'gs-shuffle-reverse');
+      shuffleGameId = preview.id;
+      const previewCard = cardMap.get(preview.id);
+      if (!previewCard) return;
+      void previewCard.offsetWidth;
+      previewCard.classList.add('gs-shuffle-preview');
+      previewCard.classList.toggle('gs-shuffle-reverse', step % 2 === 1);
+      applySearchFilter();
+    };
+    if (step === 0) showPreview();
+    else shuffleTimers.push(setTimeout(showPreview, step * 125));
+  }
+  shuffleTimers.push(setTimeout(showFinalGame, frames * 125 + 50));
 }
 
 function clearSearch() {
@@ -282,6 +333,7 @@ async function loadGames(isRefresh = false) {
   const retry = document.getElementById('retry-button');
   const randomButton = document.getElementById('random-game');
 
+  if (isShuffling) clearSuggestion();
   isLoading = true;
   randomButton.disabled = true;
   randomButton.title = 'Loading games…';
@@ -510,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (searchInput.value !== '') {
         clearSearch();
       }
-      if (suggestedGameId) {
+      if (suggestedGameId || isShuffling) {
         clearSuggestion();
         randomButton.focus();
       } else {
