@@ -177,16 +177,30 @@ test('populated library, search miss, clear search, sort and view still work', a
   assert.ok(ui.cards().every(card => card.style.display === ''));
 });
 
+test('random suggestion explains why it is disabled for an empty library', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response([]));
+  await settle();
+  assert.equal(ui.element('random-game').disabled, true);
+  assert.equal(ui.element('random-game').title, 'Add games to enable random suggestions');
+});
+
 test('random suggestion highlights a game without downloading and avoids immediate repeats', async () => {
   const ui = app();
   ui.start();
   assert.equal(ui.element('random-game').disabled, true);
+  assert.equal(ui.element('random-game').title, 'Loading games…');
   ui.requests[0].resolve(response(games));
   await settle();
   assert.equal(ui.element('random-game').disabled, false);
+  assert.equal(ui.element('random-game').title, 'Suggest a random game');
 
   ui.search('Alpha');
   ui.click('random-game');
+  assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
+  ui.element('random-game').emit('animationend');
+  assert.equal(ui.element('random-game').classList.contains('is-rolling'), false);
   const selected = () => ui.cards().filter(card => card.classList.contains('gs-random-selected'));
   assert.equal(selected().length, 1);
   const firstId = selected()[0].dataset.id;
@@ -196,6 +210,7 @@ test('random suggestion highlights a game without downloading and avoids immedia
     `Suggested game: ${games.find(game => game.id === firstId).name}`);
 
   ui.click('random-game');
+  assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
   assert.equal(selected().length, 1);
   assert.notEqual(selected()[0].dataset.id, firstId);
   ui.search('Beta');

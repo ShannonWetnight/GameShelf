@@ -373,12 +373,29 @@ body {
 }
 
 .gs-random svg rect {
+  fill: var(--bg-elevated);
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.8;
 }
 
 .gs-random svg circle {
   fill: currentColor;
+}
+
+.gs-random:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.gs-random.is-rolling svg {
+  animation: gs-dice-roll 480ms ease-in-out;
+}
+
+@keyframes gs-dice-roll {
+  0% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(-25deg) scale(0.88); }
+  75% { transform: rotate(320deg) scale(1.08); }
+  100% { transform: rotate(360deg) scale(1); }
 }
 
 .gs-random:disabled,
@@ -810,6 +827,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .gs-random.is-rolling svg {
+    animation: none;
+  }
+
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
