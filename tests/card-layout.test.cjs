@@ -38,6 +38,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'const inside = function(a,b) {const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();' +
       'return x.left>=y.left-1&&x.right<=y.right+1&&x.top>=y.top-1&&x.bottom<=y.bottom+1;};' +
       'const result = {compact:card.getBoundingClientRect().height<500,' +
+      'touchLayout:matchMedia("(hover: none)").matches,' +
       'gridDownloadInside:inside(dl,cover),gridInfoInside:inside(info,cover),' +
       'gridActionsOpacity:getComputedStyle(actions).opacity,' +
       'href:dl.getAttribute("href"),label:dl.getAttribute("aria-label"),' +
@@ -95,7 +96,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.compact, true);
     assert.equal(result.gridDownloadInside, true);
     assert.equal(result.gridInfoInside, true);
-    assert.equal(result.gridActionsOpacity, '0');
+    assert.equal(result.gridActionsOpacity, result.touchLayout ? '1' : '0');
     assert.equal(result.defaultFooter, 'none');
     assert.equal(result.defaultMissingImage, 'none');
     assert.notEqual(result.defaultMissingTitle, 'none');
@@ -114,13 +115,13 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.listInfoVisible, true);
     assert.equal(result.listDownloadInside, true);
     assert.equal(result.listInfoInside, true);
-    assert.equal(result.listActionsPointer, 'none');
+    assert.equal(result.listActionsPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.listFocusedPointer, 'auto');
     assert.equal(result.downloadSuppressed, true);
-    assert.equal(result.downloadPointer, 'none');
+    assert.equal(result.downloadPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.downloadRestored, true);
     assert.equal(result.suppressed, true);
-    assert.equal(result.closedPointer, 'none');
+    assert.equal(result.closedPointer, result.touchLayout ? 'auto' : 'none');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
