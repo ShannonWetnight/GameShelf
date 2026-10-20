@@ -670,6 +670,24 @@ body {
   flex: 0 0 auto;
 }
 
+.gs-card.gs-shuffle-preview {
+  animation: gs-card-shuffle 130ms ease-out both;
+}
+
+.gs-card.gs-shuffle-preview.gs-shuffle-reverse {
+  animation-name: gs-card-shuffle-reverse;
+}
+
+@keyframes gs-card-shuffle {
+  from { opacity: 0.5; transform: translateX(-35px) rotate(-5deg) scale(0.94); }
+  to { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
+}
+
+@keyframes gs-card-shuffle-reverse {
+  from { opacity: 0.5; transform: translateX(35px) rotate(5deg) scale(0.94); }
+  to { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
+}
+
 .gs-card.gs-spotlight-enter {
   animation: gs-spotlight-bounce 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -950,7 +968,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .gs-random.is-rolling svg,
-  .gs-card.gs-spotlight-enter {
+  .gs-card.gs-spotlight-enter,
+  .gs-card.gs-shuffle-preview {
     animation: none;
   }
 
