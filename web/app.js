@@ -24,7 +24,7 @@ const cardMap = new Map(); // game.id -> card element
    Data Fetching
    ============================= */
 async function loadVersion() {
-  const label = document.getElementById('version-label');
+  const label = document.getElementById('settings-version');
   try {
     const res = await fetch('/api/version');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -36,7 +36,6 @@ async function loadVersion() {
   } catch {
     label.textContent = 'Version unavailable';
   }
-  document.getElementById('settings-version').textContent = label.textContent;
 }
 
 async function fetchGames(isRefresh = false) {
@@ -122,6 +121,29 @@ function createGameCard(game) {
 
   cover.appendChild(img);
 
+  const actions = document.createElement('div');
+  actions.className = 'gs-card-actions';
+
+  const dl = document.createElement('a');
+  dl.className = 'gs-icon-button gs-card-download';
+  dl.href = `/download/${encodeURIComponent(game.id)}`;
+  dl.setAttribute('aria-label', `Download ${game.name}`);
+  dl.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
+    </svg>
+  `;
+
+  const details = document.createElement('button');
+  details.className = 'gs-card-info';
+  details.type = 'button';
+  details.setAttribute('aria-label', `Information about ${game.name}`);
+  details.textContent = 'i';
+  details.addEventListener('click', () => openGameDetails(game, details));
+  actions.appendChild(dl);
+  actions.appendChild(details);
+  cover.appendChild(actions);
+
   const body = document.createElement('div');
   body.className = 'gs-card-body';
 
@@ -132,33 +154,26 @@ function createGameCard(game) {
   title.className = 'gs-card-title';
   title.textContent = game.name;
 
-  const meta = document.createElement('div');
-  meta.className = 'gs-card-meta';
-  meta.textContent = formatSize(game.sizeBytes);
-
-  const actions = document.createElement('div');
-  actions.className = 'gs-card-actions';
-
-  const dl = document.createElement('a');
-  dl.className = 'gs-icon-button';
-  dl.href = `/download/${encodeURIComponent(game.id)}`;
-  dl.setAttribute('aria-label', `Download ${game.name}`);
-  dl.innerHTML = `
-    <svg viewBox="0 0 24 24">
-      <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/>
-    </svg>
-  `;
-
-  actions.appendChild(dl);
   content.appendChild(title);
   body.appendChild(content);
-  body.appendChild(meta);
-  body.appendChild(actions);
 
   card.appendChild(cover);
   card.appendChild(body);
 
   return card;
+}
+
+function openGameDetails(game, trigger) {
+  const dialog = document.getElementById('game-details-dialog');
+  document.getElementById('game-details-title').textContent = game.name;
+  document.getElementById('game-details-path').textContent = game.path || '';
+  document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
+  document.getElementById('game-details-files').textContent = Number.isInteger(game.fileCount) ? String(game.fileCount) : '';
+  document.getElementById('game-details-cover').textContent = typeof game.hasCover === 'boolean' ? (game.hasCover ? 'Available' : 'Placeholder') : '';
+  document.getElementById('game-details-added').textContent = game.addedAt || '';
+  dialog.showModal();
+  document.getElementById('game-details-close').focus();
+  dialog.addEventListener('close', () => trigger.focus(), { once: true });
 }
 
 /* =============================
@@ -234,7 +249,7 @@ function clearSuggestion() {
   isShuffling = false;
   const diceButton = document.getElementById('random-game');
   diceButton.disabled = isLoading || gamesCache.length === 0;
-  diceButton.title = 'Suggest a random game';
+  diceButton.dataset.tooltip = 'Suggest a random game';
   document.getElementById('games-container').classList.remove('gs-spotlight');
   document.getElementById('spotlight-actions').classList.add('hidden');
   document.getElementById('suggestion-status').textContent = '';
@@ -271,7 +286,7 @@ function suggestRandomGame() {
     card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
     card.setAttribute('tabindex', '-1');
     diceButton.disabled = false;
-    diceButton.title = 'Suggest a random game';
+    diceButton.dataset.tooltip = 'Suggest a random game';
     applyViewMode();
     applySearchFilter();
     card.scrollIntoView?.({ block: 'center' });
@@ -288,7 +303,7 @@ function suggestRandomGame() {
 
   isShuffling = true;
   diceButton.disabled = true;
-  diceButton.title = 'Choosing a game…';
+  diceButton.dataset.tooltip = 'Choosing a game…';
   applyViewMode();
   const frames = Math.min(4, alternatives.length * 2);
   const frameDelay = slowAnimations ? 250 : 125;
@@ -337,7 +352,7 @@ async function loadGames(isRefresh = false) {
   if (isShuffling) clearSuggestion();
   isLoading = true;
   randomButton.disabled = true;
-  randomButton.title = 'Loading games…';
+  randomButton.dataset.tooltip = 'Loading games…';
   loadError = false;
   retryRefresh = isRefresh;
   loading.textContent = isRefresh ? 'Refreshing games…' : 'Loading games…';
@@ -385,7 +400,7 @@ async function loadGames(isRefresh = false) {
     loading.classList.add('hidden');
     retry.disabled = false;
     randomButton.disabled = gamesCache.length === 0;
-    randomButton.title = gamesCache.length === 0
+    randomButton.dataset.tooltip = gamesCache.length === 0
       ? 'Add games to enable random suggestions' : 'Suggest a random game';
     container.setAttribute('aria-busy', 'false');
     applySearchFilter();
@@ -476,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
     slowAnimationsInput.focus();
   });
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
+  document.getElementById('game-details-close').addEventListener('click', () => document.getElementById('game-details-dialog').close());
   settingsDialog.addEventListener('close', () => settingsButton.focus());
   slowAnimationsInput.addEventListener('change', () => {
     slowAnimations = slowAnimationsInput.checked;
@@ -497,6 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
+    if (suggestedGameId || isShuffling) clearSuggestion();
     updateActiveSort();
 
     const isOpening = sortMenu.classList.toggle('hidden') === false;

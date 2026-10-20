@@ -10,7 +10,7 @@
 <body>
   <header class="gs-header">
     <div class="gs-header-row">
-      <button id="gs-refresh-trigger" class="gs-refresh" type="button" aria-label="Refresh game library">
+      <button id="gs-refresh-trigger" class="gs-refresh gs-has-tooltip" type="button" aria-label="Refresh game library" data-tooltip="Refresh game library">
         <img src="gameshelf_icon.png" class="gs-logo-icon" alt="">
         <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
       </button>
@@ -28,14 +28,14 @@
             placeholder="Search games…"
             aria-label="Search games by name"
           />
-          <button id="clear-search" class="gs-search-clear hidden" type="button" aria-label="Clear search">
+          <button id="clear-search" class="gs-search-clear gs-has-tooltip hidden" type="button" aria-label="Clear search" data-tooltip="Clear search">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
           </button>
         </div>
 
         <div class="gs-sort">
-          <button id="random-game" class="gs-view-toggle gs-random" type="button"
-                  aria-label="Suggest a random game" title="Add games to enable random suggestions" disabled>
+          <button id="random-game" class="gs-view-toggle gs-random gs-has-tooltip" type="button"
+                  aria-label="Suggest a random game" data-tooltip="Add games to enable random suggestions" disabled>
             <svg viewBox="0 0 32 32" aria-hidden="true">
               <g transform="rotate(9 20 11)">
                 <rect x="11" y="3" width="17" height="17" rx="3"/>
@@ -52,9 +52,9 @@
           </button>
 
           <button id="sort-button"
-          class="gs-sort-button"
+          class="gs-sort-button gs-has-tooltip"
           aria-label="Sort by"
-          title="Sort by">
+          data-tooltip="Sort by">
             <svg viewBox="0 0 24 24">
               <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
             </svg>
@@ -62,21 +62,20 @@
 
           <button
             id="view-toggle"
-            class="gs-view-toggle"
+            class="gs-view-toggle gs-has-tooltip"
             aria-label="Toggle list view"
-            title="Toggle list view">
+            data-tooltip="Toggle list view">
             <svg viewBox="0 0 24 24">
               <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
             </svg>
           </button>
 
-          <button id="build-info" class="gs-view-toggle gs-build-info" type="button"
+          <button id="build-info" class="gs-view-toggle gs-build-info gs-has-tooltip" type="button"
                   aria-label="Open settings" aria-haspopup="dialog" aria-controls="settings-dialog"
-                  aria-describedby="version-label" title="Settings">
+                  data-tooltip="Settings">
             <svg viewBox="0.8 0 24 24" aria-hidden="true">
               <path d="M19.14 12.94a7.98 7.98 0 000-1.88l2.03-1.58-2-3.46-2.39.96a8.1 8.1 0 00-1.63-.94L14.8 3h-4l-.35 3.04c-.58.23-1.12.55-1.63.94l-2.39-.96-2 3.46 2.03 1.58a7.98 7.98 0 000 1.88l-2.03 1.58 2 3.46 2.39-.96c.51.39 1.05.71 1.63.94L10.8 21h4l.35-3.04c.58-.23 1.12-.55 1.63-.94l2.39.96 2-3.46-2.03-1.58zM12.8 16a4 4 0 110-8 4 4 0 010 8z"/>
             </svg>
-            <span id="version-label" class="gs-version-tooltip" role="tooltip">Loading version…</span>
           </button>
 
           <div id="sort-menu" class="gs-sort-menu hidden">
@@ -132,6 +131,20 @@
       </span>
     </label>
     <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>
+  </dialog>
+
+  <dialog id="game-details-dialog" class="gs-settings-dialog gs-details-dialog" aria-labelledby="game-details-title">
+    <div class="gs-settings-header">
+      <h2 id="game-details-title"></h2>
+      <button id="game-details-close" class="gs-settings-close" type="button" aria-label="Close game information">×</button>
+    </div>
+    <dl class="gs-details-list">
+      <div><dt>Location in container</dt><dd id="game-details-path"></dd></div>
+      <div><dt>Download size</dt><dd id="game-details-size"></dd></div>
+      <div><dt>Files</dt><dd id="game-details-files"></dd></div>
+      <div><dt>Cover art</dt><dd id="game-details-cover"></dd></div>
+      <div><dt>Date added</dt><dd id="game-details-added"></dd></div>
+    </dl>
   </dialog>
 
   <script src="/app.js"></script>

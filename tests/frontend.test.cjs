@@ -46,7 +46,7 @@ class Element {
   setAttribute(name, value) { this.attributes[name] = value; }
   addEventListener(event, callback) { this.listeners[event] = callback; }
   emit(event, payload = {}) {
-    return this.listeners[event]?.({ target: this, ...payload });
+    return this.listeners[event]?.({ target: this, stopPropagation() {}, ...payload });
   }
   blur() {}
   focus() { this.focused = true; }
@@ -123,7 +123,6 @@ test('build information shows the exact Edge tag, stable tag, or an unavailable 
     const ui = app(info);
     ui.start();
     await settle();
-    assert.equal(ui.element('version-label').textContent, expected);
     assert.equal(ui.element('settings-version').textContent, expected);
   }
 });
@@ -147,19 +146,29 @@ test('loading cannot be mistaken for an empty library; overlapping refresh is ig
   assert.equal(ui.hidden('search-hint'), true);
 });
 
-test('download link stays inside the card body and names its game', async () => {
+test('cover actions download the game and open read-only details', async () => {
   const ui = app();
   ui.start();
-  ui.requests[0].resolve(response(games));
+  ui.requests[0].resolve(response([{ ...games[1], path: '/GameShelf/Alpha', fileCount: 2, hasCover: true, addedAt: '' }]));
   await settle();
 
   const card = ui.cards().find(item => item.dataset.id === 'alpha');
   const body = card.children[1];
-  const action = body.children[2].children[0];
+  const action = card.children[0].children[1].children[0];
+  const details = card.children[0].children[1].children[1];
   assert.equal(body.children[0].children[0].textContent, 'Alpha');
-  assert.equal(body.children[1].textContent, '1.0 KB');
+  assert.equal(body.children.length, 1);
   assert.equal(action.href, '/download/alpha');
   assert.equal(action.attributes['aria-label'], 'Download Alpha');
+  details.emit('click');
+  assert.equal(ui.element('game-details-dialog').open, true);
+  assert.equal(ui.element('game-details-path').textContent, '/GameShelf/Alpha');
+  assert.equal(ui.element('game-details-size').textContent, '1.0 KB');
+  assert.equal(ui.element('game-details-files').textContent, '2');
+  assert.equal(ui.element('game-details-cover').textContent, 'Available');
+  assert.equal(ui.element('game-details-added').textContent, '');
+  ui.click('game-details-close');
+  assert.equal(ui.element('game-details-dialog').open, false);
 });
 
 test('populated library, search miss, clear search, sort and view still work', async () => {
@@ -194,18 +203,18 @@ test('random suggestion explains why it is disabled for an empty library', async
   ui.requests[0].resolve(response([]));
   await settle();
   assert.equal(ui.element('random-game').disabled, true);
-  assert.equal(ui.element('random-game').title, 'Add games to enable random suggestions');
+  assert.equal(ui.element('random-game').dataset.tooltip, 'Add games to enable random suggestions');
 });
 
 test('random suggestion highlights a game without downloading and avoids immediate repeats', async () => {
   const ui = app();
   ui.start();
   assert.equal(ui.element('random-game').disabled, true);
-  assert.equal(ui.element('random-game').title, 'Loading games…');
+  assert.equal(ui.element('random-game').dataset.tooltip, 'Loading games…');
   ui.requests[0].resolve(response(games));
   await settle();
   assert.equal(ui.element('random-game').disabled, false);
-  assert.equal(ui.element('random-game').title, 'Suggest a random game');
+  assert.equal(ui.element('random-game').dataset.tooltip, 'Suggest a random game');
 
   ui.search('Alpha');
   ui.click('random-game');
@@ -267,6 +276,28 @@ test('spotlight resets through Show all games or Escape and restores list view',
   ui.document.emit('keydown', { key: 'Escape' });
   ui.tick(125);
   ui.tick(300);
+  assert.equal(ui.element('games-container').classList.contains('list-view'), true);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
+});
+
+test('sort and view controls leave dice spotlight before acting', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('random-game');
+  ui.tick(125);
+  ui.tick(300);
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
+  ui.click('sort-button');
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
+  assert.equal(ui.hidden('sort-menu'), false);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
+  ui.click('random-game');
+  ui.tick(125);
+  ui.tick(300);
+  ui.click('view-toggle');
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
 });

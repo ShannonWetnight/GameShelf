@@ -130,7 +130,7 @@ func TestRefreshGamesSuccessfulRescans(t *testing.T) {
 	if len(gamesMap) != 1 || getGameEntryByID("old-game") != nil || entry == nil {
 		t.Fatal("rescan did not replace index")
 	}
-	if entry.Game.Name != "New Game" || entry.Game.SizeBytes != 14 || !entry.Game.HasCover || entry.CoverPath != filepath.Join(rootDir, "New Game", "cover.png") {
+	if entry.Game.Name != "New Game" || entry.Game.SizeBytes != 14 || !entry.Game.HasCover || entry.Game.FileCount != 2 || entry.Game.Path != filepath.Join(rootDir, "New Game") || entry.Game.AddedAt != "" || entry.CoverPath != filepath.Join(rootDir, "New Game", "cover.png") {
 		t.Fatalf("entry = %#v", entry)
 	}
 	if err := os.RemoveAll(filepath.Join(rootDir, "New Game")); err != nil {
