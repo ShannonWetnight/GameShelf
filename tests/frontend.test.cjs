@@ -162,6 +162,32 @@ test('populated library, search miss, clear search, sort and view still work', a
   assert.ok(ui.cards().every(card => card.style.display === ''));
 });
 
+test('random suggestion highlights a game without downloading and avoids immediate repeats', async () => {
+  const ui = app();
+  ui.start();
+  assert.equal(ui.element('random-game').disabled, true);
+  ui.requests[0].resolve(response(games));
+  await settle();
+  assert.equal(ui.element('random-game').disabled, false);
+
+  ui.search('Alpha');
+  ui.click('random-game');
+  const selected = () => ui.cards().filter(card => card.classList.contains('gs-random-selected'));
+  assert.equal(selected().length, 1);
+  const firstId = selected()[0].dataset.id;
+  assert.equal(ui.element('search-input').value, '');
+  assert.equal(selected()[0].focused, true);
+  assert.equal(ui.element('suggestion-status').textContent,
+    `Suggested game: ${games.find(game => game.id === firstId).name}`);
+
+  ui.click('random-game');
+  assert.equal(selected().length, 1);
+  assert.notEqual(selected()[0].dataset.id, firstId);
+  ui.search('Beta');
+  assert.equal(selected().length, 0);
+  assert.equal(ui.element('suggestion-status').textContent, '');
+});
+
 for (const failure of ['network', 'http', 'json', 'shape', 'game', 'timeout']) {
   test(`${failure} failure shows an error, stays an error while searching, and can retry`, async () => {
     const ui = app();

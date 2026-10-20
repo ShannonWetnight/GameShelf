@@ -33,6 +33,16 @@
         </div>
 
         <div class="gs-sort">
+          <button id="random-game" class="gs-view-toggle gs-random" type="button"
+                  aria-label="Suggest a random game" title="Suggest a random game" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="3"/>
+              <circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/>
+              <circle cx="12" cy="12" r="1"/>
+              <circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/>
+            </svg>
+          </button>
+
           <button id="sort-button"
           class="gs-sort-button"
           aria-label="Sort by"
@@ -72,6 +82,7 @@
   </header>
 
   <main class="gs-main">
+    <p id="suggestion-status" class="gs-sr-only" role="status" aria-live="polite"></p>
     <p id="loading-state" class="gs-empty" role="status">Loading games…</p>
 
     <section id="error-state" class="gs-error hidden" role="alert">
