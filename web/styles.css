@@ -168,9 +168,11 @@ body {
 }
 
 .gs-search-wrapper {
+  --control-gap: 8px;
   position: relative;
   display: flex;
   align-items: center;
+  gap: var(--control-gap);
 }
 
 .gs-search-field {
@@ -248,6 +250,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
+  gap: var(--control-gap);
 }
 
 .gs-sort-button {
@@ -256,7 +259,7 @@ body {
   justify-content: center;
   background: none;
   border: none;
-  margin-left: 9px;
+  margin: 0;
   cursor: pointer;
   padding: 4px;
   border-radius: var(--radius-sm);
@@ -344,7 +347,7 @@ body {
   vertical-align: middle;
   background: none;
   border: none;
-  margin-left: 6px;
+  margin: 0;
   padding: 4px;
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -370,6 +373,8 @@ body {
 .gs-random svg {
   color: var(--text-muted);
   fill: none;
+  transform-box: view-box;
+  transform-origin: center;
 }
 
 .gs-random svg rect {
