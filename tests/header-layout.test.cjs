@@ -31,7 +31,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
             cx: r.x + r.width / 2, cy: r.y + r.height / 2 };
         };
         const selectors = ['#search-input', '.gs-search-icon', '#clear-search',
-          '#clear-search svg', '#sort-button', '#sort-button svg',
+          '#clear-search svg', '#random-game', '#random-game svg', '#sort-button', '#sort-button svg',
           '#view-toggle', '#view-toggle svg', '#build-info', '#build-info svg'];
         const result = Object.fromEntries(selectors.map(selector => [selector, box(selector)]));
         const gear = document.querySelector('#build-info svg');
@@ -74,6 +74,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
     assert.ok(Math.abs(boxes['#clear-search'].cy - boxes['#search-input'].cy) <= 1,
       'clear button is not vertically centered');
     centered('#clear-search svg', '#clear-search');
+    centered('#random-game svg', '#random-game');
     centered('#sort-button svg', '#sort-button');
     centered('#view-toggle svg', '#view-toggle');
     centered('#build-info svg', '#build-info');
@@ -81,7 +82,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
       'gear artwork is horizontally off-center within its SVG');
     assert.ok(Math.abs(boxes.gearArtwork.cy - boxes.gearArtwork.viewportCy) <= 0.5,
       'gear artwork is vertically off-center within its SVG');
-    const toolbar = ['#sort-button', '#view-toggle', '#build-info'];
+    const toolbar = ['#random-game', '#sort-button', '#view-toggle', '#build-info'];
     for (const button of toolbar) {
       assert.ok(Math.abs(boxes[button].cy - boxes['#search-input'].cy) <= 1,
         `${button} is not aligned with the search field`);
@@ -113,6 +114,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
           scrollWidth: document.documentElement.scrollWidth,
           logo: bounds('.gs-refresh'),
           search: bounds('#search-input'),
+          random: bounds('#random-game'),
           sort: bounds('#sort-button'),
           view: bounds('#view-toggle'),
           info: bounds('#build-info'),
@@ -146,7 +148,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
       assert.ok(box.left >= -1 && box.right <= result.viewportWidth + 1,
         `${name} extends past the viewport`);
     };
-    for (const name of ['logo', 'search', 'sort', 'view', 'info', 'card', 'listCard', 'listButton']) {
+    for (const name of ['logo', 'search', 'random', 'sort', 'view', 'info', 'card', 'listCard', 'listButton']) {
       within(result[name], name);
     }
     assert.ok(result.search.top >= result.logo.bottom,
