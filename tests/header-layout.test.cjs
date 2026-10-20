@@ -34,6 +34,15 @@ test('header icons remain centered and toolbar buttons share one row', () => {
           '#clear-search svg', '#random-game', '#random-game svg', '#sort-button', '#sort-button svg',
           '#view-toggle', '#view-toggle svg', '#build-info', '#build-info svg'];
         const result = Object.fromEntries(selectors.map(selector => [selector, box(selector)]));
+        const dice = document.querySelector('#random-game svg');
+        const diceBounds = dice.getBBox();
+        const diceViewport = dice.viewBox.baseVal;
+        result.diceArtwork = {
+          cx: diceBounds.x + diceBounds.width / 2,
+          cy: diceBounds.y + diceBounds.height / 2,
+          viewportCx: diceViewport.x + diceViewport.width / 2,
+          viewportCy: diceViewport.y + diceViewport.height / 2
+        };
         const gear = document.querySelector('#build-info svg');
         const artwork = gear.querySelector('path').getBBox();
         const viewport = gear.viewBox.baseVal;
@@ -78,6 +87,10 @@ test('header icons remain centered and toolbar buttons share one row', () => {
     centered('#sort-button svg', '#sort-button');
     centered('#view-toggle svg', '#view-toggle');
     centered('#build-info svg', '#build-info');
+    assert.ok(Math.abs(boxes.diceArtwork.cx - boxes.diceArtwork.viewportCx) <= 1,
+      'dice artwork is horizontally off-center within its SVG');
+    assert.ok(Math.abs(boxes.diceArtwork.cy - boxes.diceArtwork.viewportCy) <= 1,
+      'dice artwork is vertically off-center within its SVG');
     assert.ok(Math.abs(boxes.gearArtwork.cx - boxes.gearArtwork.viewportCx) <= 0.5,
       'gear artwork is horizontally off-center within its SVG');
     assert.ok(Math.abs(boxes.gearArtwork.cy - boxes.gearArtwork.viewportCy) <= 0.5,
@@ -87,10 +100,18 @@ test('header icons remain centered and toolbar buttons share one row', () => {
       assert.ok(Math.abs(boxes[button].cy - boxes['#search-input'].cy) <= 1,
         `${button} is not aligned with the search field`);
       assert.equal(boxes[button].height, 40);
+      assert.equal(boxes[button].width, 40);
     }
+    const controlGap = 8;
+    const firstGap = boxes[toolbar[0]].x -
+      (boxes['#search-input'].x + boxes['#search-input'].width);
+    assert.ok(Math.abs(firstGap - controlGap) <= 1,
+      'search and dice gap differs from the toolbar spacing');
     for (let i = 1; i < toolbar.length; i++) {
-      assert.ok(boxes[toolbar[i]].x >= boxes[toolbar[i - 1]].x + boxes[toolbar[i - 1]].width,
-        'toolbar buttons overlap');
+      const gap = boxes[toolbar[i]].x -
+        (boxes[toolbar[i - 1]].x + boxes[toolbar[i - 1]].width);
+      assert.ok(Math.abs(gap - controlGap) <= 1,
+        `${toolbar[i - 1]} and ${toolbar[i]} have inconsistent spacing`);
     }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
