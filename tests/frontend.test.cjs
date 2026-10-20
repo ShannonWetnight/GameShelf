@@ -105,6 +105,7 @@ function app(
       elements.get('search-input').value = value;
       elements.get('search-input').emit('input');
     },
+    timerDelays: () => [...timers.values()].map(timer => timer.delay),
     tick(delay) {
       for (const [id, timer] of timers) {
         if (timer.delay === delay) { timers.delete(id); timer.callback(); }
@@ -294,25 +295,39 @@ test('search cancels a pending shuffle and reduced motion skips it', async () =>
   assert.equal(reduced.element('random-game').disabled, false);
 });
 
-test('settings dialog saves slow dice motion in this browser', async () => {
+test('settings dialog defaults off and slows dice and card shuffle together', async () => {
   const storage = new Map();
   const ui = app(undefined, storage);
   ui.start();
+  assert.equal(ui.element('slow-animations').checked, false);
+  assert.equal(ui.element('random-game').classList.contains('gs-slow-animations'), false);
   ui.click('build-info');
   assert.equal(ui.element('settings-dialog').open, true);
-  assert.equal(ui.element('slow-roll').focused, true);
-  ui.element('slow-roll').checked = true;
-  ui.element('slow-roll').emit('change');
-  assert.equal(storage.get('gameshelf:slow-roll'), 'true');
-  assert.equal(ui.element('random-game').classList.contains('gs-slow-roll'), true);
+  assert.equal(ui.element('slow-animations').focused, true);
+  ui.element('slow-animations').checked = true;
+  ui.element('slow-animations').emit('change');
+  assert.equal(storage.get('gameshelf:slow-animations'), 'true');
+  assert.equal(ui.element('random-game').classList.contains('gs-slow-animations'), true);
+  assert.equal(ui.element('games-container').classList.contains('gs-slow-animations'), true);
   ui.click('settings-close');
   assert.equal(ui.element('settings-dialog').open, false);
   assert.equal(ui.element('build-info').focused, true);
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('random-game');
+  assert.ok(ui.timerDelays().includes(250));
+  assert.ok(ui.timerDelays().includes(600));
+  ui.tick(125);
+  assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 0);
+  ui.tick(250);
+  ui.tick(600);
+  assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 1);
 
   const nextVisit = app(undefined, storage);
   nextVisit.start();
-  assert.equal(nextVisit.element('slow-roll').checked, true);
-  assert.equal(nextVisit.element('random-game').classList.contains('gs-slow-roll'), true);
+  assert.equal(nextVisit.element('slow-animations').checked, true);
+  assert.equal(nextVisit.element('random-game').classList.contains('gs-slow-animations'), true);
+  assert.equal(nextVisit.element('games-container').classList.contains('gs-slow-animations'), true);
 });
 
 for (const failure of ['network', 'http', 'json', 'shape', 'game', 'timeout']) {
