@@ -3,12 +3,14 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -532,5 +534,404 @@ func TestRefreshGamesChildReadFailurePreservesWholeIndex(t *testing.T) {
 	}
 	if len(gamesMap) != 1 || getGameEntryByID("existing-game") != before {
 		t.Fatal("failed child scan published a partial index")
+	}
+}
+
+func requireSymlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+}
+
+func zipContents(t *testing.T, body []byte) map[string]string {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := make(map[string]string)
+	for _, item := range reader.File {
+		f, err := item.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(f)
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		result[item.Name] = string(data)
+	}
+	return result
+}
+
+func TestZIPOmitsSymlinksAndKeepsOrdinaryFiles(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	outside := filepath.Join(rootDir, "Beta", "secret.txt")
+	if err := os.WriteFile(outside, []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	game := filepath.Join(rootDir, "Alpha")
+	requireSymlink(t, outside, filepath.Join(game, "leak.txt"))
+	requireSymlink(t, "../Beta", filepath.Join(game, "other-game"))
+	requireSymlink(t, "game.txt", filepath.Join(game, "internal-link"))
+	requireSymlink(t, "missing", filepath.Join(game, "zz-broken"))
+	if err := os.Mkdir(filepath.Join(game, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(game, "nested", "save.dat"), []byte("save"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/alpha", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("ZIP status = %d", w.Code)
+	}
+	want := map[string]string{"game.txt": "game data", "nested/save.dat": "save"}
+	if got := zipContents(t, w.Body.Bytes()); !reflect.DeepEqual(got, want) {
+		t.Fatalf("ZIP contents = %#v", got)
+	}
+}
+
+func TestFolderCoverRejectsLinksAndNonregularFiles(t *testing.T) {
+	for _, kind := range []string{"symlink", "directory"} {
+		t.Run(kind, func(t *testing.T) {
+			setupLibrary(t)
+			writeGame(t, "Alpha")
+			cover := filepath.Join(rootDir, "Alpha", "cover.png")
+			if kind == "symlink" {
+				secret := filepath.Join(t.TempDir(), "secret.png")
+				if err := os.WriteFile(secret, []byte("private image"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				requireSymlink(t, secret, cover)
+			} else if err := os.Mkdir(cover, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if got := findCover(filepath.Dir(cover)); got != "" {
+				t.Fatalf("unsafe cover selected: %q", got)
+			}
+			// A stale index must be revalidated at serving time too.
+			gamesMap["alpha"] = &gameEntry{DirName: "Alpha", CoverPath: cover, Game: Game{CoverSource: "folder"}}
+			w := httptest.NewRecorder()
+			handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+			if w.Code != http.StatusNotFound {
+				t.Fatalf("unsafe cover status = %d", w.Code)
+			}
+		})
+	}
+}
+
+func TestCoversRemainScopedAfterIndexing(t *testing.T) {
+	for _, source := range []string{"folder", "uploaded", "legacy"} {
+		t.Run(source, func(t *testing.T) {
+			setupLibrary(t)
+			writeGame(t, "Alpha")
+			cover := filepath.Join(rootDir, "Alpha", "cover.png")
+			if source == "uploaded" {
+				cover = customCoverPath("Alpha")
+			}
+			if source == "legacy" {
+				cover = legacyCustomCoverPath("Alpha")
+			}
+			if err := os.MkdirAll(filepath.Dir(cover), 0755); err != nil {
+				t.Fatal(err)
+			}
+			image := []byte("ordinary cover image")
+			if err := os.WriteFile(cover, image, 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+			if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), image) {
+				t.Fatalf("ordinary cover = %d, %q", w.Code, w.Body.String())
+			}
+			secret := filepath.Join(t.TempDir(), "secret.png")
+			if err := os.WriteFile(secret, []byte("private image"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(cover); err != nil {
+				t.Fatal(err)
+			}
+			requireSymlink(t, secret, cover)
+			w = httptest.NewRecorder()
+			handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+			if w.Code != http.StatusNotFound || strings.Contains(w.Body.String(), "private image") {
+				t.Fatalf("changed cover = %d, %q", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestChangedGameDirectoryCannotExposeSibling(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "cover.png"), []byte("cover"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(rootDir, "Alpha"), filepath.Join(rootDir, "old-alpha")); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, "Beta", filepath.Join(rootDir, "Alpha"))
+	for _, endpoint := range []struct {
+		url     string
+		handler http.HandlerFunc
+		status  int
+	}{
+		{"/download/alpha", handleDownload, http.StatusServiceUnavailable},
+		{"/api/game-file/alpha?path=game.txt", handleGameFileDownload, http.StatusNotFound},
+		{"/covers/alpha", handleCover, http.StatusNotFound},
+	} {
+		w := httptest.NewRecorder()
+		endpoint.handler(w, httptest.NewRequest(http.MethodGet, endpoint.url, nil))
+		if w.Code != endpoint.status {
+			t.Fatalf("%s = %d", endpoint.url, w.Code)
+		}
+	}
+}
+
+type mutationWriter struct {
+	bytes.Buffer
+	mutate func()
+}
+
+func (w *mutationWriter) Write(p []byte) (int, error) {
+	if w.mutate != nil {
+		fn := w.mutate
+		w.mutate = nil
+		fn()
+	}
+	return w.Buffer.Write(p)
+}
+
+func TestZIPUsesPinnedDirectoryDuringStreaming(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	root, err := openGameRoot(getGameEntryByID("alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "game.txt"), []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Incompressible data forces ZIP output while files remain to be read.
+	payload := make([]byte, 128*1024)
+	if _, err := rand.Read(payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "a-large.bin"), payload, 0644); err != nil {
+		t.Fatal(err)
+	}
+	writer := &mutationWriter{mutate: func() {
+		if err := os.Rename(filepath.Join(rootDir, "Alpha"), filepath.Join(rootDir, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		requireSymlink(t, outside, filepath.Join(rootDir, "Alpha"))
+	}}
+	if err := writeGameZIP(writer, root); err != nil {
+		t.Fatal(err)
+	}
+	if got := zipContents(t, writer.Bytes()); !reflect.DeepEqual(got, map[string]string{"a-large.bin": string(payload), "game.txt": "game data"}) {
+		t.Fatalf("ZIP after rename = %#v", got)
+	}
+}
+
+func TestPinnedReadsRejectReplacedIntermediateDirectory(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	game := filepath.Join(rootDir, "Alpha")
+	if err := os.Mkdir(filepath.Join(game, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(game)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret"), []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(game, "nested"), filepath.Join(game, "old")); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, outside, filepath.Join(game, "nested"))
+	file, _, err := openRegularFile(root, "nested/secret")
+	if err == nil {
+		file.Close()
+		t.Fatal("opened a replaced directory")
+	}
+}
+
+// Change a file after ZIP headers have reached the client, before its read.
+type changingResponse struct {
+	*httptest.ResponseRecorder
+	mutate func()
+}
+
+func (w *changingResponse) Write(p []byte) (int, error) {
+	if w.mutate != nil {
+		fn := w.mutate
+		w.mutate = nil
+		fn()
+	}
+	return w.ResponseRecorder.Write(p)
+}
+
+func TestZIPAbortsWhenFileChangesDuringRequest(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	payload := make([]byte, 128*1024)
+	if _, err := rand.Read(payload); err != nil {
+		t.Fatal(err)
+	}
+	game := filepath.Join(rootDir, "Alpha")
+	if err := os.WriteFile(filepath.Join(game, "a-large.bin"), payload, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "private.txt")
+	if err := os.WriteFile(outside, []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	w := &changingResponse{ResponseRecorder: httptest.NewRecorder(), mutate: func() {
+		if err := os.Remove(filepath.Join(game, "game.txt")); err != nil {
+			t.Fatal(err)
+		}
+		requireSymlink(t, outside, filepath.Join(game, "game.txt"))
+	}}
+	func() {
+		defer func() {
+			if got := recover(); got != http.ErrAbortHandler {
+				t.Errorf("stream failure panic = %v", got)
+			}
+		}()
+		handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/alpha", nil))
+		t.Error("changed file returned a successful archive")
+	}()
+	if bytes.Contains(w.Body.Bytes(), []byte("outside secret")) {
+		t.Fatal("outside content leaked")
+	}
+	if _, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len())); err == nil {
+		t.Fatal("partial ZIP was finalized")
+	}
+}
+
+func TestOpenedFileSurvivesPathReplacement(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	root, err := os.OpenRoot(filepath.Join(rootDir, "Alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	file, _, err := openRegularFile(root, "game.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	name := filepath.Join(rootDir, "Alpha", "game.txt")
+	if err := os.Remove(name); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(outside, []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, outside, name)
+	contents, err := io.ReadAll(file)
+	if err != nil || string(contents) != "game data" {
+		t.Fatalf("descriptor read = %q, %v", contents, err)
+	}
+}
+
+func TestSpecialFilesAreNeverDownloaded(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	game := filepath.Join(rootDir, "Alpha")
+	fifo := filepath.Join(game, "cover.png")
+	if err := exec.Command("mkfifo", fifo).Run(); err != nil {
+		t.Skipf("FIFO creation unavailable: %v", err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if gamesMap["alpha"].Game.HasCover {
+		t.Fatal("FIFO selected as artwork")
+	}
+	w := httptest.NewRecorder()
+	handleGameFileDownload(w, httptest.NewRequest(http.MethodGet, "/api/game-file/alpha?path=cover.png", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("FIFO download = %d", w.Code)
+	}
+	w = httptest.NewRecorder()
+	handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/alpha", nil))
+	if got := zipContents(t, w.Body.Bytes()); !reflect.DeepEqual(got, map[string]string{"game.txt": "game data"}) {
+		t.Fatalf("ZIP special files = %#v", got)
+	}
+}
+
+func TestUploadedCoverRejectsReplacedParent(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	cover := customCoverPath("Alpha")
+	if err := os.MkdirAll(filepath.Dir(cover), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cover, []byte("cover"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "cover.png"), []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Dir(cover), filepath.Join(dataDir, "old-cover")); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, outside, filepath.Dir(cover))
+	w := httptest.NewRecorder()
+	handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("replaced uploaded parent = %d, %q", w.Code, w.Body.String())
+	}
+}
+
+func TestMissingCoverUsesPlaceholder(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+	image, err := webFS.ReadFile("web/placeholder.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || !bytes.Equal(image, w.Body.Bytes()) {
+		t.Fatalf("placeholder = %d", w.Code)
 	}
 }

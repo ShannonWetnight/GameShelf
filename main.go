@@ -15,8 +15,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf8"
 )
@@ -407,15 +409,87 @@ func dirStats(root string) (int64, int, error) {
 	return size, files, err
 }
 
-func findCover(dir string) string {
-	candidates := []string{
-		"cover.jpg", "cover.png", "cover.jpeg",
-		"folder.jpg", "folder.png", "folder.jpeg",
+// openChildRoot rejects links and pins the checked directory across renames.
+func openChildRoot(parent *os.Root, name string) (*os.Root, error) {
+	before, err := parent.Lstat(name)
+	if err != nil {
+		return nil, err
 	}
-	for _, c := range candidates {
-		p := filepath.Join(dir, c)
-		if _, err := os.Stat(p); err == nil {
-			return p
+	if !before.IsDir() {
+		return nil, fmt.Errorf("not a physical directory: %s", name)
+	}
+	child, err := parent.OpenRoot(name)
+	if err != nil {
+		return nil, err
+	}
+	after, err := child.Stat(".")
+	if err != nil || !os.SameFile(before, after) {
+		child.Close()
+		return nil, fmt.Errorf("directory changed: %s", name)
+	}
+	return child, nil
+}
+
+func openGameRoot(entry *gameEntry) (*os.Root, error) {
+	if !filepath.IsLocal(entry.DirName) || filepath.Base(entry.DirName) != entry.DirName {
+		return nil, fmt.Errorf("invalid game directory")
+	}
+	library, err := os.OpenRoot(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	defer library.Close()
+	return openChildRoot(library, entry.DirName)
+}
+
+// openRegularFile walks pinned directories and serves the validated descriptor,
+// never reopening a checked pathname. Root also prevents escape during lookup.
+func openRegularFile(root *os.Root, rel string) (*os.File, os.FileInfo, error) {
+	if !filepath.IsLocal(rel) || rel == "." || strings.Contains(rel, "\\") {
+		return nil, nil, fmt.Errorf("invalid file path")
+	}
+	parts := strings.Split(filepath.Clean(rel), string(filepath.Separator))
+	for _, part := range parts[:len(parts)-1] {
+		child, err := openChildRoot(root, part)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer child.Close()
+		root = child
+	}
+	name := parts[len(parts)-1]
+	before, err := root.Lstat(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !before.Mode().IsRegular() {
+		return nil, nil, fmt.Errorf("not a regular file: %s", rel)
+	}
+	// Nonblocking prevents a concurrent replacement with a FIFO from hanging.
+	file, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || !os.SameFile(before, info) {
+		file.Close()
+		return nil, nil, fmt.Errorf("file changed: %s", rel)
+	}
+	return file, info, nil
+}
+
+func findCover(dir string) string {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return ""
+	}
+	defer root.Close()
+	candidates := []string{"cover.jpg", "cover.png", "cover.jpeg", "folder.jpg", "folder.png", "folder.jpeg"}
+	for _, name := range candidates {
+		file, _, err := openRegularFile(root, name)
+		if err == nil {
+			file.Close()
+			return filepath.Join(dir, name)
 		}
 	}
 	return ""
@@ -725,27 +799,18 @@ func handleGameFileDownload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	gameRoot := filepath.Join(rootDir, entry.DirName)
-	current := gameRoot
-	for _, component := range strings.Split(filepath.Clean(rel), string(filepath.Separator)) {
-		current = filepath.Join(current, component)
-		info, err := os.Lstat(current)
-		if err != nil || info.Mode()&os.ModeSymlink != 0 {
-			http.NotFound(w, r)
-			return
-		}
+	root, err := openGameRoot(entry)
+	if err != nil {
+		http.NotFound(w, r)
+		return
 	}
-	file, err := os.Open(current)
+	defer root.Close()
+	file, info, err := openRegularFile(root, rel)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		http.NotFound(w, r)
-		return
-	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, sanitizeFilename(filepath.Base(rel))))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -770,87 +835,164 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dirPath := filepath.Join(rootDir, entry.DirName)
-
+	root, err := openGameRoot(entry)
+	if err != nil {
+		http.Error(w, "Unable to read game directory.", http.StatusServiceUnavailable)
+		return
+	}
+	defer root.Close()
 	w.Header().Set("Content-Type", "application/zip")
 	filename := fmt.Sprintf("%s.zip", sanitizeFilename(entry.Game.Name))
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-
-	zipWriter := zip.NewWriter(w)
-	defer zipWriter.Close()
-
-	err := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		rel, err := filepath.Rel(dirPath, path)
-		if err != nil {
-			return err
-		}
-
-		fw, err := zipWriter.Create(rel)
-		if err != nil {
-			return err
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		if _, err := io.Copy(fw, file); err != nil {
-			return err
-		}
-		return nil
-	})
-
-	if err != nil {
+	output := &zipResponseWriter{ResponseWriter: w}
+	if err := writeGameZIP(output, root); err != nil {
 		log.Printf("zip error for %s: %v", entry.Game.Name, err)
+		if output.started {
+			// Do not finalize a partial archive as a successful ZIP. net/http aborts
+			// the connection (or HTTP/2 stream) without appending an error to ZIP data.
+			panic(http.ErrAbortHandler)
+		}
+		w.Header().Del("Content-Disposition")
+		w.Header().Del("Content-Type")
+		http.Error(w, "Unable to download game files.", http.StatusServiceUnavailable)
 	}
 }
 
+type zipResponseWriter struct {
+	http.ResponseWriter
+	started bool
+}
+
+func (w *zipResponseWriter) Write(p []byte) (int, error) {
+	w.started = true
+	return w.ResponseWriter.Write(p)
+}
+
+// Walk only descriptor-relative paths. Symlinks and special files are omitted;
+// an entry that changes or becomes unreadable aborts the archive.
+func writeGameZIP(dst io.Writer, root *os.Root) error {
+	zw := zip.NewWriter(dst)
+	var walk func(*os.Root, string) error
+	walk = func(dir *os.Root, prefix string) error {
+		listing, err := dir.Open(".")
+		if err != nil {
+			return err
+		}
+		entries, err := listing.ReadDir(-1)
+		listing.Close()
+		if err != nil {
+			return err
+		}
+		sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+		for _, entry := range entries {
+			name := entry.Name()
+			rel := path.Join(prefix, name)
+			if entry.IsDir() {
+				child, err := openChildRoot(dir, name)
+				if err != nil {
+					return err
+				}
+				err = walk(child, rel)
+				child.Close()
+				if err != nil {
+					return err
+				}
+			} else if entry.Type().IsRegular() {
+				file, _, err := openRegularFile(dir, name)
+				if err != nil {
+					return err
+				}
+				fw, err := zw.Create(rel)
+				if err == nil {
+					_, err = io.Copy(fw, file)
+				}
+				closeErr := file.Close()
+				if err != nil {
+					return err
+				}
+				if closeErr != nil {
+					return closeErr
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(root, ""); err != nil {
+		return err
+	}
+	return zw.Close()
+}
+
 func handleCover(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-    w.Header().Set("Pragma", "no-cache")
-    w.Header().Set("Expires", "0")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 
-    if r.Method != http.MethodGet {
-        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    id := strings.TrimPrefix(r.URL.Path, "/covers/")
-    id = strings.TrimSpace(id)
-    if id == "" {
-        http.NotFound(w, r)
-        return
-    }
+	id := strings.TrimPrefix(r.URL.Path, "/covers/")
+	id = strings.TrimSpace(id)
+	if id == "" {
+		http.NotFound(w, r)
+		return
+	}
 
-    entry := getGameEntryByID(id)
-    if entry == nil {
-        http.NotFound(w, r)
-        return
-    }
+	entry := getGameEntryByID(id)
+	if entry == nil {
+		http.NotFound(w, r)
+		return
+	}
 
-    if entry.CoverPath == "" {
-        f, err := webFS.Open("web/placeholder.png")
-        if err != nil {
-            http.NotFound(w, r)
-            return
-        }
-        defer f.Close()
+	if entry.CoverPath == "" {
+		f, err := webFS.Open("web/placeholder.png")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer f.Close()
 
-        w.Header().Set("Content-Type", "image/png")
-        io.Copy(w, f)
-        return
-    }
+		w.Header().Set("Content-Type", "image/png")
+		io.Copy(w, f)
+		return
+	}
 
-    http.ServeFile(w, r, entry.CoverPath)
+	var root *os.Root
+	var rel string
+	var err error
+	if entry.Game.CoverSource == "uploaded" {
+		// Only the two supported uploaded-cover locations are allowed.
+		if entry.CoverPath != customCoverPath(entry.DirName) && entry.CoverPath != legacyCustomCoverPath(entry.DirName) {
+			http.NotFound(w, r)
+			return
+		}
+		root, err = os.OpenRoot(dataDir)
+		if err == nil {
+			rel, err = filepath.Rel(dataDir, entry.CoverPath)
+		}
+	} else {
+		root, err = openGameRoot(entry)
+		if err == nil {
+			rel, err = filepath.Rel(filepath.Join(rootDir, entry.DirName), entry.CoverPath)
+		}
+	}
+	if root != nil {
+		defer root.Close()
+	}
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	file, info, err := openRegularFile(root, rel)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer file.Close()
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 }
 
 func getGameEntryByID(id string) *gameEntry {
