@@ -81,6 +81,7 @@ func main() {
 	mux.HandleFunc("/api/games", handleGames)
 	mux.HandleFunc("/api/game-files/", handleGameFiles)
 	mux.HandleFunc("/api/version", handleVersion)
+	mux.HandleFunc("/api/library-backup", handleLibraryBackup)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -371,6 +372,25 @@ func handleVersion(w http.ResponseWriter, r *http.Request) {
 		Channel string `json:"channel"`
 	}{buildVersion, buildChannel}); err != nil {
 		log.Printf("encode version: %v", err)
+	}
+}
+
+func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	firstSeen, err := readLibraryState()
+	if err != nil {
+		log.Printf("library backup unavailable: %v", err)
+		http.Error(w, "Library backup is unavailable. Check the container logs.", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-library-backup.json"`)
+	w.Header().Set("Cache-Control", "no-store")
+	if err := json.NewEncoder(w).Encode(libraryState{Version: 1, FirstSeen: firstSeen}); err != nil {
+		log.Printf("encode library backup: %v", err)
 	}
 }
 

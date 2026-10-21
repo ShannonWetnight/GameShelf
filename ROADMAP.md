@@ -49,6 +49,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add date-added sorting once its meaning and data source are defined
 
 * [x] Persist each game's first-seen date in a local JSON state file outside the read-only library
+* [x] Export saved first-seen dates from Settings for backup
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
 * [x] Add functional search bar

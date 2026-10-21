@@ -33,6 +33,9 @@ RUN addgroup -S -g 10001 gameshelf \
 # Keep the executable root-owned; the application only needs read access to games.
 USER 10001:10001
 
+# Docker creates writable state storage when no explicit /data mount is supplied.
+VOLUME ["/data"]
+
 # Default internal port, can be overridden with -p flag or environment variable
 EXPOSE 8080
 

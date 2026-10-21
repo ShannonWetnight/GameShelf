@@ -32,7 +32,9 @@ def identity(cid, uid, gid, mount):
     assert status["NoNewPrivs"].strip() == "1", status
     config = json.loads(docker("inspect", cid))[0]
     assert config["HostConfig"]["ReadonlyRootfs"]
-    assert all(not mount["RW"] for mount in config["Mounts"])
+    mounts = {item["Destination"]: item for item in config["Mounts"]}
+    assert not mounts[mount]["RW"], mounts[mount]
+    assert mounts["/data"]["Type"] == "volume" and mounts["/data"]["RW"], mounts["/data"]
     docker("exec", cid, "sh", "-ec",
            f"test ! -w /app; test ! -w /app/gameshelf; test ! -w {mount}")
 
@@ -82,6 +84,10 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         assert get("/app.js")
         assert get("/styles.css")
         assert len(json.loads(get("/api/games?forceRefresh=1"))) == expected
+        backup = json.loads(get("/api/library-backup"))
+        assert backup["version"] == 1 and isinstance(backup["firstSeen"], dict), backup
+        if uid == 10001:
+            assert len(backup["firstSeen"]) == expected, backup
         for game in games:
             name = game["name"]
             assert name in {"Sample Game", "No Cover"}, game
@@ -161,7 +167,7 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
               "static assets, API, covers, nested ZIP downloads and security restrictions")
     finally:
         print(docker("logs", cid))
-        docker("rm", "--force", cid)
+        docker("rm", "--force", "--volumes", cid)
 
 
 def fixture(root):
@@ -219,7 +225,7 @@ def denied_root(image, root):
             raise AssertionError("inaccessible root unexpectedly started")
     finally:
         if cid:
-            docker("rm", "--force", cid)
+            docker("rm", "--force", "--volumes", cid)
         ownership(image, root, f"{os.getuid()}:{os.getgid()}")
         root.chmod(0o755)
 

@@ -67,7 +67,6 @@ docker run -d \
   -p 8080:8080 \
   -e GAMESHELF_ROOT=/games \
   -v /path/to/your/library:/games:ro \
-  -v gameshelf-data:/data \
   ghcr.io/shannonwetnight/gameshelf:latest
 ```
 ### Docker Compose
@@ -84,7 +83,6 @@ services:
     environment:
       # Directory containing indexable folders. 
       - GAMESHELF_ROOT=/games
-      - GAMESHELF_DATA_DIR=/data
       # Optional: change the internal bind address (default :8080)
       #- GAMESHELF_ADDR=:8080
       # Optional: rescan every 12h by default; set 0 to disable or use a duration such as 1h.
@@ -101,7 +99,9 @@ volumes:
 
 ### Container User and File Permissions
 
-The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client. It writes first-seen dates to a small JSON file in `/data`; the game library remains read-only. Mount `/data` as a named volume or a writable host directory to keep dates across container recreation. The image does not change ownership or permissions on your library.
+The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client. It writes first-seen dates to a small JSON file in `/data`; the game library remains read-only. Docker creates storage for `/data` automatically, so the Docker Run example needs no second mount. The Compose example uses a Docker-managed named volume, created automatically by Compose, so dates also survive removing and recreating the stack. No extra host directory or separate database service is needed. The image does not change ownership or permissions on your library.
+
+If your own Compose or Portainer stack has no `/data` volume entry, Docker uses an anonymous volume. It normally survives container restarts, but a newly created container after a stack removal may not reconnect to that volume. For reliable redeploys, add `gameshelf-data:/data` to the service and declare `gameshelf-data:` under the top-level `volumes:` section, as in the example above. In Settings, **Export data** downloads `gameshelf-library-backup.json` with the stored first-seen dates. Keep this file with your other backups. To restore it, place it in the running container's `/data/library-state.json` before restarting GameShelf; the export uses the same versioned format as the state file.
 
 “Date added” means the first successful scan after this feature is enabled, not the folder's filesystem creation date. Games already in the library receive that initial scan date. Removing a game and refreshing removes its stored date; adding it again starts a new date. If `/data` cannot be written, the library still loads and new dates stay blank until storage is fixed.
 
@@ -124,7 +124,7 @@ For group-only access, add `--group-add 2000` to `docker run`, or use:
 
 These are numeric Docker settings; the image does not interpret `PUID` or `PGID` environment variables. An arbitrary non-root UID/GID works without a matching account inside the image, provided it can read the library and write to `/data`. Rootless Docker, user namespace remapping, NAS ACLs, and SELinux labeling can affect host access; match permissions to the identity and mount policy used by your deployment.
 
-Keep the collection mount read-only and retain `no-new-privileges:true`. You can also add `--read-only --cap-drop=ALL` to `docker run`, or the following Compose settings; keep the separate writable `/data` mount for date persistence:
+Keep the collection mount read-only and retain `no-new-privileges:true`. You can also add `--read-only --cap-drop=ALL` to `docker run`, or the following Compose settings; the image's `/data` volume remains writable:
 
 ```yaml
     read_only: true
@@ -138,7 +138,7 @@ Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivilege
 | Variable                     | Default  | Description                                                                     |
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                                         |
-| `GAMESHELF_DATA_DIR`         | `/data`  | Writable app state for first-seen dates; mount separately from the read-only library. |
+| `GAMESHELF_DATA_DIR`         | `/data`  | Writable app state for first-seen dates; the image provides Docker-managed storage at this path. |
 | `GAMESHELF_ADDR`             | `:8080`  | Optional: Change GameShelf's default (`8080`) internal bind address.                                           |
 | `GAMESHELF_REFRESH_INTERVAL` | `12h`  | Optional rescan interval; set `0` to disable, or use a duration such as `1h` or `30m`. |
 
