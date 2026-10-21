@@ -469,7 +469,11 @@ func prepareLibraryBackup() (*os.File, int64, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
-	file, err := os.CreateTemp("", "gameshelf-library-backup-*.zip")
+	// /data is already writable in containers with a read-only root filesystem.
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
+		return nil, 0, err
+	}
+	file, err := os.CreateTemp(dataDir, ".library-backup-*.zip")
 	if err != nil {
 		return nil, 0, err
 	}

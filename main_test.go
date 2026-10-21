@@ -249,8 +249,6 @@ func TestLibraryBackupRejectsUnavailableArtwork(t *testing.T) {
 	for _, failure := range []string{"missing", "read-error", "permission-denied"} {
 		t.Run(failure, func(t *testing.T) {
 			setupLibrary(t)
-			staging := t.TempDir()
-			t.Setenv("TMPDIR", staging)
 			writeGame(t, "Alpha")
 			cover := customCoverPath("Alpha")
 			if err := os.MkdirAll(filepath.Dir(cover), 0700); err != nil {
@@ -284,7 +282,7 @@ func TestLibraryBackupRejectsUnavailableArtwork(t *testing.T) {
 			w := httptest.NewRecorder()
 			handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
 			assertBackupFailed(t, w)
-			files, err := os.ReadDir(staging)
+			files, err := filepath.Glob(filepath.Join(dataDir, ".library-backup-*.zip"))
 			if err != nil || len(files) != 0 {
 				t.Fatalf("staged backup leaked: %v, %v", files, err)
 			}
@@ -298,10 +296,32 @@ func TestLibraryBackupRejectsUnavailableTemporaryStorage(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("blocked"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("TMPDIR", blocked)
+	dataDir = blocked
 	w := httptest.NewRecorder()
 	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
 	assertBackupFailed(t, w)
+}
+
+func TestLibraryBackupUsesDataVolumeWhenTemporaryDirectoryIsUnavailable(t *testing.T) {
+	setupLibrary(t)
+	blocked := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(blocked, []byte("blocked"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", blocked)
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("export with unavailable /tmp: %d %s", w.Code, w.Body.String())
+	}
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil || len(archive.File) != 1 || archive.File[0].Name != "library-state.json" {
+		t.Fatalf("invalid empty backup: %v", err)
+	}
+	files, err := filepath.Glob(filepath.Join(dataDir, ".library-backup-*.zip"))
+	if err != nil || len(files) != 0 {
+		t.Fatalf("staged backup leaked: %v, %v", files, err)
+	}
 }
 
 type backupFailWriter struct{ remaining int }
@@ -342,13 +362,11 @@ func (w backupTransferFailure) Write(p []byte) (int, error) { return 0, errBacku
 
 func TestLibraryBackupAbortsFailedTransferAndRemovesTemporaryFile(t *testing.T) {
 	setupLibrary(t)
-	staging := t.TempDir()
-	t.Setenv("TMPDIR", staging)
 	defer func() {
 		if got := recover(); got != http.ErrAbortHandler {
 			t.Errorf("transfer failure panic = %v, want http.ErrAbortHandler", got)
 		}
-		files, err := os.ReadDir(staging)
+		files, err := filepath.Glob(filepath.Join(dataDir, ".library-backup-*.zip"))
 		if err != nil || len(files) != 0 {
 			t.Errorf("failed transfer leaked temporary file: %v, %v", files, err)
 		}
@@ -358,8 +376,6 @@ func TestLibraryBackupAbortsFailedTransferAndRemovesTemporaryFile(t *testing.T) 
 
 func TestLibraryBackupRestoresMetadataAndArtwork(t *testing.T) {
 	setupLibrary(t)
-	staging := t.TempDir()
-	t.Setenv("TMPDIR", staging)
 	for _, name := range []string{"Alpha", "Legacy Game"} {
 		writeGame(t, name)
 	}
@@ -404,6 +420,7 @@ func TestLibraryBackupRestoresMetadataAndArtwork(t *testing.T) {
 	expected := map[string]bool{"library-state.json": true, "covers/Alpha/cover.png": true, "covers/Legacy Game/cover.png": true}
 	// Follow the documented restore procedure into fresh /data storage while
 	// retaining the same game mount path. Reading every member checks ZIP CRCs.
+	originalDataDir := dataDir
 	dataDir = t.TempDir()
 	for _, member := range archive.File {
 		if !expected[member.Name] {
@@ -457,7 +474,7 @@ func TestLibraryBackupRestoresMetadataAndArtwork(t *testing.T) {
 			t.Fatalf("game library modified: %v, %v", files, err)
 		}
 	}
-	files, err := os.ReadDir(staging)
+	files, err := filepath.Glob(filepath.Join(originalDataDir, ".library-backup-*.zip"))
 	if err != nil || len(files) != 0 {
 		t.Fatalf("successful backup leaked temporary file: %v, %v", files, err)
 	}

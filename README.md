@@ -103,7 +103,7 @@ The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID 
 
 If your own Compose or Portainer stack has no `/data` volume entry, Docker uses an anonymous volume. It normally survives container restarts, but a newly created container after a stack removal may not reconnect to that volume. For reliable redeploys, add `gameshelf-data:/data` to the service and declare `gameshelf-data:` under the top-level `volumes:` section, as in the example above.
 
-In Settings, **Export data** downloads `gameshelf-library-backup.zip` with first-seen dates, customized titles, and uploaded cover art. The server finishes the ZIP in temporary storage before starting the download; allow temporary disk space for the archive. If metadata or an indexed uploaded cover cannot be read, or the archive cannot be completed, Settings shows an export failure and offers no ZIP. Retry after correcting the problem shown in the container logs.
+In Settings, **Export data** downloads `gameshelf-library-backup.zip` with first-seen dates, customized titles, and uploaded cover art. The server finishes the ZIP in a private temporary file in `/data` before starting the download; allow free space there for the archive. Temporary files are removed after the request finishes. If metadata or an indexed uploaded cover cannot be read, or the archive cannot be completed, Settings shows an export failure and offers no ZIP. Retry after correcting the problem shown in the container logs.
 
 Keep this ZIP with your other backups. To restore, extract its `library-state.json` and `covers/` directory into `/data` before starting GameShelf. The game library still needs to be mounted at the same container path for saved dates and customized titles to match.
 
