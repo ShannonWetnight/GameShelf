@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 //go:embed web/*
@@ -89,6 +90,7 @@ func main() {
 	mux.HandleFunc("/api/version", handleVersion)
 	mux.HandleFunc("/api/library-backup", handleLibraryBackup)
 	mux.HandleFunc("/api/covers/", handleCoverUpload)
+	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -151,39 +153,53 @@ func refreshInterval() time.Duration {
 type libraryState struct {
 	Version   int               `json:"version"`
 	FirstSeen map[string]string `json:"firstSeen"`
+	Titles    map[string]string `json:"titles,omitempty"`
 }
 
-func readLibraryState() (map[string]string, error) {
+func readLibraryMetadata() (libraryState, error) {
 	contents, err := os.ReadFile(filepath.Join(dataDir, "library-state.json"))
 	if os.IsNotExist(err) {
-		return make(map[string]string), nil
+		return libraryState{Version: 1, FirstSeen: make(map[string]string), Titles: make(map[string]string)}, nil
 	}
 	if err != nil {
-		return nil, err
+		return libraryState{}, err
 	}
 	var state libraryState
 	if err := json.Unmarshal(contents, &state); err != nil {
-		return nil, err
+		return libraryState{}, err
 	}
 	if state.Version != 1 || state.FirstSeen == nil {
-		return nil, fmt.Errorf("unsupported library state format")
+		return libraryState{}, fmt.Errorf("unsupported library state format")
 	}
 	for path, value := range state.FirstSeen {
 		if path == "" || value == "" {
-			return nil, fmt.Errorf("invalid library state entry")
+			return libraryState{}, fmt.Errorf("invalid library state entry")
 		}
 		if _, err := time.Parse(time.RFC3339, value); err != nil {
-			return nil, fmt.Errorf("invalid date for %q: %w", path, err)
+			return libraryState{}, fmt.Errorf("invalid date for %q: %w", path, err)
 		}
 	}
-	return state.FirstSeen, nil
+	if state.Titles == nil {
+		state.Titles = make(map[string]string)
+	}
+	for path, title := range state.Titles {
+		if path == "" || !validGameTitle(title) {
+			return libraryState{}, fmt.Errorf("invalid title for %q", path)
+		}
+	}
+	return state, nil
 }
 
-func writeLibraryState(firstSeen map[string]string) error {
+func readLibraryState() (map[string]string, error) {
+	state, err := readLibraryMetadata()
+	return state.FirstSeen, err
+}
+
+func writeLibraryMetadata(state libraryState) error {
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
 	}
-	contents, err := json.MarshalIndent(libraryState{Version: 1, FirstSeen: firstSeen}, "", "  ")
+	contents, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -210,7 +226,27 @@ func writeLibraryState(firstSeen map[string]string) error {
 	return os.Rename(file.Name(), filepath.Join(dataDir, "library-state.json"))
 }
 
+func writeLibraryState(firstSeen map[string]string) error {
+	state, err := readLibraryMetadata()
+	if err != nil {
+		return err
+	}
+	state.FirstSeen = firstSeen
+	return writeLibraryMetadata(state)
+}
+
+func validGameTitle(title string) bool {
+	if title != strings.TrimSpace(title) || title == "" || !utf8.ValidString(title) || utf8.RuneCountInString(title) > 120 {
+		return false
+	}
+	return !strings.ContainsAny(title, "\r\n\x00")
+}
+
 func customCoverPath(dirName string) string {
+	return filepath.Join(dataDir, "covers", dirName, "cover.png")
+}
+
+func legacyCustomCoverPath(dirName string) string {
 	hash := sha256.Sum256([]byte(dirName))
 	return filepath.Join(dataDir, "covers", fmt.Sprintf("%x.png", hash))
 }
@@ -220,7 +256,8 @@ func refreshGames() error {
 	defer refreshMu.Unlock()
 
 	nextGames := make(map[string]*gameEntry)
-	firstSeen, stateErr := readLibraryState()
+	state, stateErr := readLibraryMetadata()
+	firstSeen := state.FirstSeen
 	if stateErr != nil {
 		log.Printf("Date-added state unavailable: %v", stateErr)
 	}
@@ -249,8 +286,11 @@ func refreshGames() error {
 		cover := customCoverPath(dirName)
 		coverSource := "uploaded"
 		if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
-			cover = findCover(absPath)
-			coverSource = "folder"
+			cover = legacyCustomCoverPath(dirName)
+			if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
+				cover = findCover(absPath)
+				coverSource = "folder"
+			}
 		}
 		if cover == "" {
 			coverSource = "placeholder"
@@ -271,10 +311,14 @@ func refreshGames() error {
 			gamesMu.RUnlock()
 		}
 
+		name := dirName
+		if custom := state.Titles[absPath]; custom != "" {
+			name = custom
+		}
 		entry := &gameEntry{
 			Game: Game{
 				ID:          id,
-				Name:        dirName,
+				Name:        name,
 				SizeBytes:   size,
 				HasCover:    cover != "",
 				CoverSource: coverSource,
@@ -293,7 +337,8 @@ func refreshGames() error {
 			stateChanged = true
 		}
 		if stateChanged {
-			if err := writeLibraryState(nextFirstSeen); err != nil {
+			state.FirstSeen = nextFirstSeen
+			if err := writeLibraryMetadata(state); err != nil {
 				log.Printf("Date-added state could not be saved: %v", err)
 				for _, entry := range nextGames {
 					if firstSeen[entry.Game.Path] == "" {
@@ -397,13 +442,13 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	firstSeen, err := readLibraryState()
+	state, err := readLibraryMetadata()
 	if err != nil {
 		log.Printf("library backup unavailable: %v", err)
 		http.Error(w, "Library backup is unavailable. Check the container logs.", http.StatusServiceUnavailable)
 		return
 	}
-	contents, err := json.MarshalIndent(libraryState{Version: 1, FirstSeen: firstSeen}, "", "  ")
+	contents, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		http.Error(w, "Library backup is unavailable.", http.StatusServiceUnavailable)
 		return
@@ -416,22 +461,22 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_, err = stateFile.Write(append(contents, '\n'))
 	}
-	coverDir := filepath.Join(dataDir, "covers")
-	coverEntries, listErr := os.ReadDir(coverDir)
-	if listErr != nil && !os.IsNotExist(listErr) && err == nil {
-		err = listErr
+	gamesMu.RLock()
+	customCovers := make(map[string]string)
+	for _, entry := range gamesMap {
+		if entry.Game.CoverSource == "uploaded" {
+			customCovers[entry.DirName] = entry.CoverPath
+		}
 	}
+	gamesMu.RUnlock()
 	if err == nil {
-		for _, entry := range coverEntries {
-			if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".png") {
-				continue
-			}
-			file, openErr := os.Open(filepath.Join(coverDir, entry.Name()))
+		for dirName, coverPath := range customCovers {
+			file, openErr := os.Open(coverPath)
 			if openErr != nil {
 				err = openErr
 				break
 			}
-			member, createErr := archive.Create(path.Join("covers", entry.Name()))
+			member, createErr := archive.Create(path.Join("covers", dirName, "cover.png"))
 			if createErr == nil {
 				_, createErr = io.Copy(member, file)
 			}
@@ -448,6 +493,64 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("write library backup: %v", err)
 	}
+}
+
+func handleGameTitle(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/api/game-title/")
+	if id == "" {
+		http.NotFound(w, r)
+		return
+	}
+	var request struct {
+		Title string `json:"title"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&request); err != nil {
+		http.Error(w, "Invalid title request.", http.StatusBadRequest)
+		return
+	}
+	if request.Title != "" && !validGameTitle(request.Title) {
+		http.Error(w, "Title must be 1 to 120 characters without line breaks.", http.StatusBadRequest)
+		return
+	}
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	entry := getGameEntryByID(id)
+	if entry == nil {
+		http.NotFound(w, r)
+		return
+	}
+	state, err := readLibraryMetadata()
+	if err != nil {
+		http.Error(w, "Library data is unavailable.", http.StatusServiceUnavailable)
+		return
+	}
+	name := request.Title
+	if name == "" || name == entry.DirName {
+		delete(state.Titles, entry.Game.Path)
+		name = entry.DirName
+	} else {
+		state.Titles[entry.Game.Path] = name
+	}
+	if err := writeLibraryMetadata(state); err != nil {
+		log.Printf("save game title: %v", err)
+		http.Error(w, "Unable to save title.", http.StatusServiceUnavailable)
+		return
+	}
+	gamesMu.Lock()
+	if current := gamesMap[id]; current != nil && current.DirName == entry.DirName {
+		updated := *current
+		updated.Game.Name = name
+		gamesMap[id] = &updated
+	}
+	gamesMu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Name string `json:"name"`
+	}{name})
 }
 
 func handleCoverUpload(w http.ResponseWriter, r *http.Request) {

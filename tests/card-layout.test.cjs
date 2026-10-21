@@ -45,6 +45,8 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'defaultFooter:getComputedStyle(card.querySelector(".gs-card-body")).display,' +
       'defaultMissingImage:getComputedStyle(missingImage).display,' +
       'defaultMissingTitle:getComputedStyle(missingTitle).display};' +
+      'card.click();result.gridBareClickSuppressed=card.classList.contains("gs-hover-suppressed");' +
+      'card.dispatchEvent(new PointerEvent("pointerleave"));' +
       'const placeholder=document.querySelector("#show-placeholder-images");' +
       'placeholder.checked=true;placeholder.dispatchEvent(new Event("change"));' +
       'result.placeholderImage=getComputedStyle(missingImage).display;' +
@@ -65,6 +67,8 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'result.listInfoVisible=getComputedStyle(info).display!=="none";' +
       'result.listDownloadInside=inside(dl,card);' +
       'result.listInfoInside=inside(info,card);' +
+      'card.click();result.listBareClickSuppressed=card.classList.contains("gs-hover-suppressed");' +
+      'card.dispatchEvent(new PointerEvent("pointerleave"));' +
       'result.listActionsPointer=getComputedStyle(actions).pointerEvents;' +
       'dl.focus();result.listFocusedPointer=getComputedStyle(actions).pointerEvents;' +
       'dl.addEventListener("click",function(e){e.preventDefault();},{once:true});dl.click();' +
@@ -94,6 +98,8 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.href, '/download/sample');
     assert.equal(result.label, 'Download A Sample Game');
     assert.equal(result.compact, true);
+    assert.equal(result.gridBareClickSuppressed, true);
+    assert.equal(result.listBareClickSuppressed, true);
     assert.equal(result.gridDownloadInside, true);
     assert.equal(result.gridInfoInside, true);
     assert.equal(result.gridActionsOpacity, result.touchLayout ? '1' : '0');
@@ -148,6 +154,10 @@ test('cover editor crops artwork and updates the card after upload', () => {
         document.querySelector('.gs-card-info').click();
         document.querySelector('#edit-game-cover').click();
         const editor = document.querySelector('#cover-editor-dialog');
+        const emptyUploadVisible = getComputedStyle(document.querySelector('.gs-cover-preview-upload')).opacity === '1';
+        document.querySelector('#cover-editor-back').click();
+        const returnedToDetails = document.querySelector('#game-details-dialog').open && !editor.open;
+        document.querySelector('#edit-game-cover').click();
         const bytes = Uint8Array.from(atob('${image}'), character => character.charCodeAt(0));
         const transfer = new DataTransfer();
         transfer.items.add(new File([bytes], 'cover.png', {type:'image/png'}));
@@ -160,6 +170,10 @@ test('cover editor crops artwork and updates the card after upload', () => {
           tilt.value = '8'; tilt.dispatchEvent(new Event('input'));
           const zoom = document.querySelector('#cover-zoom');
           zoom.value = '1.25'; zoom.dispatchEvent(new Event('input'));
+          const gridDuringEdit = document.querySelector('#cover-preview').classList.contains('is-adjusting');
+          const zoomReadout = document.querySelector('#cover-zoom-value').textContent;
+          const tiltReadout = document.querySelector('#cover-tilt-value').textContent;
+          const rotationReadout = document.querySelector('#cover-rotation-value').textContent;
           const canvas = document.querySelector('#cover-editor-canvas');
           const preview = canvas.toDataURL('image/png');
           canvas.toBlob = callback => callback(new Blob([bytes], {type:'image/png'}));
@@ -170,6 +184,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
             report.id = 'cover-editor-report';
             report.textContent = JSON.stringify({
               editorOpened:editor.open === false,
+              emptyUploadVisible,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,rotationReadout,
               previewIsPNG:preview.startsWith('data:image/png;base64,'),
               uploaded:window.coverUpload,
               saveDisabled:document.querySelector('#cover-editor-save').disabled,
@@ -195,12 +210,66 @@ test('cover editor crops artwork and updates the card after upload', () => {
     assert.ok(match, 'Chrome did not report the cover editor');
     const result = JSON.parse(match[1]);
     assert.equal(result.editorOpened, true, JSON.stringify(result));
+    assert.equal(result.emptyUploadVisible, true);
+    assert.equal(result.returnedToDetails, true);
+    assert.equal(result.gridDuringEdit, true);
+    assert.equal(result.zoomReadout, '125%');
+    assert.equal(result.tiltReadout, '8°');
+    assert.equal(result.rotationReadout, '98°');
     assert.equal(result.previewIsPNG, true);
     assert.equal(result.uploaded.url, '/api/covers/missing');
     assert.equal(result.uploaded.type, 'image/png');
     assert.ok(result.uploaded.size > 0);
     assert.equal(result.hasCover, true);
     assert.match(result.coverUrl, /^\/covers\/missing\?v=/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('editing a GameShelf title updates the card without changing its folder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-title-editor-'));
+  try {
+    const fetchStub = `<script>window.fetch = function(url, options) {
+      if (url === '/api/version') return Promise.resolve({ok:true,json:async()=>({version:'v-test',channel:'stable'})});
+      if (url.startsWith('/api/game-title/')) {
+        window.titleRequest = {url, body:JSON.parse(options.body)};
+        return Promise.resolve({ok:true,json:async()=>({name:window.titleRequest.body.title})});
+      }
+      return Promise.resolve({ok:true,json:async()=>[{
+        id:'sample',name:'Folder Name',sizeBytes:100,path:'/games/Folder Name',fileCount:1,hasCover:false,addedAt:''
+      }]});
+    };</script>`;
+    const probe = `<script>window.addEventListener('load', function() {
+      setTimeout(function() {
+        document.querySelector('.gs-card-info').click();
+        document.querySelector('#game-title-input').value = 'Display Name';
+        document.querySelector('#save-game-title').click();
+        setTimeout(function() {
+          const report = document.createElement('pre'); report.id='title-report';
+          report.textContent=JSON.stringify({request:window.titleRequest,
+            cardTitle:document.querySelector('.gs-card-title').textContent,
+            detailTitle:document.querySelector('#game-details-title').textContent,
+            folderPath:document.querySelector('#game-details-path').textContent});
+          document.body.append(report);
+        },50);
+      },0);
+    });</script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
+      .replace('<script src="/app.js"></script>', fetchStub + `<script>${app}</script>` + probe);
+    const file = path.join(dir, 'title.html');
+    fs.writeFileSync(file, source);
+    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
+      '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=2000',
+      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+    assert.equal(run.status, 0, run.stderr || run.error?.message);
+    const match = run.stdout.match(/<pre id="title-report">([^<]+)<\/pre>/);
+    assert.ok(match, 'Chrome did not report the title edit');
+    const result = JSON.parse(match[1]);
+    assert.deepEqual(result.request, { url: '/api/game-title/sample', body: { title: 'Display Name' } });
+    assert.equal(result.cardTitle, 'Display Name');
+    assert.equal(result.detailTitle, 'Display Name');
+    assert.equal(result.folderPath, '/games/Folder Name');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

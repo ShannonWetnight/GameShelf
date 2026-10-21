@@ -180,7 +180,7 @@ test('cover actions download the game and open read-only details', async () => {
   ui.click('game-details-close');
   assert.equal(ui.element('game-details-dialog').open, false);
   assert.equal(card.classList.contains('gs-hover-suppressed'), true);
-  assert.equal(card.focused, true);
+  assert.notEqual(card.focused, true);
 });
 
 test('game information lists only the selected game files on request', async () => {
@@ -323,7 +323,7 @@ test('random suggestion highlights a game without downloading and avoids immedia
   ui.element('game-details-dialog').close();
   assert.equal(ui.element('search-input').value, '');
   assert.equal(ui.element('suggestion-status').textContent,
-    `Showing only ${games.find(game => game.id === firstId).name}. Use Return to all games to return to the library.`);
+    `Showing only ${games.find(game => game.id === firstId).name}. Use Return to go back to the library or Reroll to choose again.`);
 
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);

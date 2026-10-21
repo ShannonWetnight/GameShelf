@@ -1,6 +1,14 @@
 # Build stage
 FROM golang:1.27.2-alpine3.24 AS build
 RUN apk upgrade --no-cache
+# The 1.27.3 official image is pending; install the patched Go release with
+# the SHA256 published at https://go.dev/dl/ for the amd64 build target.
+RUN wget -q -O /tmp/go.tar.gz https://go.dev/dl/go1.27.3.linux-amd64.tar.gz \
+    && echo '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40  /tmp/go.tar.gz' | sha256sum -c - \
+    && rm -rf /usr/local/go \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz \
+    && go version
 
 WORKDIR /app
 

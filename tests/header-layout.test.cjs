@@ -153,7 +153,12 @@ test('settings and game information keep button and file text vertically centere
         fileSize: center('#game-files-list li span:nth-child(2)'),
         fileDownload: center('#game-files-list li a'),
         showFiles: center('#toggle-game-files'),
-        coverAction: center('#edit-game-cover') };
+        coverAction: center('#edit-game-cover'),
+        titleSave: center('#save-game-title') };
+      document.querySelector('#game-details-dialog').close();
+      document.querySelector('#cover-editor-dialog').showModal();
+      result.editorSave = center('#cover-editor-save');
+      result.editorBack = center('#cover-editor-back');
       const report = document.createElement('pre');
       report.id = 'dialog-layout-report';
       report.textContent = JSON.stringify(result);

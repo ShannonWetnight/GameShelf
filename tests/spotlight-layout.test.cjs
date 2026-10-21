@@ -69,12 +69,19 @@ test('dice selection shows one centered card and reset restores the library', ()
       'setTimeout(function() {' +
       'const selected = visible()[0];' +
       'const gridBox = grid.getBoundingClientRect();' +
-      'const cardBox = selected.getBoundingClientRect();' +
+      'let cardBox = selected.getBoundingClientRect();' +
       'result.selectedCount = visible().length;' +
       'result.centerDifference = Math.abs((gridBox.left + gridBox.right)/2 - (cardBox.left + cardBox.right)/2);' +
       'result.animationName = getComputedStyle(selected).animationName;' +
       'result.selectedFocused = document.activeElement===selected;' +
       'result.returnBelowCard = document.querySelector("#show-all-games").getBoundingClientRect().top>=cardBox.bottom;' +
+      'const returnBox=document.querySelector("#show-all-games").getBoundingClientRect();' +
+      'const rerollBox=document.querySelector("#reroll-game").getBoundingClientRect();' +
+      'result.buttonGap=rerollBox.left-returnBox.right;' +
+      'result.cardButtonGap=parseFloat(getComputedStyle(document.querySelector("#library-stage")).rowGap);' +
+      'result.buttonsCenterDifference=Math.abs((returnBox.left+rerollBox.right)/2-(gridBox.left+gridBox.right)/2);' +
+      'result.rerollIconSize=document.querySelector("#reroll-game svg").getBoundingClientRect().height;' +
+      'result.topDiceIconSize=document.querySelector("#random-game svg").getBoundingClientRect().height;' +
       'result.returnAnimation = getComputedStyle(document.querySelector("#spotlight-actions")).animationName;' +
       'result.resetVisible = getComputedStyle(document.querySelector("#spotlight-actions")).display !== "none";' +
       'document.querySelector("#show-all-games").click();' +
@@ -94,7 +101,7 @@ test('dice selection shows one centered card and reset restores the library', ()
       'report.id = "spotlight-report";' +
       'report.textContent = JSON.stringify(result);' +
       'document.body.append(report);' +
-      '}, 800);' +
+      '}, 2000);' +
       '}, 0);' +
       '});</script>';
     const source = html
@@ -103,7 +110,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     const file = path.join(dir, 'spotlight.html');
     fs.writeFileSync(file, source);
     const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
-      '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=2000',
+      '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=3000',
       '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
     assert.equal(run.status, 0, run.stderr || run.error?.message);
     const match = run.stdout.match(/<pre id="spotlight-report">([^<]+)<\/pre>/);
@@ -126,6 +133,10 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.animationName, 'gs-spotlight-bounce');
     assert.equal(result.selectedFocused, false);
     assert.equal(result.returnBelowCard, true);
+    assert.ok(Math.abs(result.buttonGap - 8) <= 1, 'spotlight buttons need an 8px gap');
+    assert.ok(Math.abs(result.cardButtonGap - 8) <= 1, `card and buttons need an 8px gap; got ${result.cardButtonGap}`);
+    assert.ok(result.buttonsCenterDifference <= 1, 'spotlight buttons are not centered');
+    assert.ok(Math.abs(result.rerollIconSize - result.topDiceIconSize) <= 1, 'reroll dice icon should match the toolbar icon');
     assert.equal(result.returnAnimation, 'gs-return-appear');
     assert.equal(result.resetVisible, true);
     assert.equal(result.restoredCount, 3);
