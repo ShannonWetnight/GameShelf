@@ -393,7 +393,7 @@ body {
 }
 
 .gs-random.is-rolling svg {
-  animation: gs-dice-roll var(--dice-roll-duration, 480ms) ease-in-out;
+  animation: gs-dice-roll var(--dice-roll-duration, 600ms) ease-in-out;
 }
 
 .gs-random.gs-slow-animations {
@@ -471,13 +471,31 @@ body {
 .gs-details-list div {
   display: grid;
   grid-template-columns: minmax(8rem, 40%) 1fr;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0;
   border-top: 1px solid var(--border-subtle);
 }
 
 .gs-details-list dt { color: var(--text-muted); }
-.gs-details-list dd { margin: 0; overflow-wrap: anywhere; min-height: 1.4em; }
+.gs-details-list dd { margin: 0; overflow-wrap: anywhere; min-height: 1.4em; display: flex; align-items: center; }
+
+.gs-cover-detail { justify-content: space-between; gap: 0.5rem; }
+
+.gs-detail-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 17, 31, 0.55);
+  color: var(--text);
+  font: 600 0.78rem var(--font-sans);
+  cursor: pointer;
+}
+.gs-detail-action:hover, .gs-detail-action:focus-visible { border-color: var(--accent); }
 
 .gs-files-section {
   margin-top: 1rem;
@@ -500,6 +518,7 @@ body {
   min-height: 2.8rem;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   margin-top: 0.35rem;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--border-subtle);
@@ -535,14 +554,32 @@ body {
 .gs-files-panel ul { list-style: none; margin: 0; padding: 0; }
 .gs-files-panel li {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.55rem 0.75rem;
   border-top: 1px solid var(--border-subtle);
   font-size: 0.78rem;
 }
-.gs-files-panel li span:first-child { overflow-wrap: anywhere; min-width: 0; }
-.gs-files-panel li span:last-child { color: var(--text-muted); white-space: nowrap; }
+.gs-files-panel li span:first-child { overflow-wrap: anywhere; min-width: 0; flex: 1; }
+.gs-files-panel li span:nth-child(2) { color: var(--text-muted); white-space: nowrap; }
+.gs-files-panel li a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  opacity: 0;
+}
+.gs-files-panel li:hover a, .gs-files-panel li:focus-within a { opacity: 1; }
+.gs-files-panel li a:hover, .gs-files-panel li a:focus-visible { border-color: var(--accent); }
+.gs-files-panel li a svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+@media (hover: none) { .gs-files-panel li a { opacity: 1; } }
 
 .gs-settings-dialog {
   width: min(420px, calc(100vw - 32px));
@@ -629,7 +666,11 @@ body {
 .gs-settings-backup small { color: var(--text-muted); font-size: 0.8rem; }
 
 .gs-settings-backup a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
+  min-height: 38px;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -639,6 +680,18 @@ body {
 
 .gs-settings-backup a:hover { border-color: var(--accent); }
 .gs-settings-backup a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.gs-cover-editor { width: min(520px, calc(100vw - 32px)); }
+.gs-cover-upload { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem; }
+.gs-cover-upload input { max-width: 70%; }
+.gs-cover-editor-help { color: var(--text-muted); font-size: 0.8rem; }
+.gs-cover-editor canvas { display: block; width: min(100%, 280px); height: auto; margin: 0.75rem auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); touch-action: none; cursor: grab; }
+.gs-cover-editor canvas:active { cursor: grabbing; }
+.gs-cover-editor-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.gs-cover-editor-controls label { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.8rem; }
+.gs-cover-editor-controls input { min-width: 0; flex: 1; accent-color: var(--accent); }
+#cover-editor-status { min-height: 1.3em; color: var(--text-muted); font-size: 0.8rem; }
+#cover-editor-save { min-height: 38px; }
 
 .gs-settings-option input {
   width: 18px;
@@ -884,7 +937,7 @@ body {
 }
 
 .gs-card.gs-shuffle-preview {
-  animation: gs-card-shuffle var(--shuffle-duration, 130ms) ease-out both;
+  animation: gs-card-shuffle var(--shuffle-duration, 163ms) ease-out both;
 }
 
 .gs-card.gs-shuffle-preview.gs-shuffle-reverse {

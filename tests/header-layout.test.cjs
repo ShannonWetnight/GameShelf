@@ -128,6 +128,51 @@ test('header icons remain centered and toolbar buttons share one row', () => {
   }
 });
 
+test('settings and game information keep button and file text vertically centered', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-dialog-layout-'));
+  try {
+    const probe = `<script>
+      const center = selector => {
+        const element = document.querySelector(selector);
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const text = range.getBoundingClientRect();
+        const box = element.getBoundingClientRect();
+        return Math.abs((text.top + text.bottom - box.top - box.bottom) / 2);
+      };
+      document.querySelector('#settings-dialog').showModal();
+      const exportText = center('.gs-settings-backup a');
+      document.querySelector('#settings-dialog').close();
+      document.querySelector('#game-details-added').textContent = 'Oct 21, 2026';
+      document.querySelector('#game-files-list').innerHTML =
+        '<li><span>Extras/patch-notes.txt</span><span>57 B</span><a href="#">↓</a></li>';
+      document.querySelector('#game-files-panel').classList.remove('hidden');
+      document.querySelector('#game-details-dialog').showModal();
+      const result = { exportText, dateText: center('#game-details-added'),
+        fileName: center('#game-files-list li span:first-child'),
+        fileSize: center('#game-files-list li span:nth-child(2)'),
+        fileDownload: center('#game-files-list li a'),
+        showFiles: center('#toggle-game-files'),
+        coverAction: center('#edit-game-cover') };
+      const report = document.createElement('pre');
+      report.id = 'dialog-layout-report';
+      report.textContent = JSON.stringify(result);
+      document.body.append(report);
+    </script>`;
+    const source = html
+      .replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
+      .replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'dialogs.html');
+    fs.writeFileSync(file, source);
+    const result = readLayoutProbe(file, 1280, 'dialog-layout-report');
+    for (const [name, difference] of Object.entries(result)) {
+      assert.ok(difference <= 1, `${name} text is vertically off-center by ${difference}px`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 
 test('narrow screens keep controls and game cards within the viewport', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-mobile-'));

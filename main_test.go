@@ -1,8 +1,11 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -89,14 +92,26 @@ func TestLibraryBackupExportsSavedDates(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
-	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/json" {
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/zip" {
 		t.Fatalf("backup status = %d, content type = %q", w.Code, w.Header().Get("Content-Type"))
 	}
-	if got := w.Header().Get("Content-Disposition"); got != `attachment; filename="gameshelf-library-backup.json"` {
+	if got := w.Header().Get("Content-Disposition"); got != `attachment; filename="gameshelf-library-backup.zip"` {
 		t.Fatalf("content disposition = %q", got)
 	}
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(archive.File) != 1 || archive.File[0].Name != "library-state.json" {
+		t.Fatalf("backup files = %#v", archive.File)
+	}
+	stateFile, err := archive.File[0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stateFile.Close()
 	var backup libraryState
-	if err := json.Unmarshal(w.Body.Bytes(), &backup); err != nil {
+	if err := json.NewDecoder(stateFile).Decode(&backup); err != nil {
 		t.Fatal(err)
 	}
 	if backup.Version != 1 || backup.FirstSeen[filepath.Join(rootDir, "Alpha")] == "" {
@@ -106,6 +121,80 @@ func TestLibraryBackupExportsSavedDates(t *testing.T) {
 	handleLibraryBackup(w, httptest.NewRequest(http.MethodPost, "/api/library-backup", nil))
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST status = %d", w.Code)
+	}
+}
+
+func TestUploadedCoverOverridesFolderArtAndIsBackedUp(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "cover.png"), []byte("folder cover"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	image, err := os.ReadFile("web/placeholder.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/covers/alpha", bytes.NewReader(image))
+	request.Header.Set("Content-Type", "image/png")
+	w := httptest.NewRecorder()
+	handleCoverUpload(w, request)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("upload = %d: %s", w.Code, w.Body.String())
+	}
+	if got := getGameEntryByID("alpha"); got.Game.CoverSource != "uploaded" || got.CoverPath != customCoverPath("Alpha") {
+		t.Fatalf("cover entry = %#v", got)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if got := getGameEntryByID("alpha"); got.Game.CoverSource != "uploaded" {
+		t.Fatalf("refresh lost custom cover: %#v", got)
+	}
+	w = httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(archive.File) != 2 || archive.File[1].Name != "covers/"+filepath.Base(customCoverPath("Alpha")) {
+		t.Fatalf("custom cover missing from backup: %#v", archive.File)
+	}
+	backupImage, err := archive.File[1].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backupImage.Close()
+	gotImage, err := io.ReadAll(backupImage)
+	if err != nil || !bytes.Equal(gotImage, image) {
+		t.Fatalf("backed up cover differs: %v", err)
+	}
+}
+
+func TestCoverUploadRejectsInvalidImages(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	for _, sample := range []struct {
+		id, contentType string
+		body []byte
+		status int
+	}{
+		{"missing", "image/png", []byte("invalid"), http.StatusNotFound},
+		{"alpha", "image/jpeg", []byte("invalid"), http.StatusUnsupportedMediaType},
+		{"alpha", "image/png", []byte("invalid"), http.StatusBadRequest},
+	} {
+		request := httptest.NewRequest(http.MethodPut, "/api/covers/"+sample.id, bytes.NewReader(sample.body))
+		request.Header.Set("Content-Type", sample.contentType)
+		w := httptest.NewRecorder()
+		handleCoverUpload(w, request)
+		if w.Code != sample.status {
+			t.Fatalf("%s upload = %d, want %d", sample.id, w.Code, sample.status)
+		}
 	}
 }
 
@@ -165,6 +254,44 @@ func TestHandleGameFilesIsScopedToSelectedGame(t *testing.T) {
 		handleGameFiles(w, httptest.NewRequest(request.method, request.path, nil))
 		if w.Code != request.status {
 			t.Fatalf("%s %s status = %d, want %d", request.method, request.path, w.Code, request.status)
+		}
+	}
+}
+
+func TestIndividualFileDownloadStaysInsideSelectedGame(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	if err := os.MkdirAll(filepath.Join(rootDir, "Alpha", "data"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "data", "save.dat"), []byte("one file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleGameFileDownload(w, httptest.NewRequest(http.MethodGet, "/api/game-file/alpha?path=data%2Fsave.dat", nil))
+	if w.Code != http.StatusOK || w.Body.String() != "one file" || w.Header().Get("Content-Type") != "application/octet-stream" {
+		t.Fatalf("file download = %d, %q, %q", w.Code, w.Body.String(), w.Header().Get("Content-Type"))
+	}
+	for _, requestPath := range []string{
+		"/api/game-file/alpha?path=..%2FBeta%2Fgame.txt",
+		"/api/game-file/alpha?path=data",
+		"/api/game-file/missing?path=game.txt",
+	} {
+		w := httptest.NewRecorder()
+		handleGameFileDownload(w, httptest.NewRequest(http.MethodGet, requestPath, nil))
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("%s status = %d", requestPath, w.Code)
+		}
+	}
+	if err := os.Symlink(filepath.Join(rootDir, "Beta", "game.txt"), filepath.Join(rootDir, "Alpha", "shortcut")); err == nil {
+		w := httptest.NewRecorder()
+		handleGameFileDownload(w, httptest.NewRequest(http.MethodGet, "/api/game-file/alpha?path=shortcut", nil))
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("symlink download status = %d", w.Code)
 		}
 	}
 }

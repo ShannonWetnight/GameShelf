@@ -201,6 +201,8 @@ test('game information lists only the selected game files on request', async () 
   await settle();
   assert.deepEqual(ui.element('game-files-list').children.map(item => item.children[0].textContent),
     ['data/level.dat', 'cover.png']);
+  assert.equal(ui.element('game-files-list').children[0].children[2].href,
+    '/api/game-file/alpha?path=data%2Flevel.dat');
   ui.click('toggle-game-files');
   assert.equal(ui.hidden('game-files-panel'), true);
   ui.click('game-details-close');
@@ -304,8 +306,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(selected().length, 0);
   assert.equal(ui.element('random-game').disabled, true);
   assert.equal(ui.cards().filter(card => card.classList.contains('gs-shuffle-preview')).length, 1);
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   assert.equal(selected().length, 1);
   assert.equal(ui.element('random-game').disabled, false);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
@@ -326,8 +328,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
   assert.equal(selected().length, 0);
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   assert.equal(selected().length, 1);
   assert.notEqual(selected()[0].dataset.id, firstId);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -351,8 +353,8 @@ test('spotlight resets through Return to all games or Escape and restores list v
   assert.equal(ui.element('games-container').classList.contains('list-view'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   ui.click('show-all-games');
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   assert.equal(ui.hidden('spotlight-actions'), true);
@@ -360,8 +362,8 @@ test('spotlight resets through Return to all games or Escape and restores list v
 
   ui.click('random-game');
   ui.document.emit('keydown', { key: 'Escape' });
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
 });
@@ -372,16 +374,16 @@ test('sort and view controls leave dice spotlight before acting', async () => {
   ui.requests[0].resolve(response(games));
   await settle();
   ui.click('random-game');
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
   ui.click('sort-button');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.hidden('sort-menu'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   ui.click('random-game');
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   ui.click('view-toggle');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
@@ -395,8 +397,8 @@ test('search cancels a pending shuffle and reduced motion skips it', async () =>
   await settle();
   ui.click('random-game');
   ui.search('Alpha');
-  ui.tick(125);
-  ui.tick(300);
+  ui.tick(156);
+  ui.tick(375);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.hidden('spotlight-actions'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -434,7 +436,7 @@ test('settings dialog defaults off and slows dice and card shuffle together', as
   ui.click('random-game');
   assert.ok(ui.timerDelays().includes(250));
   assert.ok(ui.timerDelays().includes(600));
-  ui.tick(125);
+  ui.tick(156);
   assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 0);
   ui.tick(250);
   ui.tick(600);

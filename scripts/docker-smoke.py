@@ -84,7 +84,8 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         assert get("/app.js")
         assert get("/styles.css")
         assert len(json.loads(get("/api/games?forceRefresh=1"))) == expected
-        backup = json.loads(get("/api/library-backup"))
+        backup_zip = zipfile.ZipFile(io.BytesIO(get("/api/library-backup")))
+        backup = json.loads(backup_zip.read("library-state.json"))
         assert backup["version"] == 1 and isinstance(backup["firstSeen"], dict), backup
         if uid == 10001:
             assert len(backup["firstSeen"]) == expected, backup
@@ -102,6 +103,19 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
             assert archive.testzip() is None
             assert archive.read("game.txt") == b"smoke fixture\n"
             assert archive.read("nested/extra.txt") == b"nested fixture\n"
+            assert get("/api/game-file/" + game["id"] + "?path=nested%2Fextra.txt") == b"nested fixture\n"
+        if uid == 10001 and expected:
+            upload = urllib.request.Request(
+                base + "/api/covers/" + games[0]["id"],
+                data=pathlib.Path("web/placeholder.png").read_bytes(),
+                headers={"Content-Type": "image/png"}, method="PUT")
+            with urllib.request.urlopen(upload, timeout=5) as response:
+                assert response.status == 204
+            updated = json.loads(get("/api/games"))
+            assert next(game for game in updated if game["id"] == games[0]["id"])["coverSource"] == "uploaded"
+            assert any(name.startswith("covers/") for name in
+                       zipfile.ZipFile(io.BytesIO(get("/api/library-backup"))).namelist())
+            games = updated
         if interval == "100ms":
             # A host-side addition must be discovered by the configured timer.
             (root / "Added Later").mkdir(mode=0o755)

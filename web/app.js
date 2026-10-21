@@ -22,6 +22,12 @@ let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-ima
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 let detailsGameId = null;
 let fileListController = null;
+let openingCoverEditor = false;
+let editorGame = null;
+let editorImage = null;
+let editorRotation = 0;
+let editorPan = { x: 0, y: 0 };
+let editorLoadVersion = 0;
 
 const cardMap = new Map(); // game.id -> card element
 
@@ -213,11 +219,14 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-details-path').textContent = game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-files').textContent = Number.isInteger(game.fileCount) ? String(game.fileCount) : '';
-  document.getElementById('game-details-cover').textContent = typeof game.hasCover === 'boolean' ? (game.hasCover ? 'Available' : 'Placeholder') : '';
+  document.getElementById('game-details-cover').textContent = game.coverSource === 'uploaded'
+    ? 'Uploaded' : game.hasCover ? 'Available' : 'Missing';
+  document.getElementById('edit-game-cover').textContent = game.hasCover ? 'Edit cover' : 'Add cover';
   document.getElementById('game-details-added').textContent = formatAddedDate(game.addedAt);
   dialog.showModal();
   document.getElementById('game-details-close').focus();
   dialog.addEventListener('close', () => {
+    if (openingCoverEditor) { openingCoverEditor = false; return; }
     trigger.blur();
     card.classList.add('gs-hover-suppressed');
     card.focus({ preventScroll: true });
@@ -260,8 +269,14 @@ async function toggleGameFiles() {
       name.textContent = file.path;
       const size = document.createElement('span');
       size.textContent = formatSize(file.sizeBytes);
+      const download = document.createElement('a');
+      download.href = `/api/game-file/${encodeURIComponent(detailsGameId)}?path=${encodeURIComponent(file.path)}`;
+      download.download = file.path.split('/').pop();
+      download.setAttribute('aria-label', `Download ${file.path}`);
+      download.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11m0 0 4-4m-4 4-4-4M5 17.5v2h14v-2"/></svg>';
       item.appendChild(name);
       item.appendChild(size);
+      item.appendChild(download);
       list.appendChild(item);
     }
     status.textContent = result.truncated
@@ -272,6 +287,159 @@ async function toggleGameFiles() {
       status.textContent = 'Could not load this game’s files. Try again.';
     }
   }
+}
+
+function drawCoverEditor() {
+  const canvas = document.getElementById('cover-editor-canvas');
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#0a1324';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (!editorImage) {
+    context.fillStyle = '#9ca7c7';
+    context.font = '28px sans-serif';
+    context.textAlign = 'center';
+    context.fillText('Choose an image', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+  const angle = (editorRotation + Number(document.getElementById('cover-tilt').value)) * Math.PI / 180;
+  const cosine = Math.abs(Math.cos(angle));
+  const sine = Math.abs(Math.sin(angle));
+  const scale = Math.max(
+    (canvas.width * cosine + canvas.height * sine) / editorImage.width,
+    (canvas.width * sine + canvas.height * cosine) / editorImage.height
+  ) * Number(document.getElementById('cover-zoom').value);
+  context.save();
+  context.translate(canvas.width / 2 + editorPan.x, canvas.height / 2 + editorPan.y);
+  context.rotate(angle);
+  context.scale(scale, scale);
+  context.drawImage(editorImage, -editorImage.width / 2, -editorImage.height / 2);
+  context.restore();
+}
+
+function openCoverEditor(game) {
+  editorGame = game;
+  editorImage = null;
+  editorLoadVersion++;
+  editorRotation = 0;
+  editorPan = { x: 0, y: 0 };
+  document.getElementById('cover-editor-title').textContent = `Cover art: ${game.name}`;
+  document.getElementById('cover-editor-file').value = '';
+  document.getElementById('cover-zoom').value = '1';
+  document.getElementById('cover-tilt').value = '0';
+  document.getElementById('cover-editor-status').textContent = '';
+  document.getElementById('cover-editor-save').disabled = true;
+  openingCoverEditor = true;
+  document.getElementById('game-details-dialog').close();
+  document.getElementById('cover-editor-dialog').showModal();
+  drawCoverEditor();
+  if (game.hasCover) {
+    const loadVersion = editorLoadVersion;
+    const image = new Image();
+    image.onload = () => {
+      if (editorGame?.id !== game.id || loadVersion !== editorLoadVersion) return;
+      editorImage = image;
+      document.getElementById('cover-editor-save').disabled = false;
+      drawCoverEditor();
+    };
+    image.onerror = () => {
+      document.getElementById('cover-editor-status').textContent = 'Could not load the current cover. Choose an image.';
+    };
+    image.src = `/covers/${encodeURIComponent(game.id)}?edit=${Date.now()}`;
+  }
+}
+
+function bindCoverEditor() {
+  const dialog = document.getElementById('cover-editor-dialog');
+  const canvas = document.getElementById('cover-editor-canvas');
+  const status = document.getElementById('cover-editor-status');
+  const save = document.getElementById('cover-editor-save');
+  document.getElementById('edit-game-cover').addEventListener('click', () => {
+    const game = gamesCache.find(candidate => candidate.id === detailsGameId);
+    if (game) openCoverEditor(game);
+  });
+  document.getElementById('cover-editor-close').addEventListener('click', () => dialog.close());
+  closeOnBackdropClick(dialog);
+  dialog.addEventListener('close', () => { editorGame = null; editorImage = null; editorLoadVersion++; });
+  document.getElementById('cover-editor-file').addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 20 * 1024 * 1024) {
+      status.textContent = 'Choose an image smaller than 20 MB.';
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const loadVersion = ++editorLoadVersion;
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      if (!dialog.open || loadVersion !== editorLoadVersion) return;
+      if (image.width > 8192 || image.height > 8192) {
+        status.textContent = 'Image dimensions must be 8192 pixels or smaller.';
+        return;
+      }
+      editorImage = image;
+      editorRotation = 0;
+      editorPan = { x: 0, y: 0 };
+      document.getElementById('cover-zoom').value = '1';
+      document.getElementById('cover-tilt').value = '0';
+      save.disabled = false;
+      status.textContent = '';
+      drawCoverEditor();
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      status.textContent = 'Could not read that image.';
+    };
+    image.src = url;
+  });
+  document.getElementById('cover-rotate-left').addEventListener('click', () => { editorRotation -= 90; drawCoverEditor(); });
+  document.getElementById('cover-rotate-right').addEventListener('click', () => { editorRotation += 90; drawCoverEditor(); });
+  document.getElementById('cover-zoom').addEventListener('input', drawCoverEditor);
+  document.getElementById('cover-tilt').addEventListener('input', drawCoverEditor);
+  let pointer = null;
+  canvas.addEventListener('pointerdown', event => {
+    if (!editorImage) return;
+    pointer = { x: event.clientX, y: event.clientY };
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointermove', event => {
+    if (!pointer) return;
+    editorPan.x += (event.clientX - pointer.x) * canvas.width / canvas.clientWidth;
+    editorPan.y += (event.clientY - pointer.y) * canvas.height / canvas.clientHeight;
+    pointer = { x: event.clientX, y: event.clientY };
+    drawCoverEditor();
+  });
+  for (const eventName of ['pointerup', 'pointercancel']) {
+    canvas.addEventListener(eventName, () => { pointer = null; });
+  }
+  save.addEventListener('click', async () => {
+    if (!editorGame || !editorImage || save.disabled) return;
+    const game = editorGame;
+    save.disabled = true;
+    status.textContent = 'Saving cover…';
+    try {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Could not render cover');
+      const response = await fetch(`/api/covers/${encodeURIComponent(game.id)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: blob
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      game.hasCover = true;
+      game.coverSource = 'uploaded';
+      coverVersions.set(game.id, Date.now());
+      const oldCard = cardMap.get(game.id);
+      const newCard = createGameCard(game);
+      if (suggestedGameId === game.id) newCard.classList.add('gs-random-selected');
+      oldCard.replaceWith(newCard);
+      cardMap.set(game.id, newCard);
+      applySearchFilter();
+      status.textContent = 'Cover saved.';
+      dialog.close();
+    } catch (error) {
+      status.textContent = 'Could not save cover. Please try again.';
+      save.disabled = false;
+    }
+  });
 }
 
 function closeOnBackdropClick(dialog) {
@@ -426,7 +594,7 @@ function suggestRandomGame() {
   diceButton.dataset.tooltip = 'Choosing a game…';
   applyViewMode();
   const frames = Math.min(4, alternatives.length * 2);
-  const frameDelay = slowAnimations ? 250 : 125;
+  const frameDelay = slowAnimations ? 250 : 156;
   let lastId = null;
   for (let step = 0; step < frames; step++) {
     const options = alternatives.filter(candidate => candidate.id !== lastId);
@@ -447,7 +615,7 @@ function suggestRandomGame() {
     if (step === 0) showPreview();
     else shuffleTimers.push(setTimeout(showPreview, step * frameDelay));
   }
-  shuffleTimers.push(setTimeout(showFinalGame, frames * frameDelay + (slowAnimations ? 100 : 50)));
+  shuffleTimers.push(setTimeout(showFinalGame, frames * frameDelay + (slowAnimations ? 100 : 63)));
 }
 
 function clearSearch() {
@@ -623,6 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
   document.getElementById('toggle-game-files').addEventListener('click', toggleGameFiles);
+  bindCoverEditor();
   closeOnBackdropClick(settingsDialog);
   closeOnBackdropClick(detailsDialog);
   detailsDialog.addEventListener('close', () => {

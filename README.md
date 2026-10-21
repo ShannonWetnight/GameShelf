@@ -101,7 +101,7 @@ volumes:
 
 The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client. It writes first-seen dates to a small JSON file in `/data`; the game library remains read-only. Docker creates storage for `/data` automatically, so the Docker Run example needs no second mount. The Compose example uses a Docker-managed named volume, created automatically by Compose, so dates also survive removing and recreating the stack. No extra host directory or separate database service is needed. The image does not change ownership or permissions on your library.
 
-If your own Compose or Portainer stack has no `/data` volume entry, Docker uses an anonymous volume. It normally survives container restarts, but a newly created container after a stack removal may not reconnect to that volume. For reliable redeploys, add `gameshelf-data:/data` to the service and declare `gameshelf-data:` under the top-level `volumes:` section, as in the example above. In Settings, **Export data** downloads `gameshelf-library-backup.json` with the stored first-seen dates. Keep this file with your other backups. To restore it, place it in the running container's `/data/library-state.json` before restarting GameShelf; the export uses the same versioned format as the state file.
+If your own Compose or Portainer stack has no `/data` volume entry, Docker uses an anonymous volume. It normally survives container restarts, but a newly created container after a stack removal may not reconnect to that volume. For reliable redeploys, add `gameshelf-data:/data` to the service and declare `gameshelf-data:` under the top-level `volumes:` section, as in the example above. In Settings, **Export data** downloads `gameshelf-library-backup.zip` with first-seen dates and uploaded cover art. Keep this ZIP with your other backups. To restore, extract its `library-state.json` and `covers/` directory into `/data` before starting GameShelf. The game library still needs to be mounted at the same container path for saved dates to match.
 
 “Date added” means the first successful scan after this feature is enabled, not the folder's filesystem creation date. Games already in the library receive that initial scan date. Removing a game and refreshing removes its stored date; adding it again starts a new date. If `/data` cannot be written, the library still loads and new dates stay blank until storage is fixed.
 
@@ -211,7 +211,9 @@ You can easily lock GameShelf behind SSO with Authelia, Tinyauth, Authentik, and
 > GameShelf was not created to natively support SSO, user creation, mapping, or profiles. The purpose of GameShelf is to offer a frictionless library of DRM-free games to a local network, typically between 1-10 users in size. Using SSO or branching and adding profile functionality can be done but extends beyond the scope of GameShelf's intended purpose as a frictionless local file distributor.
 
 ### Cover Art
-GameShelf supports custom cover images for any game folder. To add your own artwork, place a cover image in the game’s directory using one of the supported file types:
+For any game, open its information panel and select **Add cover** or **Edit cover**. Choose an image, rotate or tilt it, then drag and zoom it to crop the preview. Save to use the resulting cover. GameShelf stores the edited PNG in its writable `/data` storage, leaving the game folder read-only. Uploaded covers take priority over images found in game folders and are included in **Export data**. Anyone who can access the GameShelf interface can change covers; use your existing network access controls or reverse proxy if this should be restricted.
+
+Alternatively, place a cover image in the game’s directory using one of the supported file types:
 - `cover.jpg`
 - `cover.jpeg`
 - `cover.png`
@@ -221,19 +223,17 @@ GameShelf supports custom cover images for any game folder. To add your own artw
 > [!IMPORTANT]
 > Only the above filenames and extensions are recognized. The file must be located directly inside the game’s root folder (eg. `Star Wars Jedi Knight II - Jedi Outcast > cover.png`), not in subdirectories.
 >
-> You must supply GameShelf with your own cover images if you wish to have the game library populated with cover art. If you do not provide GameShelf with cover art, it will use the default fallback image (`placeholder.png`) until one is supplied and the page is refreshed/rescanned. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two great places to find cover art for your games.
+> If no cover art is available, GameShelf uses its default fallback image (`placeholder.png`) until you upload one or add one to the game folder and refresh. [Moby Games](https://www.mobygames.com/) and [GameTDB](https://www.gametdb.com/) are two places to find cover art for your games.
 
 #### Recommended Resolution
-High-quality artwork is recommended. A resolution around 600×900 (3:4) works well; however, GameShelf automatically crops and scales the artwork into a portrait format and ratio of 2:3, so the final appearance will be vertically oriented regardless of the original aspect ratio.
+High-quality artwork is recommended. A resolution around 600×900 (2:3) works well; the editor creates a 600×900 PNG.
 - File size may be a performance factor to consider for libraries that include many games. Consider compressing your high-quality cover art before adding to the root of your game folders to reduce overall cover art file size.
 
 #### How GameShelf Chooses an Image
 When loading a game entry:
-1. GameShelf checks for `cover.jpg`, `cover.jpeg`, `cover.png`, `folder.jpg`, `folder.jpeg`, and `folder.png`.
-2. The first matching file found is used as the game’s cover art.
-3. If no cover image is provided, GameShelf will fall back to:
-4. Displaying the `placeholder.png` cover if nothing is available.
-This allows users to provide artwork simply by placing their own cover.* image into the game’s folder. In a future release, `auto-fetch cover art` will be attempted before using the `placeholder.png` cover.
+1. GameShelf uses an uploaded cover from `/data` when one exists.
+2. Otherwise it checks for `cover.jpg`, `cover.jpeg`, `cover.png`, `folder.jpg`, `folder.jpeg`, and `folder.png` in the game folder.
+3. If no cover image is provided, GameShelf displays its placeholder.
 
 ### Recommended File Structure
 As GameShelf parses folder names from `GAMESHELF_ROOT`, it is important to properly structure your master games directory. The following folder structure is recommended to keep things simple for GameShelf:
