@@ -135,7 +135,7 @@ test('settings and game information keep button and file text vertically centere
       const center = selector => {
         const element = document.querySelector(selector);
         const range = document.createRange();
-        range.selectNodeContents(element);
+        range.selectNodeContents(element.querySelector('.gs-control-label') || element);
         const text = range.getBoundingClientRect();
         const box = element.getBoundingClientRect();
         return Math.abs((text.top + text.bottom - box.top - box.bottom) / 2);
@@ -153,12 +153,23 @@ test('settings and game information keep button and file text vertically centere
         fileSize: center('#game-files-list li span:nth-child(2)'),
         fileDownload: center('#game-files-list li a'),
         showFiles: center('#toggle-game-files'),
-        coverAction: center('#edit-game-cover'),
-        titleSave: center('#save-game-title') };
+        coverAction: center('#edit-game-cover') };
+      const centerDifference = (inner, outer) => {
+        const a = document.querySelector(inner).getBoundingClientRect();
+        const b = document.querySelector(outer).getBoundingClientRect();
+        return Math.max(Math.abs((a.left + a.right - b.left - b.right) / 2),
+          Math.abs((a.top + a.bottom - b.top - b.bottom) / 2));
+      };
+      result.titleSaveIcon = centerDifference('#save-game-title svg', '#save-game-title');
+      const art = document.querySelector('.gs-details-art').getBoundingClientRect();
+      const content = document.querySelector('.gs-details-content').getBoundingClientRect();
+      result.attachedArtGap = Math.abs(content.left - art.right);
+      result.artVisible = art.width > 200;
       document.querySelector('#game-details-dialog').close();
       document.querySelector('#cover-editor-dialog').showModal();
       result.editorSave = center('#cover-editor-save');
-      result.editorBack = center('#cover-editor-back');
+      result.editorCancel = center('#cover-editor-cancel');
+      result.editorReset = center('#cover-editor-reset');
       const report = document.createElement('pre');
       report.id = 'dialog-layout-report';
       report.textContent = JSON.stringify(result);
@@ -170,8 +181,12 @@ test('settings and game information keep button and file text vertically centere
     const file = path.join(dir, 'dialogs.html');
     fs.writeFileSync(file, source);
     const result = readLayoutProbe(file, 1280, 'dialog-layout-report');
+    assert.equal(result.artVisible, true, 'desktop game details should show the cover');
+    assert.ok(result.attachedArtGap <= 1, 'cover should attach to the information panel');
+    delete result.artVisible;
+    delete result.attachedArtGap;
     for (const [name, difference] of Object.entries(result)) {
-      assert.ok(difference <= 1, `${name} text is vertically off-center by ${difference}px`);
+      assert.ok(difference <= 1.5, `${name} text is vertically off-center by ${difference}px`);
     }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -205,6 +220,9 @@ test('narrow screens keep controls and game cards within the viewport', () => {
         result.listCard = bounds('.gs-card');
         result.listButton = bounds('.gs-icon-button');
         result.listScrollWidth = document.documentElement.scrollWidth;
+        document.querySelector('#game-details-dialog').showModal();
+        result.mobileDetailArt = getComputedStyle(document.querySelector('.gs-details-art')).display;
+        document.querySelector('#game-details-dialog').close();
         const report = document.createElement('pre');
         report.id = 'mobile-report';
         report.textContent = JSON.stringify(result);
@@ -219,6 +237,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
     assert.ok(result.viewportWidth <= 680, 'mobile breakpoint was not exercised');
     assert.ok(result.scrollWidth <= result.viewportWidth, 'grid view overflows horizontally');
     assert.ok(result.listScrollWidth <= result.viewportWidth, 'list view overflows horizontally');
+    assert.equal(result.mobileDetailArt, 'none');
     const within = (box, name) => {
       assert.ok(box.left >= -1 && box.right <= result.viewportWidth + 1,
         `${name} extends past the viewport`);

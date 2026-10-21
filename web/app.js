@@ -25,9 +25,11 @@ let fileListController = null;
 let openingCoverEditor = false;
 let editorGame = null;
 let editorImage = null;
+let editorInitialImage = null;
 let editorRotation = 0;
 let editorPan = { x: 0, y: 0 };
 let editorLoadVersion = 0;
+let editorOpenVersion = 0;
 let editorReturnGame = null;
 let editorGridTimer;
 
@@ -217,19 +219,24 @@ function openGameDetails(game, trigger, card) {
   fileListController = null;
   detailsGameId = game.id;
   const fileToggle = document.getElementById('toggle-game-files');
-  fileToggle.textContent = 'Show files';
+  document.getElementById('game-files-toggle-label').textContent = 'Show Files';
   fileToggle.setAttribute('aria-expanded', 'false');
   document.getElementById('game-files-panel').classList.add('hidden');
   document.getElementById('game-files-status').textContent = '';
   document.getElementById('game-files-list').innerHTML = '';
   document.getElementById('game-details-title').textContent = game.name;
+  const detailArt = document.getElementById('game-details-art');
+  detailArt.classList.toggle('gs-no-cover', game.hasCover === false);
+  const imageVersion = coverVersions.get(game.id);
+  document.getElementById('game-details-image').src = `/covers/${encodeURIComponent(game.id)}${imageVersion ? `?v=${imageVersion}` : ''}`;
+  document.getElementById('game-details-image-title').textContent = game.name;
   document.getElementById('game-title-input').value = game.name;
   document.getElementById('game-details-path').textContent = game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-files').textContent = Number.isInteger(game.fileCount) ? String(game.fileCount) : '';
   document.getElementById('game-details-cover').textContent = game.coverSource === 'uploaded'
     ? 'Uploaded' : game.hasCover ? 'Available' : 'Missing';
-  document.getElementById('edit-game-cover').textContent = game.hasCover ? 'Edit cover' : 'Add cover';
+  document.getElementById('edit-game-cover').textContent = game.hasCover ? 'Edit Cover' : 'Add Cover';
   document.getElementById('game-details-added').textContent = formatAddedDate(game.addedAt);
   dialog.showModal();
   document.getElementById('game-details-close').focus();
@@ -248,7 +255,7 @@ async function toggleGameFiles() {
   const list = document.getElementById('game-files-list');
   const opening = panel.classList.contains('hidden');
   panel.classList.toggle('hidden', !opening);
-  toggle.textContent = opening ? 'Hide files' : 'Show files';
+  document.getElementById('game-files-toggle-label').textContent = opening ? 'Hide Files' : 'Show Files';
   toggle.setAttribute('aria-expanded', String(opening));
   if (!opening) {
     fileListController?.abort();
@@ -323,10 +330,12 @@ function openCoverEditor(game) {
   editorReturnGame = game;
   editorGame = game;
   editorImage = null;
+  editorInitialImage = null;
   editorLoadVersion++;
+  const openVersion = ++editorOpenVersion;
   editorRotation = 0;
   editorPan = { x: 0, y: 0 };
-  document.getElementById('cover-editor-title').textContent = `Cover art: ${game.name}`;
+  document.getElementById('cover-editor-title').textContent = `Cover Art: ${game.name}`;
   document.getElementById('cover-editor-file').value = '';
   document.getElementById('cover-zoom').value = '1';
   document.getElementById('cover-tilt').value = '0';
@@ -338,13 +347,15 @@ function openCoverEditor(game) {
   document.getElementById('cover-editor-dialog').showModal();
   drawCoverEditor();
   if (game.hasCover) {
-    const loadVersion = editorLoadVersion;
     const image = new Image();
     image.onload = () => {
-      if (editorGame?.id !== game.id || loadVersion !== editorLoadVersion) return;
-      editorImage = image;
-      document.getElementById('cover-editor-save').disabled = false;
-      drawCoverEditor();
+      if (editorOpenVersion !== openVersion || !document.getElementById('cover-editor-dialog').open) return;
+      editorInitialImage = image;
+      if (!editorImage) {
+        editorImage = image;
+        document.getElementById('cover-editor-save').disabled = false;
+        drawCoverEditor();
+      }
     };
     image.onerror = () => {
       document.getElementById('cover-editor-status').textContent = 'Could not load the current cover. Choose an image.';
@@ -354,10 +365,8 @@ function openCoverEditor(game) {
 }
 
 function updateCoverReadouts() {
-  const tilt = Number(document.getElementById('cover-tilt').value);
   document.getElementById('cover-zoom-value').textContent = `${Math.round(Number(document.getElementById('cover-zoom').value) * 100)}%`;
-  document.getElementById('cover-tilt-value').textContent = `${tilt}°`;
-  document.getElementById('cover-rotation-value').textContent = `${editorRotation + tilt}°`;
+  document.getElementById('cover-tilt-value').textContent = `${Number(document.getElementById('cover-tilt').value)}°`;
 }
 
 function showCoverGrid() {
@@ -377,7 +386,7 @@ function bindCoverEditor() {
     if (game) openCoverEditor(game);
   });
   document.getElementById('cover-editor-close').addEventListener('click', () => dialog.close());
-  document.getElementById('cover-editor-back').addEventListener('click', () => {
+  document.getElementById('cover-editor-cancel').addEventListener('click', () => {
     const game = editorReturnGame;
     dialog.close();
     if (game) {
@@ -390,8 +399,24 @@ function bindCoverEditor() {
     if (dialog.open) return;
     editorGame = null;
     editorImage = null;
+    editorInitialImage = null;
     editorLoadVersion++;
+    editorOpenVersion++;
     document.getElementById('cover-preview').classList.remove('is-adjusting');
+  });
+  document.getElementById('cover-editor-reset').addEventListener('click', () => {
+    editorLoadVersion++;
+    editorImage = editorInitialImage;
+    editorRotation = 0;
+    editorPan = { x: 0, y: 0 };
+    document.getElementById('cover-editor-file').value = '';
+    document.getElementById('cover-zoom').value = '1';
+    document.getElementById('cover-tilt').value = '0';
+    save.disabled = !editorImage;
+    status.textContent = '';
+    document.getElementById('cover-preview').classList.remove('is-adjusting');
+    updateCoverReadouts();
+    drawCoverEditor();
   });
   document.getElementById('cover-editor-file').addEventListener('change', event => {
     const file = event.target.files?.[0];
@@ -843,6 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await response.json();
       game.name = result.name;
       document.getElementById('game-details-title').textContent = game.name;
+      document.getElementById('game-details-image-title').textContent = game.name;
       titleInput.value = game.name;
       const oldCard = cardMap.get(game.id);
       const newCard = createGameCard(game);
