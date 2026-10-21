@@ -669,7 +669,10 @@ body {
 
 .gs-settings-backup small { color: var(--text-muted); font-size: 0.8rem; }
 
-.gs-settings-backup a {
+.gs-settings-backup button {
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -682,8 +685,8 @@ body {
   text-decoration: none;
 }
 
-.gs-settings-backup a:hover { border-color: var(--accent); }
-.gs-settings-backup a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gs-settings-backup button:hover { border-color: var(--accent); }
+.gs-settings-backup button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .gs-cover-editor { width: min(520px, calc(100vw - 32px)); }
 .gs-cover-upload { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem; }
@@ -1429,7 +1432,7 @@ body {
 .gs-grid.list-view .gs-card-title { line-height: 1.25; }
 .gs-details-list dt, .gs-details-list dd,
 .gs-files-count span, .gs-files-toggle,
-.gs-files-panel li span, .gs-settings-backup a { line-height: 1.35; }
+.gs-files-panel li span, .gs-settings-backup button { line-height: 1.35; }
 .gs-details-list dt, .gs-files-count span { align-self: center; }
 .gs-files-panel li span { display: flex; align-items: center; min-height: 28px; }
 .gs-settings-close { display: inline-flex; align-items: center; justify-content: center; flex: none; line-height: 1; }
@@ -1498,3 +1501,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(249, 177, 52, 0.87);
 }
+.gs-settings-backup button:disabled { opacity: 0.6; cursor: wait; }
+#library-backup-status { font-size: 0.85rem; overflow-wrap: anywhere; }
+#library-backup-status:empty { display: none; }

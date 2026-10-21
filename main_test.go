@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -231,6 +232,234 @@ func TestLibraryBackupRejectsInvalidState(t *testing.T) {
 	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
 	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Content-Disposition") != "" {
 		t.Fatalf("invalid state backup = %d, headers %#v", w.Code, w.Header())
+	}
+}
+
+func assertBackupFailed(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Content-Disposition") != "" || w.Header().Get("Content-Type") == "application/zip" {
+		t.Fatalf("failed backup looks successful: status %d, headers %#v", w.Code, w.Header())
+	}
+	if !strings.Contains(w.Body.String(), "Library backup failed") || bytes.HasPrefix(w.Body.Bytes(), []byte("PK")) {
+		t.Fatalf("expected actionable error, got %q", w.Body.String())
+	}
+}
+
+func TestLibraryBackupRejectsUnavailableArtwork(t *testing.T) {
+	for _, failure := range []string{"missing", "read-error", "permission-denied"} {
+		t.Run(failure, func(t *testing.T) {
+			setupLibrary(t)
+			staging := t.TempDir()
+			t.Setenv("TMPDIR", staging)
+			writeGame(t, "Alpha")
+			cover := customCoverPath("Alpha")
+			if err := os.MkdirAll(filepath.Dir(cover), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(cover, []byte("uploaded image"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(cover); err != nil {
+				t.Fatal(err)
+			}
+			switch failure {
+			case "read-error":
+				// Opening a directory succeeds on Unix, but reading its bytes fails.
+				// This exercises failure after ZIP generation has already started.
+				if err := os.Mkdir(cover, 0700); err != nil {
+					t.Fatal(err)
+				}
+			case "permission-denied":
+				if err := os.WriteFile(cover, []byte("unreadable"), 0000); err != nil {
+					t.Fatal(err)
+				}
+				if f, err := os.Open(cover); err == nil {
+					f.Close()
+					t.Skip("current identity bypasses file permissions; read-error case still exercises unreadable artwork")
+				}
+			}
+			w := httptest.NewRecorder()
+			handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+			assertBackupFailed(t, w)
+			files, err := os.ReadDir(staging)
+			if err != nil || len(files) != 0 {
+				t.Fatalf("staged backup leaked: %v, %v", files, err)
+			}
+		})
+	}
+}
+
+func TestLibraryBackupRejectsUnavailableTemporaryStorage(t *testing.T) {
+	setupLibrary(t)
+	blocked := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(blocked, []byte("blocked"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", blocked)
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	assertBackupFailed(t, w)
+}
+
+type backupFailWriter struct{ remaining int }
+
+var errBackupWrite = errors.New("backup destination failed")
+
+func (w *backupFailWriter) Write(p []byte) (int, error) {
+	if len(p) > w.remaining {
+		n := w.remaining
+		w.remaining = 0
+		return n, errBackupWrite
+	}
+	w.remaining -= len(p)
+	return len(p), nil
+}
+
+func TestLibraryBackupPropagatesArchiveWriteAndFinalizationFailures(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	var complete bytes.Buffer
+	if err := writeLibraryBackup(&complete); err != nil {
+		t.Fatal(err)
+	}
+	// The final byte belongs to the ZIP end-of-central-directory record.
+	for _, limit := range []int{0, 1, complete.Len() - 1} {
+		if err := writeLibraryBackup(&backupFailWriter{remaining: limit}); !errors.Is(err, errBackupWrite) {
+			t.Fatalf("write limit %d: got %v, want archive failure", limit, err)
+		}
+	}
+}
+
+type backupTransferFailure struct{ *httptest.ResponseRecorder }
+
+func (w backupTransferFailure) Write(p []byte) (int, error) { return 0, errBackupWrite }
+
+func TestLibraryBackupAbortsFailedTransferAndRemovesTemporaryFile(t *testing.T) {
+	setupLibrary(t)
+	staging := t.TempDir()
+	t.Setenv("TMPDIR", staging)
+	defer func() {
+		if got := recover(); got != http.ErrAbortHandler {
+			t.Errorf("transfer failure panic = %v, want http.ErrAbortHandler", got)
+		}
+		files, err := os.ReadDir(staging)
+		if err != nil || len(files) != 0 {
+			t.Errorf("failed transfer leaked temporary file: %v, %v", files, err)
+		}
+	}()
+	handleLibraryBackup(backupTransferFailure{httptest.NewRecorder()}, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+}
+
+func TestLibraryBackupRestoresMetadataAndArtwork(t *testing.T) {
+	setupLibrary(t)
+	staging := t.TempDir()
+	t.Setenv("TMPDIR", staging)
+	for _, name := range []string{"Alpha", "Legacy Game"} {
+		writeGame(t, name)
+	}
+	image, err := os.ReadFile("web/placeholder.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dataDir, "covers"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyCustomCoverPath("Legacy Game"), image, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/covers/alpha", bytes.NewReader(image))
+	request.Header.Set("Content-Type", "image/png")
+	w := httptest.NewRecorder()
+	handleCoverUpload(w, request)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("upload failed: %d %s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	handleGameTitle(w, httptest.NewRequest(http.MethodPut, "/api/game-title/alpha", strings.NewReader(`{"title":"Custom Alpha"}`)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("title failed: %d", w.Code)
+	}
+	expectedState, err := readLibraryMetadata()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w = httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	if w.Code != http.StatusOK || w.Header().Get("Content-Length") != fmt.Sprint(w.Body.Len()) {
+		t.Fatalf("backup response: %d, headers %#v", w.Code, w.Header())
+	}
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]bool{"library-state.json": true, "covers/Alpha/cover.png": true, "covers/Legacy Game/cover.png": true}
+	// Follow the documented restore procedure into fresh /data storage while
+	// retaining the same game mount path. Reading every member checks ZIP CRCs.
+	dataDir = t.TempDir()
+	for _, member := range archive.File {
+		if !expected[member.Name] {
+			t.Fatalf("unexpected or duplicate member %q", member.Name)
+		}
+		delete(expected, member.Name)
+		file, err := member.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents, err := io.ReadAll(file)
+		file.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if member.Name != "library-state.json" && !bytes.Equal(contents, image) {
+			t.Fatal("artwork changed")
+		}
+		dest := filepath.Join(dataDir, filepath.FromSlash(member.Name))
+		if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(dest, contents, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(expected) != 0 {
+		t.Fatalf("missing archive members: %v", expected)
+	}
+	gamesMap = make(map[string]*gameEntry)
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := readLibraryMetadata()
+	if err != nil || !reflect.DeepEqual(restored, expectedState) {
+		t.Fatalf("restored state = %#v, want %#v (%v)", restored, expectedState, err)
+	}
+	for _, entry := range gamesMap {
+		if entry.Game.AddedAt != expectedState.FirstSeen[entry.Game.Path] || entry.Game.CoverSource != "uploaded" {
+			t.Fatalf("restored entry: %#v", entry)
+		}
+		if entry.DirName == "Alpha" && entry.Game.Name != "Custom Alpha" {
+			t.Fatal("custom title not restored")
+		}
+		contents, err := os.ReadFile(entry.CoverPath)
+		if err != nil || !bytes.Equal(contents, image) {
+			t.Fatalf("restored cover differs: %v", err)
+		}
+		files, err := os.ReadDir(filepath.Join(rootDir, entry.DirName))
+		if err != nil || len(files) != 1 || files[0].Name() != "game.txt" {
+			t.Fatalf("game library modified: %v, %v", files, err)
+		}
+	}
+	files, err := os.ReadDir(staging)
+	if err != nil || len(files) != 0 {
+		t.Fatalf("successful backup leaked temporary file: %v, %v", files, err)
 	}
 }
 
@@ -534,3 +763,4 @@ func TestRefreshGamesChildReadFailurePreservesWholeIndex(t *testing.T) {
 		t.Fatal("failed child scan published a partial index")
 	}
 }
+

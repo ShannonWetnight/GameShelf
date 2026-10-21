@@ -101,7 +101,11 @@ volumes:
 
 The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client. It writes first-seen dates to a small JSON file in `/data`; the game library remains read-only. Docker creates storage for `/data` automatically, so the Docker Run example needs no second mount. The Compose example uses a Docker-managed named volume, created automatically by Compose, so dates also survive removing and recreating the stack. No extra host directory or separate database service is needed. The image does not change ownership or permissions on your library.
 
-If your own Compose or Portainer stack has no `/data` volume entry, Docker uses an anonymous volume. It normally survives container restarts, but a newly created container after a stack removal may not reconnect to that volume. For reliable redeploys, add `gameshelf-data:/data` to the service and declare `gameshelf-data:` under the top-level `volumes:` section, as in the example above. In Settings, **Export data** downloads `gameshelf-library-backup.zip` with first-seen dates and uploaded cover art. Keep this ZIP with your other backups. To restore, extract its `library-state.json` and `covers/` directory into `/data` before starting GameShelf. The game library still needs to be mounted at the same container path for saved dates to match.
+If your own Compose or Portainer stack has no `/data` volume entry, Docker uses an anonymous volume. It normally survives container restarts, but a newly created container after a stack removal may not reconnect to that volume. For reliable redeploys, add `gameshelf-data:/data` to the service and declare `gameshelf-data:` under the top-level `volumes:` section, as in the example above.
+
+In Settings, **Export data** downloads `gameshelf-library-backup.zip` with first-seen dates, customized titles, and uploaded cover art. The server finishes the ZIP in temporary storage before starting the download; allow temporary disk space for the archive. If metadata or an indexed uploaded cover cannot be read, or the archive cannot be completed, Settings shows an export failure and offers no ZIP. Retry after correcting the problem shown in the container logs.
+
+Keep this ZIP with your other backups. To restore, extract its `library-state.json` and `covers/` directory into `/data` before starting GameShelf. The game library still needs to be mounted at the same container path for saved dates and customized titles to match.
 
 “Date added” means the first successful scan after this feature is enabled, not the folder's filesystem creation date. Games already in the library receive that initial scan date. Removing a game and refreshing removes its stored date; adding it again starts a new date. If `/data` cannot be written, the library still loads and new dates stay blank until storage is fixed.
 
@@ -292,3 +296,4 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 
 > [!WARNING]
 > If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
+
