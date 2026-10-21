@@ -41,7 +41,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
   - Env to include, optional 
 * [ ] Cache fetched artwork locally
   - If cached, skip fetch
-* [ ] Add ability to directly upload cover image from UI (security risks with write access, current scope does not allow file management on purpose)
+* [x] Add ability to upload and edit cover images from the UI while keeping game folders read-only
 
 ### Metadata & Sorting
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
@@ -64,6 +64,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Display calculated download size in game information
 
 * [x] Show a read-only list of the selected game's files in its information panel
+* [x] Download individual files directly from the file list
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)

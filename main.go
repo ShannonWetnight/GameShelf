@@ -2,14 +2,18 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"io"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,13 +24,14 @@ import (
 var webFS embed.FS
 
 type Game struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	SizeBytes int64  `json:"sizeBytes"`
-	HasCover  bool   `json:"hasCover"`
-	Path      string `json:"path"`
-	FileCount int    `json:"fileCount"`
-	AddedAt   string `json:"addedAt"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	HasCover    bool   `json:"hasCover"`
+	CoverSource string `json:"coverSource"`
+	Path        string `json:"path"`
+	FileCount   int    `json:"fileCount"`
+	AddedAt     string `json:"addedAt"`
 }
 
 type gameEntry struct {
@@ -80,8 +85,10 @@ func main() {
 	// API endpoints
 	mux.HandleFunc("/api/games", handleGames)
 	mux.HandleFunc("/api/game-files/", handleGameFiles)
+	mux.HandleFunc("/api/game-file/", handleGameFileDownload)
 	mux.HandleFunc("/api/version", handleVersion)
 	mux.HandleFunc("/api/library-backup", handleLibraryBackup)
+	mux.HandleFunc("/api/covers/", handleCoverUpload)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -203,6 +210,11 @@ func writeLibraryState(firstSeen map[string]string) error {
 	return os.Rename(file.Name(), filepath.Join(dataDir, "library-state.json"))
 }
 
+func customCoverPath(dirName string) string {
+	hash := sha256.Sum256([]byte(dirName))
+	return filepath.Join(dataDir, "covers", fmt.Sprintf("%x.png", hash))
+}
+
 func refreshGames() error {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
@@ -234,10 +246,14 @@ func refreshGames() error {
 			return fmt.Errorf("scanning game %q: %w", dirName, err)
 		}
 
-		cover := findCover(absPath)
+		cover := customCoverPath(dirName)
+		coverSource := "uploaded"
+		if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
+			cover = findCover(absPath)
+			coverSource = "folder"
+		}
 		if cover == "" {
-			// Future: auto-fetch cover via API service
-			// cover = fetchCoverFromService(dirName)
+			coverSource = "placeholder"
 		}
 		addedAt := ""
 		if stateErr == nil {
@@ -257,13 +273,14 @@ func refreshGames() error {
 
 		entry := &gameEntry{
 			Game: Game{
-				ID:        id,
-				Name:      dirName,
-				SizeBytes: size,
-				HasCover:  cover != "",
-				Path:      absPath,
-				FileCount: fileCount,
-				AddedAt:   addedAt,
+				ID:          id,
+				Name:        dirName,
+				SizeBytes:   size,
+				HasCover:    cover != "",
+				CoverSource: coverSource,
+				Path:        absPath,
+				FileCount:   fileCount,
+				AddedAt:     addedAt,
 			},
 			DirName:   dirName,
 			CoverPath: cover,
@@ -386,12 +403,122 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Library backup is unavailable. Check the container logs.", http.StatusServiceUnavailable)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-library-backup.json"`)
-	w.Header().Set("Cache-Control", "no-store")
-	if err := json.NewEncoder(w).Encode(libraryState{Version: 1, FirstSeen: firstSeen}); err != nil {
-		log.Printf("encode library backup: %v", err)
+	contents, err := json.MarshalIndent(libraryState{Version: 1, FirstSeen: firstSeen}, "", "  ")
+	if err != nil {
+		http.Error(w, "Library backup is unavailable.", http.StatusServiceUnavailable)
+		return
 	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-library-backup.zip"`)
+	w.Header().Set("Cache-Control", "no-store")
+	archive := zip.NewWriter(w)
+	stateFile, err := archive.Create("library-state.json")
+	if err == nil {
+		_, err = stateFile.Write(append(contents, '\n'))
+	}
+	coverDir := filepath.Join(dataDir, "covers")
+	coverEntries, listErr := os.ReadDir(coverDir)
+	if listErr != nil && !os.IsNotExist(listErr) && err == nil {
+		err = listErr
+	}
+	if err == nil {
+		for _, entry := range coverEntries {
+			if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), ".png") {
+				continue
+			}
+			file, openErr := os.Open(filepath.Join(coverDir, entry.Name()))
+			if openErr != nil {
+				err = openErr
+				break
+			}
+			member, createErr := archive.Create(path.Join("covers", entry.Name()))
+			if createErr == nil {
+				_, createErr = io.Copy(member, file)
+			}
+			file.Close()
+			if createErr != nil {
+				err = createErr
+				break
+			}
+		}
+	}
+	if closeErr := archive.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		log.Printf("write library backup: %v", err)
+	}
+}
+
+func handleCoverUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("Content-Type") != "image/png" {
+		http.Error(w, "Upload a PNG image.", http.StatusUnsupportedMediaType)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/api/covers/")
+	entry := getGameEntryByID(id)
+	if id == "" || entry == nil {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 8<<20))
+	if err != nil {
+		http.Error(w, "Cover image is too large.", http.StatusRequestEntityTooLarge)
+		return
+	}
+	config, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil || config.Width < 1 || config.Height < 1 || config.Width > 4096 || config.Height > 4096 {
+		http.Error(w, "Invalid cover image.", http.StatusBadRequest)
+		return
+	}
+	if _, err := png.Decode(bytes.NewReader(data)); err != nil {
+		http.Error(w, "Invalid cover image.", http.StatusBadRequest)
+		return
+	}
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	coverPath := customCoverPath(entry.DirName)
+	if err := os.MkdirAll(filepath.Dir(coverPath), 0700); err != nil {
+		http.Error(w, "Unable to save cover image.", http.StatusServiceUnavailable)
+		return
+	}
+	file, err := os.CreateTemp(filepath.Dir(coverPath), ".cover-*.tmp")
+	if err != nil {
+		http.Error(w, "Unable to save cover image.", http.StatusServiceUnavailable)
+		return
+	}
+	defer os.Remove(file.Name())
+	if err := file.Chmod(0600); err == nil {
+		_, err = file.Write(data)
+	}
+	if err == nil {
+		err = file.Sync()
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Rename(file.Name(), coverPath)
+	}
+	if err != nil {
+		log.Printf("save cover for %s: %v", entry.Game.Name, err)
+		http.Error(w, "Unable to save cover image.", http.StatusServiceUnavailable)
+		return
+	}
+	gamesMu.Lock()
+	if current := gamesMap[id]; current != nil && current.DirName == entry.DirName {
+		updated := *current
+		updated.CoverPath = coverPath
+		updated.Game.HasCover = true
+		updated.Game.CoverSource = "uploaded"
+		gamesMap[id] = &updated
+	}
+	gamesMu.Unlock()
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleGames(w http.ResponseWriter, r *http.Request) {
@@ -481,6 +608,45 @@ func handleGameFiles(w http.ResponseWriter, r *http.Request) {
 	}{files, truncated}); err != nil {
 		log.Printf("encode game files: %v", err)
 	}
+}
+
+func handleGameFileDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/api/game-file/")
+	entry := getGameEntryByID(id)
+	rel := r.URL.Query().Get("path")
+	if id == "" || entry == nil || !filepath.IsLocal(rel) || rel == "." || strings.Contains(rel, "\\") {
+		http.NotFound(w, r)
+		return
+	}
+	gameRoot := filepath.Join(rootDir, entry.DirName)
+	current := gameRoot
+	for _, component := range strings.Split(filepath.Clean(rel), string(filepath.Separator)) {
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	file, err := os.Open(current)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, sanitizeFilename(filepath.Base(rel))))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {
@@ -592,8 +758,6 @@ func getGameEntryByID(id string) *gameEntry {
 
 func sanitizeFilename(name string) string {
 	s := strings.TrimSpace(name)
-	s = strings.ReplaceAll(s, "/", "-")
-	s = strings.ReplaceAll(s, "\\", "-")
-	s = strings.ReplaceAll(s, ":", "-")
+	s = strings.NewReplacer("/", "-", "\\", "-", ":", "-", `"`, "'", "\r", "", "\n", "").Replace(s)
 	return s
 }

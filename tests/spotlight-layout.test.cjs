@@ -94,7 +94,7 @@ test('dice selection shows one centered card and reset restores the library', ()
       'report.id = "spotlight-report";' +
       'report.textContent = JSON.stringify(result);' +
       'document.body.append(report);' +
-      '}, 600);' +
+      '}, 800);' +
       '}, 0);' +
       '});</script>';
     const source = html

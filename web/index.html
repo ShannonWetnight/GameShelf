@@ -161,9 +161,9 @@
     <div class="gs-settings-backup">
       <span>
         <strong>Library data backup</strong>
-        <small>Download your saved date-added information.</small>
+        <small>Download saved dates and uploaded covers.</small>
       </span>
-      <a href="/api/library-backup" download="gameshelf-library-backup.json">Export data</a>
+      <a href="/api/library-backup" download="gameshelf-library-backup.zip">Export data</a>
     </div>
     <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>
   </dialog>
@@ -176,7 +176,7 @@
     <dl class="gs-details-list">
       <div><dt>Location in container</dt><dd id="game-details-path"></dd></div>
       <div><dt>Download size</dt><dd id="game-details-size"></dd></div>
-      <div><dt>Cover art</dt><dd id="game-details-cover"></dd></div>
+      <div><dt>Cover art</dt><dd class="gs-cover-detail"><span id="game-details-cover"></span><button id="edit-game-cover" class="gs-detail-action" type="button">Add or edit</button></dd></div>
       <div><dt>Date added</dt><dd id="game-details-added"></dd></div>
     </dl>
     <div class="gs-files-section">
@@ -188,6 +188,26 @@
       <p id="game-files-status" role="status"></p>
       <ul id="game-files-list"></ul>
     </div>
+  </dialog>
+
+  <dialog id="cover-editor-dialog" class="gs-settings-dialog gs-cover-editor" aria-labelledby="cover-editor-title">
+    <div class="gs-settings-header">
+      <h2 id="cover-editor-title">Edit cover art</h2>
+      <button id="cover-editor-close" class="gs-settings-close" type="button" aria-label="Close cover editor">×</button>
+    </div>
+    <label class="gs-cover-upload">Choose an image
+      <input id="cover-editor-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+    </label>
+    <p class="gs-cover-editor-help">Drag to position the artwork. Zoom crops it to the card shape.</p>
+    <canvas id="cover-editor-canvas" width="600" height="900" aria-label="Cover art preview"></canvas>
+    <div class="gs-cover-editor-controls">
+      <button id="cover-rotate-left" class="gs-detail-action" type="button">↶ Rotate</button>
+      <button id="cover-rotate-right" class="gs-detail-action" type="button">Rotate ↷</button>
+      <label>Zoom <input id="cover-zoom" type="range" min="1" max="2.5" step="0.05" value="1"></label>
+      <label>Tilt <input id="cover-tilt" type="range" min="-20" max="20" step="1" value="0"></label>
+    </div>
+    <p id="cover-editor-status" role="status"></p>
+    <button id="cover-editor-save" class="gs-button" type="button" disabled>Save cover</button>
   </dialog>
 
   <script src="/app.js"></script>

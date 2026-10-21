@@ -78,7 +78,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'result.closedPointer=getComputedStyle(actions).pointerEvents;' +
       'const report=document.createElement("pre");report.id="card-layout-report";' +
       'report.textContent=JSON.stringify(result);document.body.append(report);' +
-      '},0);},0);});</script>';
+      '},30);},0);});</script>';
     const source = html
       .replace('<link rel="stylesheet" href="/styles.css">', '<style>' + css + '</style>')
       .replace('<script src="/app.js"></script>', fetchStub + '<script>' + app + '</script>' + probe);
@@ -122,6 +122,85 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.downloadRestored, true);
     assert.equal(result.suppressed, true);
     assert.equal(result.closedPointer, result.touchLayout ? 'auto' : 'none');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('cover editor crops artwork and updates the card after upload', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-cover-editor-'));
+  try {
+    const image = fs.readFileSync(path.join(root, 'web/placeholder.png')).toString('base64');
+    const fetchStub = `<script>
+      window.fetch = function(url, options) {
+        if (url === '/api/version') return Promise.resolve({ok:true,json:async()=>({version:'v-test',channel:'stable'})});
+        if (url.startsWith('/api/covers/')) {
+          window.coverUpload = {url, type:options.headers['Content-Type'], size:options.body.size};
+          return Promise.resolve({ok:true,status:204});
+        }
+        return Promise.resolve({ok:true,json:async()=>[{
+          id:'missing',name:'No Cover',sizeBytes:100,path:'/games/No Cover',fileCount:1,hasCover:false,addedAt:''
+        }]});
+      };
+    </script>`;
+    const probe = `<script>window.addEventListener('load', function() {
+      setTimeout(function() {
+        document.querySelector('.gs-card-info').click();
+        document.querySelector('#edit-game-cover').click();
+        const editor = document.querySelector('#cover-editor-dialog');
+        const bytes = Uint8Array.from(atob('${image}'), character => character.charCodeAt(0));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([bytes], 'cover.png', {type:'image/png'}));
+        const input = document.querySelector('#cover-editor-file');
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change'));
+        setTimeout(function() {
+          document.querySelector('#cover-rotate-right').click();
+          const tilt = document.querySelector('#cover-tilt');
+          tilt.value = '8'; tilt.dispatchEvent(new Event('input'));
+          const zoom = document.querySelector('#cover-zoom');
+          zoom.value = '1.25'; zoom.dispatchEvent(new Event('input'));
+          const canvas = document.querySelector('#cover-editor-canvas');
+          const preview = canvas.toDataURL('image/png');
+          canvas.toBlob = callback => callback(new Blob([bytes], {type:'image/png'}));
+          document.querySelector('#cover-editor-save').click();
+          setTimeout(function() {
+            const card = document.querySelector('.gs-card');
+            const report = document.createElement('pre');
+            report.id = 'cover-editor-report';
+            report.textContent = JSON.stringify({
+              editorOpened:editor.open === false,
+              previewIsPNG:preview.startsWith('data:image/png;base64,'),
+              uploaded:window.coverUpload,
+              saveDisabled:document.querySelector('#cover-editor-save').disabled,
+              status:document.querySelector('#cover-editor-status').textContent,
+              hasCover:!card.classList.contains('gs-no-cover'),
+              coverUrl:card.querySelector('img').getAttribute('src')
+            });
+            document.body.append(report);
+          }, 150);
+        }, 100);
+      }, 0);
+    });</script>`;
+    const source = html
+      .replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
+      .replace('<script src="/app.js"></script>', fetchStub + `<script>${app}</script>` + probe);
+    const file = path.join(dir, 'cover-editor.html');
+    fs.writeFileSync(file, source);
+    const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
+      '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=3000',
+      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+    assert.equal(run.status, 0, run.stderr || run.error?.message);
+    const match = run.stdout.match(/<pre id="cover-editor-report">([^<]+)<\/pre>/);
+    assert.ok(match, 'Chrome did not report the cover editor');
+    const result = JSON.parse(match[1]);
+    assert.equal(result.editorOpened, true, JSON.stringify(result));
+    assert.equal(result.previewIsPNG, true);
+    assert.equal(result.uploaded.url, '/api/covers/missing');
+    assert.equal(result.uploaded.type, 'image/png');
+    assert.ok(result.uploaded.size > 0);
+    assert.equal(result.hasCover, true);
+    assert.match(result.coverUrl, /^\/covers\/missing\?v=/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
