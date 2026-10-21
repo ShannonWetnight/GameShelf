@@ -302,6 +302,26 @@ func TestLibraryBackupRejectsUnavailableTemporaryStorage(t *testing.T) {
 	assertBackupFailed(t, w)
 }
 
+func TestLibraryBackupRejectsReadOnlyStateStorage(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dataDir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dataDir, 0700) })
+	if file, err := os.CreateTemp(dataDir, ".permission-probe-*"); err == nil {
+		file.Close()
+		os.Remove(file.Name())
+		t.Skip("current identity bypasses directory write permissions")
+	}
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	assertBackupFailed(t, w)
+}
+
 func TestLibraryBackupUsesDataVolumeWhenTemporaryDirectoryIsUnavailable(t *testing.T) {
 	setupLibrary(t)
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")

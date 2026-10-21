@@ -84,11 +84,24 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         assert get("/app.js")
         assert get("/styles.css")
         assert len(json.loads(get("/api/games?forceRefresh=1"))) == expected
-        backup_zip = zipfile.ZipFile(io.BytesIO(get("/api/library-backup")))
-        backup = json.loads(backup_zip.read("library-state.json"))
-        assert backup["version"] == 1 and isinstance(backup["firstSeen"], dict), backup
         if uid == 10001:
+            backup_zip = zipfile.ZipFile(io.BytesIO(get("/api/library-backup")))
+            assert backup_zip.testzip() is None
+            backup = json.loads(backup_zip.read("library-state.json"))
+            assert backup["version"] == 1 and isinstance(backup["firstSeen"], dict), backup
             assert len(backup["firstSeen"]) == expected, backup
+        else:
+            # These custom identities cannot write the image-owned /data volume.
+            # The game browser still works; export must report staging failure.
+            try:
+                get("/api/library-backup")
+            except urllib.error.HTTPError as error:
+                assert error.code == 503, error.code
+                assert not error.headers.get("Content-Disposition"), error.headers
+                assert b"Library backup failed" in error.read()
+            else:
+                raise AssertionError("backup succeeded without writable staging storage")
+            print("PASS: unwritable state volume returns a clear backup error without a ZIP")
         for game in games:
             name = game["name"]
             assert name in {"Sample Game", "No Cover"}, game
@@ -258,3 +271,4 @@ if __name__ == "__main__":
         restricted_check(image, root, "0:10004", 0o550, 0o440,
                          user="10002:10003", group=10004)
         denied_root(image, root)
+
