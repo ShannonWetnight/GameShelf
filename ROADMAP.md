@@ -9,6 +9,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
 * [x] Add loading state or skeleton UI while games load
 * [x] Improve mobile spacing and responsive typography
+
+  - Search and evenly spaced toolbar controls use separate rows on narrow screens
   - Mobile view, although not entirely necessary as this application is geared towards PC libraries
   - If geared towards mobile, can consider APK file type filter or dedicated tab
 * [x] *(Planned)* Manual refresh button
@@ -17,8 +19,14 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add theme support (drop-in CSS files)
 * [x] *(Planned)* Add micro-animations for hover and card transitions
 * [ ] Add optional About/Version info box within game card
+
+* [x] Add a read-only game information panel and show the app version in Settings
 * [x] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
 * [ ] Add a toggle UI effects option
+
+* [x] Add a slow-motion setting for dice and card-shuffle animations
+
+* [x] Add settings for button hints, game title banners, and placeholder artwork
 * [x] Respect the device's reduced-motion preference
 * [ ] Add a dark/light mode toggle
 * [x] Integrate download button into card main body
@@ -39,6 +47,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
 * [x] *(Planned)* Add sorting options (name and size)
 * [ ] Add date-added sorting once its meaning and data source are defined
+
+* [x] Persist each game's first-seen date in a local JSON state file outside the read-only library
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
 * [x] Add functional search bar
@@ -50,7 +60,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Downloads & File Handling
 * [x] *(Planned)* ZIP download streaming
-* [x] *(Planned)* Display file size calculation on game card
+* [x] *(Planned)* Display calculated download size in game information
+
+* [x] Show a read-only list of the selected game's files in its information panel
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)

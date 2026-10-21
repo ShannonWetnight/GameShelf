@@ -67,6 +67,7 @@ docker run -d \
   -p 8080:8080 \
   -e GAMESHELF_ROOT=/games \
   -v /path/to/your/library:/games:ro \
+  -v gameshelf-data:/data \
   ghcr.io/shannonwetnight/gameshelf:latest
 ```
 ### Docker Compose
@@ -83,19 +84,26 @@ services:
     environment:
       # Directory containing indexable folders. 
       - GAMESHELF_ROOT=/games
+      - GAMESHELF_DATA_DIR=/data
       # Optional: change the internal bind address (default :8080)
       #- GAMESHELF_ADDR=:8080
       # Optional: rescan every 12h by default; set 0 to disable or use a duration such as 1h.
       #- GAMESHELF_REFRESH_INTERVAL=1h
     volumes:
       - /path/to/games:/games:ro
+      - gameshelf-data:/data
     security_opt:
       - no-new-privileges:true
+
+volumes:
+  gameshelf-data:
 ```
 
 ### Container User and File Permissions
 
-The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client; it needs no writable data directory, home directory, or temporary volume. The image does not change ownership or permissions on your library.
+The Docker image runs as the unprivileged user `gameshelf`, UID `10001` and GID `10001`. The executable stays owned by root. GameShelf reads the collection and streams ZIPs directly to the client. It writes first-seen dates to a small JSON file in `/data`; the game library remains read-only. Mount `/data` as a named volume or a writable host directory to keep dates across container recreation. The image does not change ownership or permissions on your library.
+
+“Date added” means the first successful scan after this feature is enabled, not the folder's filesystem creation date. Games already in the library receive that initial scan date. Removing a game and refreshing removes its stored date; adding it again starts a new date. If `/data` cannot be written, the library still loads and new dates stay blank until storage is fixed.
 
 When upgrading from an older image that ran as root, check access before recreating the container. The runtime identity needs read and search (execute) permission on the mounted collection and every game subdirectory, plus read permission on every game file and cover image. A read-only mount prevents writes but does not grant read access. An inaccessible collection root prevents startup; inaccessible files or subdirectories can cause scan warnings, failed covers, or incomplete ZIP downloads. Check container logs if content is missing.
 
@@ -114,9 +122,9 @@ For group-only access, add `--group-add 2000` to `docker run`, or use:
       - "2000"
 ```
 
-These are numeric Docker settings; the image does not interpret `PUID` or `PGID` environment variables. An arbitrary non-root UID/GID works without a matching account inside the image. Rootless Docker, user namespace remapping, NAS ACLs, and SELinux labeling can affect host access; match permissions to the identity and mount policy used by your deployment.
+These are numeric Docker settings; the image does not interpret `PUID` or `PGID` environment variables. An arbitrary non-root UID/GID works without a matching account inside the image, provided it can read the library and write to `/data`. Rootless Docker, user namespace remapping, NAS ACLs, and SELinux labeling can affect host access; match permissions to the identity and mount policy used by your deployment.
 
-Keep the collection mount read-only and retain `no-new-privileges:true`. You can also add `--read-only --cap-drop=ALL` to `docker run`, or the following Compose settings; no additional writable mount is required:
+Keep the collection mount read-only and retain `no-new-privileges:true`. You can also add `--read-only --cap-drop=ALL` to `docker run`, or the following Compose settings; keep the separate writable `/data` mount for date persistence:
 
 ```yaml
     read_only: true
@@ -124,12 +132,13 @@ Keep the collection mount read-only and retain `no-new-privileges:true`. You can
       - ALL
 ```
 
-Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_ADDR`, and `GAMESHELF_REFRESH_INTERVAL` continue to work with the non-root user.
+Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_DATA_DIR`, `GAMESHELF_ADDR`, and `GAMESHELF_REFRESH_INTERVAL` continue to work with the non-root user.
 
 ### Environment Variables
 | Variable                     | Default  | Description                                                                     |
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
 | `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                                         |
+| `GAMESHELF_DATA_DIR`         | `/data`  | Writable app state for first-seen dates; mount separately from the read-only library. |
 | `GAMESHELF_ADDR`             | `:8080`  | Optional: Change GameShelf's default (`8080`) internal bind address.                                           |
 | `GAMESHELF_REFRESH_INTERVAL` | `12h`  | Optional rescan interval; set `0` to disable, or use a duration such as `1h` or `30m`. |
 
