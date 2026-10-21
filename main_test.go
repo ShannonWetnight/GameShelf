@@ -11,14 +11,16 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Tests share the production globals and deliberately do not run in parallel.
 func setupLibrary(t *testing.T) string {
 	t.Helper()
-	previousRoot, previousGames := rootDir, gamesMap
-	t.Cleanup(func() { rootDir, gamesMap = previousRoot, previousGames })
+	previousRoot, previousData, previousGames := rootDir, dataDir, gamesMap
+	t.Cleanup(func() { rootDir, dataDir, gamesMap = previousRoot, previousData, previousGames })
 	rootDir = t.TempDir()
+	dataDir = t.TempDir()
 	gamesMap = make(map[string]*gameEntry)
 	return rootDir
 }
@@ -178,7 +180,7 @@ func TestRefreshGamesSuccessfulRescans(t *testing.T) {
 	if len(gamesMap) != 1 || getGameEntryByID("old-game") != nil || entry == nil {
 		t.Fatal("rescan did not replace index")
 	}
-	if entry.Game.Name != "New Game" || entry.Game.SizeBytes != 14 || !entry.Game.HasCover || entry.Game.FileCount != 2 || entry.Game.Path != filepath.Join(rootDir, "New Game") || entry.Game.AddedAt != "" || entry.CoverPath != filepath.Join(rootDir, "New Game", "cover.png") {
+	if entry.Game.Name != "New Game" || entry.Game.SizeBytes != 14 || !entry.Game.HasCover || entry.Game.FileCount != 2 || entry.Game.Path != filepath.Join(rootDir, "New Game") || entry.Game.AddedAt == "" || entry.CoverPath != filepath.Join(rootDir, "New Game", "cover.png") {
 		t.Fatalf("entry = %#v", entry)
 	}
 	if err := os.RemoveAll(filepath.Join(rootDir, "New Game")); err != nil {
@@ -187,6 +189,71 @@ func TestRefreshGamesSuccessfulRescans(t *testing.T) {
 	w := requestGames(t, "/api/games?forceRefresh=1", http.StatusOK)
 	if w.Body.String() != "[]\n" {
 		t.Fatalf("empty library = %q", w.Body.String())
+	}
+}
+
+func TestDateAddedPersistsOutsideReadOnlyLibrary(t *testing.T) {
+	root := setupLibrary(t)
+	writeGame(t, "First Game")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	first := getGameEntryByID("first-game").Game.AddedAt
+	if _, err := time.Parse(time.RFC3339, first); err != nil {
+		t.Fatalf("date added = %q: %v", first, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "library-state.json")); !os.IsNotExist(err) {
+		t.Fatalf("state was written inside the game library: %v", err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if got := getGameEntryByID("first-game").Game.AddedAt; got != first {
+		t.Fatalf("rescan changed first-seen date from %q to %q", first, got)
+	}
+	gamesMap = make(map[string]*gameEntry) // simulate a process restart
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if got := getGameEntryByID("first-game").Game.AddedAt; got != first {
+		t.Fatalf("restart changed first-seen date from %q to %q", first, got)
+	}
+	writeGame(t, "Second Game")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	state, err := readLibraryState()
+	if err != nil || len(state) != 2 || state[filepath.Join(root, "First Game")] != first {
+		t.Fatalf("stored dates = %#v (%v)", state, err)
+	}
+	if err := os.RemoveAll(filepath.Join(root, "First Game")); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	state, err = readLibraryState()
+	if err != nil || len(state) != 1 || state[filepath.Join(root, "First Game")] != "" {
+		t.Fatalf("removed folder retained a first-seen date: %#v (%v)", state, err)
+	}
+}
+
+func TestInvalidDateStateDoesNotHideGamesOrOverwriteState(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Game")
+	statePath := filepath.Join(dataDir, "library-state.json")
+	if err := os.WriteFile(statePath, []byte("invalid json"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if got := getGameEntryByID("game"); got == nil || got.Game.AddedAt != "" {
+		t.Fatalf("game hidden or given an unpersisted date: %#v", got)
+	}
+	contents, err := os.ReadFile(statePath)
+	if err != nil || string(contents) != "invalid json" {
+		t.Fatalf("invalid state was overwritten: %q (%v)", contents, err)
 	}
 }
 

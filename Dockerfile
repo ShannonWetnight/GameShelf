@@ -26,6 +26,7 @@ WORKDIR /app
 COPY --from=build /app/gameshelf .
 RUN addgroup -S -g 10001 gameshelf \
     && adduser -S -D -H -u 10001 -G gameshelf -s /sbin/nologin gameshelf \
+    && mkdir -p /data && chown 10001:10001 /data \
     && chmod 0555 /app /app/gameshelf
 
 # Numeric IDs make bind-mount permissions predictable and allow runtime overrides.

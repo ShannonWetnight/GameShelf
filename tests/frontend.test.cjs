@@ -44,9 +44,10 @@ class Element {
   }
   set innerHTML(value) { this.children = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
+  removeAttribute(name) { delete this.attributes[name]; }
   addEventListener(event, callback) { this.listeners[event] = callback; }
   emit(event, payload = {}) {
-    return this.listeners[event]?.({ target: this, stopPropagation() {}, ...payload });
+    return this.listeners[event]?.({ target: this, currentTarget: this, stopPropagation() {}, preventDefault() {}, ...payload });
   }
   blur() { this.focused = false; }
   contains(other) { return this === other || this.children.some(child => child.contains(other)); }
@@ -152,7 +153,7 @@ test('loading cannot be mistaken for an empty library; overlapping refresh is ig
 test('cover actions download the game and open read-only details', async () => {
   const ui = app();
   ui.start();
-  ui.requests[0].resolve(response([{ ...games[1], path: '/GameShelf/Alpha', fileCount: 2, hasCover: true, addedAt: '' }]));
+  ui.requests[0].resolve(response([{ ...games[1], path: '/GameShelf/Alpha', fileCount: 2, hasCover: true, addedAt: '2026-10-21T12:00:00Z' }]));
   await settle();
 
   const card = ui.cards().find(item => item.dataset.id === 'alpha');
@@ -175,7 +176,7 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(ui.element('game-details-size').textContent, '1.0 KB');
   assert.equal(ui.element('game-details-files').textContent, '2');
   assert.equal(ui.element('game-details-cover').textContent, 'Available');
-  assert.equal(ui.element('game-details-added').textContent, '');
+  assert.match(ui.element('game-details-added').textContent, /2026/);
   ui.click('game-details-close');
   assert.equal(ui.element('game-details-dialog').open, false);
   assert.equal(card.classList.contains('gs-hover-suppressed'), true);
@@ -312,8 +313,13 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(ui.hidden('spotlight-actions'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   const firstId = selected()[0].dataset.id;
-  assert.equal(ui.element('search-input').value, '');
   assert.equal(selected()[0].focused, undefined);
+  assert.equal(ui.element('spotlight-download').href, `/download/${firstId}`);
+  ui.click('spotlight-info');
+  assert.equal(ui.element('game-details-dialog').open, true);
+  assert.equal(ui.element('game-details-title').textContent, games.find(game => game.id === firstId).name);
+  ui.element('game-details-dialog').close();
+  assert.equal(ui.element('search-input').value, '');
   assert.equal(ui.element('suggestion-status').textContent,
     `Showing only ${games.find(game => game.id === firstId).name}. Use Return to all games to return to the library.`);
 
@@ -328,6 +334,7 @@ test('random suggestion highlights a game without downloading and avoids immedia
   ui.search('Beta');
   assert.equal(selected().length, 0);
   assert.equal(ui.hidden('spotlight-actions'), true);
+  assert.equal(ui.element('spotlight-download').attributes.href, undefined);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('suggestion-status').textContent, '');
 });

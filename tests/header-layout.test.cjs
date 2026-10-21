@@ -178,6 +178,16 @@ test('narrow screens keep controls and game cards within the viewport', () => {
     }
     assert.ok(result.search.top >= result.logo.bottom,
       'mobile search should sit below the logo');
+    const controls = [result.random, result.sort, result.view, result.info];
+    assert.ok(controls.every(box => box.top >= result.search.bottom),
+      'mobile buttons should sit below the full-width search field');
+    assert.ok(controls.every(box => Math.abs(box.top - controls[0].top) <= 1),
+      'mobile buttons should share one row');
+    const gaps = controls.slice(1).map((box, index) => box.left - controls[index].right);
+    assert.ok(gaps.every(gap => gap >= 8 && Math.abs(gap - gaps[0]) <= 1),
+      'mobile buttons should have consistent spacing');
+    assert.ok(controls.every(box => box.bottom - box.top >= 44),
+      'mobile buttons should have touch-sized targets');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

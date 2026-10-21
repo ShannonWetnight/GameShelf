@@ -104,6 +104,12 @@
         <!-- Cards inserted by app.js -->
       </section>
       <div id="spotlight-actions" class="gs-spotlight-actions hidden">
+        <div class="gs-spotlight-tools">
+          <a id="spotlight-download" class="gs-icon-button" href="#" aria-label="Download selected game">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11m0 0 4-4m-4 4-4-4M5 17.5v2h14v-2"/></svg>
+          </a>
+          <button id="spotlight-info" class="gs-card-info" type="button" aria-label="Information about selected game">i</button>
+        </div>
         <button id="show-all-games" class="gs-return-button" type="button">← Return to all games</button>
       </div>
     </div>
@@ -163,12 +169,14 @@
     <dl class="gs-details-list">
       <div><dt>Location in container</dt><dd id="game-details-path"></dd></div>
       <div><dt>Download size</dt><dd id="game-details-size"></dd></div>
-      <div><dt>Files</dt><dd id="game-details-files"></dd></div>
       <div><dt>Cover art</dt><dd id="game-details-cover"></dd></div>
       <div><dt>Date added</dt><dd id="game-details-added"></dd></div>
     </dl>
-    <button id="toggle-game-files" class="gs-files-toggle" type="button"
-            aria-expanded="false" aria-controls="game-files-panel">Show files</button>
+    <div class="gs-files-section">
+      <div class="gs-files-count"><span>Files</span><span id="game-details-files"></span></div>
+      <button id="toggle-game-files" class="gs-files-toggle" type="button"
+              aria-expanded="false" aria-controls="game-files-panel">Show files</button>
+    </div>
     <div id="game-files-panel" class="gs-files-panel hidden">
       <p id="game-files-status" role="status"></p>
       <ul id="game-files-list"></ul>

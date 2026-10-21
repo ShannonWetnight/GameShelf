@@ -37,6 +37,7 @@ type gameEntry struct {
 
 var (
 	rootDir   string
+	dataDir   string
 	gamesMu   sync.RWMutex
 	refreshMu sync.Mutex                   // serialize scans without blocking readers
 	gamesMap  = make(map[string]*gameEntry) // id -> entry
@@ -48,6 +49,10 @@ func main() {
 	rootDir = os.Getenv("GAMESHELF_ROOT")
 	if rootDir == "" {
 		rootDir = "/games"
+	}
+	dataDir = os.Getenv("GAMESHELF_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "/data"
 	}
 
 	if err := refreshGames(); err != nil {
@@ -133,11 +138,81 @@ func refreshInterval() time.Duration {
 
 // -------- Game indexing --------
 
+// libraryState stores only the first time GameShelf indexed each folder. It
+// lives outside GAMESHELF_ROOT so the game library can remain read-only.
+type libraryState struct {
+	Version   int               `json:"version"`
+	FirstSeen map[string]string `json:"firstSeen"`
+}
+
+func readLibraryState() (map[string]string, error) {
+	contents, err := os.ReadFile(filepath.Join(dataDir, "library-state.json"))
+	if os.IsNotExist(err) {
+		return make(map[string]string), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var state libraryState
+	if err := json.Unmarshal(contents, &state); err != nil {
+		return nil, err
+	}
+	if state.Version != 1 || state.FirstSeen == nil {
+		return nil, fmt.Errorf("unsupported library state format")
+	}
+	for path, value := range state.FirstSeen {
+		if path == "" || value == "" {
+			return nil, fmt.Errorf("invalid library state entry")
+		}
+		if _, err := time.Parse(time.RFC3339, value); err != nil {
+			return nil, fmt.Errorf("invalid date for %q: %w", path, err)
+		}
+	}
+	return state.FirstSeen, nil
+}
+
+func writeLibraryState(firstSeen map[string]string) error {
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
+		return err
+	}
+	contents, err := json.MarshalIndent(libraryState{Version: 1, FirstSeen: firstSeen}, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(dataDir, ".library-state-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	if err := file.Chmod(0600); err != nil {
+		file.Close()
+		return err
+	}
+	if _, err := file.Write(append(contents, '\n')); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), filepath.Join(dataDir, "library-state.json"))
+}
+
 func refreshGames() error {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
 	nextGames := make(map[string]*gameEntry)
+	firstSeen, stateErr := readLibraryState()
+	if stateErr != nil {
+		log.Printf("Date-added state unavailable: %v", stateErr)
+	}
+	nextFirstSeen := make(map[string]string)
+	stateChanged := false
 
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
@@ -163,6 +238,21 @@ func refreshGames() error {
 			// Future: auto-fetch cover via API service
 			// cover = fetchCoverFromService(dirName)
 		}
+		addedAt := ""
+		if stateErr == nil {
+			addedAt = firstSeen[absPath]
+			if addedAt == "" {
+				addedAt = time.Now().UTC().Format(time.RFC3339)
+				stateChanged = true
+			}
+			nextFirstSeen[absPath] = addedAt
+		} else {
+			gamesMu.RLock()
+			if old := gamesMap[id]; old != nil && old.Game.Path == absPath {
+				addedAt = old.Game.AddedAt
+			}
+			gamesMu.RUnlock()
+		}
 
 		entry := &gameEntry{
 			Game: Game{
@@ -172,13 +262,28 @@ func refreshGames() error {
 				HasCover:  cover != "",
 				Path:      absPath,
 				FileCount: fileCount,
-				AddedAt:   "", // Filesystem creation time is not a reliable import date.
+				AddedAt:   addedAt,
 			},
 			DirName:   dirName,
 			CoverPath: cover,
 		}
 
 		nextGames[id] = entry
+	}
+	if stateErr == nil {
+		if len(nextFirstSeen) != len(firstSeen) {
+			stateChanged = true
+		}
+		if stateChanged {
+			if err := writeLibraryState(nextFirstSeen); err != nil {
+				log.Printf("Date-added state could not be saved: %v", err)
+				for _, entry := range nextGames {
+					if firstSeen[entry.Game.Path] == "" {
+						entry.Game.AddedAt = ""
+					}
+				}
+			}
+		}
 	}
 
 	// Publish only a complete scan; readers keep the last successful index.

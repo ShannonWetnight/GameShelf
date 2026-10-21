@@ -74,6 +74,12 @@ function formatSize(bytes) {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
+function formatAddedDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
 function fuzzyMatch(haystack, needle) {
   if (!needle) return true;
 
@@ -208,7 +214,7 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-files').textContent = Number.isInteger(game.fileCount) ? String(game.fileCount) : '';
   document.getElementById('game-details-cover').textContent = typeof game.hasCover === 'boolean' ? (game.hasCover ? 'Available' : 'Placeholder') : '';
-  document.getElementById('game-details-added').textContent = game.addedAt || '';
+  document.getElementById('game-details-added').textContent = formatAddedDate(game.addedAt);
   dialog.showModal();
   document.getElementById('game-details-close').focus();
   dialog.addEventListener('close', () => {
@@ -358,6 +364,7 @@ function clearSuggestion() {
   const returnActions = document.getElementById('spotlight-actions');
   returnActions.classList.add('hidden');
   returnActions.classList.remove('gs-return-visible');
+  document.getElementById('spotlight-download').removeAttribute('href');
   document.getElementById('suggestion-status').textContent = '';
   applyViewMode();
   applySearchFilter();
@@ -397,6 +404,10 @@ function suggestRandomGame() {
     applySearchFilter();
     card.scrollIntoView?.({ block: 'center' });
     const returnActions = document.getElementById('spotlight-actions');
+    const spotlightDownload = document.getElementById('spotlight-download');
+    spotlightDownload.href = `/download/${encodeURIComponent(game.id)}`;
+    spotlightDownload.setAttribute('aria-label', `Download ${game.name}`);
+    document.getElementById('spotlight-info').setAttribute('aria-label', `Information about ${game.name}`);
     returnActions.classList.remove('hidden');
     void returnActions.offsetWidth;
     returnActions.classList.add('gs-return-visible');
@@ -579,6 +590,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('show-all-games').addEventListener('click', () => {
     clearSuggestion();
     randomButton.focus();
+  });
+  document.getElementById('spotlight-download').addEventListener('click', event => {
+    if (!suggestedGameId) event.preventDefault();
+    event.currentTarget.blur();
+  });
+  document.getElementById('spotlight-info').addEventListener('click', event => {
+    const game = gamesCache.find(candidate => candidate.id === suggestedGameId);
+    const card = cardMap.get(suggestedGameId);
+    if (game && card) openGameDetails(game, event.currentTarget, card);
   });
 
   /* -------- Settings -------- */
