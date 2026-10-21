@@ -661,7 +661,7 @@ body {
   border-radius: var(--radius-sm);
 }
 
-.gs-settings-backup span {
+.gs-settings-backup > span {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -688,7 +688,6 @@ body {
 .gs-cover-editor { width: min(520px, calc(100vw - 32px)); }
 .gs-cover-upload { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem; }
 .gs-cover-upload input { max-width: 70%; }
-.gs-cover-editor-help { color: var(--text-muted); font-size: 0.8rem; }
 .gs-cover-editor canvas { display: block; width: min(100%, 280px); height: auto; margin: 0.75rem auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); touch-action: none; cursor: grab; }
 .gs-cover-editor canvas:active { cursor: grabbing; }
 .gs-cover-editor-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
@@ -901,8 +900,8 @@ body {
 }
 
 @keyframes gs-return-appear {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .gs-return-button {
@@ -1064,6 +1063,7 @@ body {
   justify-content: center;
   padding: 0.4rem 0.7rem;
   min-height: 2.7rem;
+  background: #0a101d;
 }
 
 .gs-show-game-titles .gs-card-body { display: flex; }
@@ -1425,6 +1425,7 @@ body {
 /* Keep interactive labels centered and give related controls one shared rhythm. */
 .gs-grid.list-view .gs-card-body,
 .gs-grid.list-view .gs-card-content { display: flex; align-items: center; }
+.gs-grid.list-view .gs-card-body { background: transparent; }
 .gs-grid.list-view .gs-card-title { line-height: 1.25; }
 .gs-details-list dt, .gs-details-list dd,
 .gs-files-count span, .gs-files-toggle,
@@ -1435,8 +1436,24 @@ body {
 .gs-title-detail { gap: 0.5rem; }
 .gs-title-detail input { min-width: 0; width: 100%; background: #0a1324; color: var(--text); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.45rem; font: inherit; }
 .gs-title-detail input:focus-visible { outline: 2px solid var(--accent); }
-.gs-cover-header-actions { display: flex; align-items: center; gap: 8px; }
-.gs-cover-save-row { display: flex; justify-content: flex-end; }
+.gs-title-save { width: 36px; height: 36px; min-height: 36px; flex: none; padding: 0; }
+.gs-title-save svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.gs-control-label { display: inline-block; transform: translateY(-1px); }
+.gs-details-dialog { width: min(760px, calc(100vw - 32px)); padding: 0; overflow: hidden; }
+.gs-details-layout { display: grid; grid-template-columns: minmax(210px, 250px) minmax(0, 1fr); max-height: calc(100vh - 34px); }
+.gs-details-art { position: relative; min-height: 430px; background: radial-gradient(circle at 50% 35%, #263759, #0a1324 75%); border-right: 1px solid var(--border-subtle); overflow: hidden; }
+.gs-details-art img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.gs-details-art.gs-no-cover img { display: none; }
+.gs-show-placeholders .gs-details-art.gs-no-cover img { display: block; object-fit: contain; }
+.gs-details-art #game-details-image-title { display: none; }
+.gs-details-art.gs-no-cover #game-details-image-title { position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; font-weight: 650; overflow-wrap: anywhere; }
+.gs-show-placeholders .gs-details-art.gs-no-cover #game-details-image-title { display: none; }
+.gs-details-content { min-width: 0; overflow-y: auto; padding: 1.25rem; }
+.gs-cover-save-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0.75rem; }
+.gs-cover-save-actions { display: flex; align-items: center; gap: 8px; }
+.gs-cover-save-actions .gs-detail-action { min-height: 38px; }
+.gs-cover-cancel { min-height: 38px; padding: 0.5rem 0.8rem; border: 1px solid #ca5964; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: 600 0.85rem var(--font-sans); cursor: pointer; }
+.gs-cover-cancel:hover, .gs-cover-cancel:focus-visible { background: rgba(202, 89, 100, 0.12); border-color: #ee7682; }
 .gs-cover-preview { position: relative; width: min(100%, 280px); margin: 0.75rem auto; }
 .gs-cover-editor .gs-cover-preview canvas { width: 100%; margin: 0; }
 .gs-cover-grid { position: absolute; inset: 0; border-radius: var(--radius-sm); pointer-events: none; opacity: 0; transition: opacity 180ms ease; background: linear-gradient(to right, transparent 33.2%, rgba(255,255,255,.65) 33.3%, rgba(255,255,255,.65) 33.5%, transparent 33.6%, transparent 66.5%, rgba(255,255,255,.65) 66.6%, rgba(255,255,255,.65) 66.8%, transparent 66.9%), linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.65) 33.3%, rgba(255,255,255,.65) 33.5%, transparent 33.6%, transparent 66.5%, rgba(255,255,255,.65) 66.6%, rgba(255,255,255,.65) 66.8%, transparent 66.9%); }
@@ -1446,15 +1463,23 @@ body {
 .gs-cover-preview.is-empty .gs-cover-preview-upload { transition: none; }
 .gs-cover-preview-upload svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .gs-cover-editor-controls output { min-width: 2.8rem; text-align: right; color: var(--text); }
-.gs-cover-rotation { margin: 0.75rem 0 0; text-align: right; color: var(--text-muted); font-size: 0.8rem; }
+.gs-cover-editor #cover-editor-status { min-height: 0; margin: 0.5rem 0 0; }
+.gs-cover-editor #cover-editor-status:empty { display: none; }
 .gs-spotlight-stage.gs-library-stage { gap: 8px; }
+.gs-grid.gs-spotlight .gs-card:not(.gs-hover-suppressed):hover { transform: none; }
 .gs-spotlight-actions { gap: 8px; }
 .gs-spotlight-nav { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .gs-spotlight-nav .gs-return-button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; gap: 8px; padding: 6px 12px; font-size: 1rem; line-height: 1; }
-.gs-reroll-icon, .gs-reroll-icon svg { display: block; width: 32px; height: 32px; }
-.gs-reroll-icon svg { color: var(--text-muted); fill: none; }
-.gs-reroll-icon svg rect { fill: var(--bg-elevated); stroke: currentColor; stroke-width: 1.8; }
-.gs-reroll-icon svg circle { fill: currentColor; }
+.gs-spotlight-nav .gs-reroll-button { width: 48px; padding: 6px; }
+.gs-reroll-button svg { display: block; width: 32px; height: 32px; color: var(--text-muted); fill: none; }
+.gs-reroll-button svg rect { fill: var(--bg-elevated); stroke: currentColor; stroke-width: 1.8; }
+.gs-reroll-button svg circle { fill: currentColor; }
+@media (max-width: 700px) {
+  .gs-details-dialog { width: min(420px, calc(100vw - 32px)); overflow: auto; }
+  .gs-details-layout { display: block; max-height: none; }
+  .gs-details-art { display: none; }
+  .gs-details-content { overflow: visible; }
+}
 @media (hover: none) { .gs-cover-preview-upload { opacity: 1; } }
 
 /* =============================

@@ -52,6 +52,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'result.placeholderImage=getComputedStyle(missingImage).display;' +
       'result.placeholderTitle=getComputedStyle(missingTitle).display;' +
       'result.placeholderOverlay=getComputedStyle(placeholderTitle).display;' +
+      'result.placeholderBackdrop=getComputedStyle(placeholderTitle).backgroundColor;' +
       'result.placeholderText=placeholderTitle.textContent;' +
       'result.placeholderNoOverlap=missingImage.getBoundingClientRect().bottom<=placeholderTitle.getBoundingClientRect().top+1;' +
       'result.placeholderFooter=getComputedStyle(missing.querySelector(".gs-card-body")).display;' +
@@ -59,6 +60,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'const titles=document.querySelector("#show-game-titles");' +
       'titles.checked=true;titles.dispatchEvent(new Event("change"));' +
       'result.allTitlesFooter=getComputedStyle(card.querySelector(".gs-card-body")).display;' +
+      'result.titleBackdrop=getComputedStyle(card.querySelector(".gs-card-body")).backgroundColor;' +
       'result.missingCenteredTitle=getComputedStyle(missingTitle).display;' +
       'document.querySelector("#view-toggle").click();' +
       'result.listMissingImage=getComputedStyle(missingImage).display;' +
@@ -109,11 +111,13 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.notEqual(result.placeholderImage, 'none');
     assert.equal(result.placeholderTitle, 'none');
     assert.notEqual(result.placeholderOverlay, 'none');
+    assert.equal(result.placeholderBackdrop, 'rgb(10, 16, 29)');
     assert.equal(result.placeholderText, 'No Cover');
     assert.equal(result.placeholderNoOverlap, true);
     assert.equal(result.placeholderFooter, 'none');
     assert.equal(result.realCoverFooter, 'none');
     assert.notEqual(result.allTitlesFooter, 'none');
+    assert.equal(result.titleBackdrop, result.placeholderBackdrop);
     assert.equal(result.missingCenteredTitle, 'none');
     assert.equal(result.listMissingImage, 'none');
     assert.equal(result.listMissingTitle, 'none');
@@ -155,7 +159,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
         document.querySelector('#edit-game-cover').click();
         const editor = document.querySelector('#cover-editor-dialog');
         const emptyUploadVisible = getComputedStyle(document.querySelector('.gs-cover-preview-upload')).opacity === '1';
-        document.querySelector('#cover-editor-back').click();
+        document.querySelector('#cover-editor-cancel').click();
         const returnedToDetails = document.querySelector('#game-details-dialog').open && !editor.open;
         document.querySelector('#edit-game-cover').click();
         const bytes = Uint8Array.from(atob('${image}'), character => character.charCodeAt(0));
@@ -173,7 +177,15 @@ test('cover editor crops artwork and updates the card after upload', () => {
           const gridDuringEdit = document.querySelector('#cover-preview').classList.contains('is-adjusting');
           const zoomReadout = document.querySelector('#cover-zoom-value').textContent;
           const tiltReadout = document.querySelector('#cover-tilt-value').textContent;
-          const rotationReadout = document.querySelector('#cover-rotation-value').textContent;
+          document.querySelector('#cover-editor-reset').click();
+          const resetZoom = document.querySelector('#cover-zoom-value').textContent;
+          const resetTilt = document.querySelector('#cover-tilt-value').textContent;
+          const resetSaveDisabled = document.querySelector('#cover-editor-save').disabled;
+          const retryTransfer = new DataTransfer();
+          retryTransfer.items.add(new File([bytes], 'cover-again.png', {type:'image/png'}));
+          input.files = retryTransfer.files;
+          input.dispatchEvent(new Event('change'));
+          setTimeout(function() {
           const canvas = document.querySelector('#cover-editor-canvas');
           const preview = canvas.toDataURL('image/png');
           canvas.toBlob = callback => callback(new Blob([bytes], {type:'image/png'}));
@@ -184,7 +196,8 @@ test('cover editor crops artwork and updates the card after upload', () => {
             report.id = 'cover-editor-report';
             report.textContent = JSON.stringify({
               editorOpened:editor.open === false,
-              emptyUploadVisible,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,rotationReadout,
+              emptyUploadVisible,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,
+              resetZoom,resetTilt,resetSaveDisabled,
               previewIsPNG:preview.startsWith('data:image/png;base64,'),
               uploaded:window.coverUpload,
               saveDisabled:document.querySelector('#cover-editor-save').disabled,
@@ -194,6 +207,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
             });
             document.body.append(report);
           }, 150);
+          }, 350);
         }, 100);
       }, 0);
     });</script>`;
@@ -215,7 +229,9 @@ test('cover editor crops artwork and updates the card after upload', () => {
     assert.equal(result.gridDuringEdit, true);
     assert.equal(result.zoomReadout, '125%');
     assert.equal(result.tiltReadout, '8°');
-    assert.equal(result.rotationReadout, '98°');
+    assert.equal(result.resetZoom, '100%');
+    assert.equal(result.resetTilt, '0°');
+    assert.equal(result.resetSaveDisabled, true);
     assert.equal(result.previewIsPNG, true);
     assert.equal(result.uploaded.url, '/api/covers/missing');
     assert.equal(result.uploaded.type, 'image/png');
