@@ -81,6 +81,46 @@ func TestHandleVersion(t *testing.T) {
 	}
 }
 
+func TestLibraryBackupExportsSavedDates(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("backup status = %d, content type = %q", w.Code, w.Header().Get("Content-Type"))
+	}
+	if got := w.Header().Get("Content-Disposition"); got != `attachment; filename="gameshelf-library-backup.json"` {
+		t.Fatalf("content disposition = %q", got)
+	}
+	var backup libraryState
+	if err := json.Unmarshal(w.Body.Bytes(), &backup); err != nil {
+		t.Fatal(err)
+	}
+	if backup.Version != 1 || backup.FirstSeen[filepath.Join(rootDir, "Alpha")] == "" {
+		t.Fatalf("unexpected backup: %#v", backup)
+	}
+	w = httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodPost, "/api/library-backup", nil))
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST status = %d", w.Code)
+	}
+}
+
+func TestLibraryBackupRejectsInvalidState(t *testing.T) {
+	setupLibrary(t)
+	if err := os.WriteFile(filepath.Join(dataDir, "library-state.json"), []byte("broken"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	if w.Code != http.StatusServiceUnavailable || w.Header().Get("Content-Disposition") != "" {
+		t.Fatalf("invalid state backup = %d, headers %#v", w.Code, w.Header())
+	}
+}
+
 func TestHandleGameFilesIsScopedToSelectedGame(t *testing.T) {
 	setupLibrary(t)
 	writeGame(t, "Alpha")
