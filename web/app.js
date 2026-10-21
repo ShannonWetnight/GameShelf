@@ -28,6 +28,8 @@ let editorImage = null;
 let editorRotation = 0;
 let editorPan = { x: 0, y: 0 };
 let editorLoadVersion = 0;
+let editorReturnGame = null;
+let editorGridTimer;
 
 const cardMap = new Map(); // game.id -> card element
 
@@ -124,7 +126,12 @@ function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
   card.classList.toggle('gs-no-cover', game.hasCover === false);
-  card.tabIndex = -1;
+  card.addEventListener('click', event => {
+    if (!event.target.closest('a, button')) {
+      document.activeElement?.blur();
+      card.classList.add('gs-hover-suppressed');
+    }
+  });
   card.addEventListener('pointerleave', () => card.classList.remove('gs-hover-suppressed'));
   card.addEventListener('focusout', event => {
     if (!card.contains(event.relatedTarget)) card.classList.remove('gs-hover-suppressed');
@@ -216,6 +223,7 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-files-status').textContent = '';
   document.getElementById('game-files-list').innerHTML = '';
   document.getElementById('game-details-title').textContent = game.name;
+  document.getElementById('game-title-input').value = game.name;
   document.getElementById('game-details-path').textContent = game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-files').textContent = Number.isInteger(game.fileCount) ? String(game.fileCount) : '';
@@ -226,10 +234,10 @@ function openGameDetails(game, trigger, card) {
   dialog.showModal();
   document.getElementById('game-details-close').focus();
   dialog.addEventListener('close', () => {
+    if (dialog.open) return;
     if (openingCoverEditor) { openingCoverEditor = false; return; }
     trigger.blur();
     card.classList.add('gs-hover-suppressed');
-    card.focus({ preventScroll: true });
   }, { once: true });
 }
 
@@ -291,16 +299,11 @@ async function toggleGameFiles() {
 
 function drawCoverEditor() {
   const canvas = document.getElementById('cover-editor-canvas');
+  document.getElementById('cover-preview').classList.toggle('is-empty', !editorImage);
   const context = canvas.getContext('2d');
   context.fillStyle = '#0a1324';
   context.fillRect(0, 0, canvas.width, canvas.height);
-  if (!editorImage) {
-    context.fillStyle = '#9ca7c7';
-    context.font = '28px sans-serif';
-    context.textAlign = 'center';
-    context.fillText('Choose an image', canvas.width / 2, canvas.height / 2);
-    return;
-  }
+  if (!editorImage) return;
   const angle = (editorRotation + Number(document.getElementById('cover-tilt').value)) * Math.PI / 180;
   const cosine = Math.abs(Math.cos(angle));
   const sine = Math.abs(Math.sin(angle));
@@ -317,6 +320,7 @@ function drawCoverEditor() {
 }
 
 function openCoverEditor(game) {
+  editorReturnGame = game;
   editorGame = game;
   editorImage = null;
   editorLoadVersion++;
@@ -326,6 +330,7 @@ function openCoverEditor(game) {
   document.getElementById('cover-editor-file').value = '';
   document.getElementById('cover-zoom').value = '1';
   document.getElementById('cover-tilt').value = '0';
+  updateCoverReadouts();
   document.getElementById('cover-editor-status').textContent = '';
   document.getElementById('cover-editor-save').disabled = true;
   openingCoverEditor = true;
@@ -348,6 +353,20 @@ function openCoverEditor(game) {
   }
 }
 
+function updateCoverReadouts() {
+  const tilt = Number(document.getElementById('cover-tilt').value);
+  document.getElementById('cover-zoom-value').textContent = `${Math.round(Number(document.getElementById('cover-zoom').value) * 100)}%`;
+  document.getElementById('cover-tilt-value').textContent = `${tilt}°`;
+  document.getElementById('cover-rotation-value').textContent = `${editorRotation + tilt}°`;
+}
+
+function showCoverGrid() {
+  const preview = document.getElementById('cover-preview');
+  preview.classList.add('is-adjusting');
+  clearTimeout(editorGridTimer);
+  editorGridTimer = setTimeout(() => preview.classList.remove('is-adjusting'), 750);
+}
+
 function bindCoverEditor() {
   const dialog = document.getElementById('cover-editor-dialog');
   const canvas = document.getElementById('cover-editor-canvas');
@@ -358,8 +377,22 @@ function bindCoverEditor() {
     if (game) openCoverEditor(game);
   });
   document.getElementById('cover-editor-close').addEventListener('click', () => dialog.close());
+  document.getElementById('cover-editor-back').addEventListener('click', () => {
+    const game = editorReturnGame;
+    dialog.close();
+    if (game) {
+      const card = cardMap.get(game.id);
+      openGameDetails(game, card?.querySelector('.gs-card-info') || document.getElementById('spotlight-info'), card);
+    }
+  });
   closeOnBackdropClick(dialog);
-  dialog.addEventListener('close', () => { editorGame = null; editorImage = null; editorLoadVersion++; });
+  dialog.addEventListener('close', () => {
+    if (dialog.open) return;
+    editorGame = null;
+    editorImage = null;
+    editorLoadVersion++;
+    document.getElementById('cover-preview').classList.remove('is-adjusting');
+  });
   document.getElementById('cover-editor-file').addEventListener('change', event => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -382,6 +415,7 @@ function bindCoverEditor() {
       editorPan = { x: 0, y: 0 };
       document.getElementById('cover-zoom').value = '1';
       document.getElementById('cover-tilt').value = '0';
+      updateCoverReadouts();
       save.disabled = false;
       status.textContent = '';
       drawCoverEditor();
@@ -392,14 +426,14 @@ function bindCoverEditor() {
     };
     image.src = url;
   });
-  document.getElementById('cover-rotate-left').addEventListener('click', () => { editorRotation -= 90; drawCoverEditor(); });
-  document.getElementById('cover-rotate-right').addEventListener('click', () => { editorRotation += 90; drawCoverEditor(); });
-  document.getElementById('cover-zoom').addEventListener('input', drawCoverEditor);
-  document.getElementById('cover-tilt').addEventListener('input', drawCoverEditor);
+  document.getElementById('cover-rotate-left').addEventListener('click', () => { editorRotation -= 90; updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
+  document.getElementById('cover-rotate-right').addEventListener('click', () => { editorRotation += 90; updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
+  for (const id of ['cover-zoom', 'cover-tilt']) document.getElementById(id).addEventListener('input', () => { updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
   let pointer = null;
   canvas.addEventListener('pointerdown', event => {
     if (!editorImage) return;
     pointer = { x: event.clientX, y: event.clientY };
+    showCoverGrid();
     canvas.setPointerCapture(event.pointerId);
   });
   canvas.addEventListener('pointermove', event => {
@@ -407,6 +441,7 @@ function bindCoverEditor() {
     editorPan.x += (event.clientX - pointer.x) * canvas.width / canvas.clientWidth;
     editorPan.y += (event.clientY - pointer.y) * canvas.height / canvas.clientHeight;
     pointer = { x: event.clientX, y: event.clientY };
+    showCoverGrid();
     drawCoverEditor();
   });
   for (const eventName of ['pointerup', 'pointercancel']) {
@@ -565,7 +600,6 @@ function suggestRandomGame() {
     suggestedGameId = game.id;
     card.classList.add('gs-random-selected', 'gs-spotlight-enter');
     card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
-    card.setAttribute('tabindex', '-1');
     diceButton.disabled = false;
     diceButton.dataset.tooltip = 'Suggest a random game';
     applyViewMode();
@@ -580,7 +614,7 @@ function suggestRandomGame() {
     void returnActions.offsetWidth;
     returnActions.classList.add('gs-return-visible');
     document.getElementById('suggestion-status').textContent =
-      `Showing only ${game.name}. Use Return to all games to return to the library.`;
+      `Showing only ${game.name}. Use Return to go back to the library or Reroll to choose again.`;
   }
 
   const alternatives = gamesCache.filter(candidate => candidate.id !== game.id);
@@ -754,6 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const randomButton = document.getElementById('random-game');
   randomButton.addEventListener('click', suggestRandomGame);
+  document.getElementById('reroll-game').addEventListener('click', suggestRandomGame);
   randomButton.addEventListener('animationend', () => randomButton.classList.remove('is-rolling'));
   document.getElementById('show-all-games').addEventListener('click', () => {
     clearSuggestion();
@@ -791,10 +826,42 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
   document.getElementById('toggle-game-files').addEventListener('click', toggleGameFiles);
+  const titleInput = document.getElementById('game-title-input');
+  const titleSave = document.getElementById('save-game-title');
+  titleSave.addEventListener('click', async () => {
+    const game = gamesCache.find(candidate => candidate.id === detailsGameId);
+    if (!game) return;
+    const title = titleInput.value.trim();
+    if (title.length > 120 || /[\r\n]/.test(title)) { titleInput.setCustomValidity('Use up to 120 characters on one line.'); titleInput.reportValidity(); return; }
+    titleInput.setCustomValidity('');
+    titleSave.disabled = true;
+    try {
+      const response = await fetch(`/api/game-title/${encodeURIComponent(game.id)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      game.name = result.name;
+      document.getElementById('game-details-title').textContent = game.name;
+      titleInput.value = game.name;
+      const oldCard = cardMap.get(game.id);
+      const newCard = createGameCard(game);
+      if (suggestedGameId === game.id) newCard.classList.add('gs-random-selected');
+      oldCard.replaceWith(newCard);
+      cardMap.set(game.id, newCard);
+      applySort();
+      applySearchFilter();
+    } catch {
+      titleInput.setCustomValidity('Could not save this title. Try again.');
+      titleInput.reportValidity();
+    } finally { titleSave.disabled = false; }
+  });
+  titleInput.addEventListener('input', () => titleInput.setCustomValidity(''));
   bindCoverEditor();
   closeOnBackdropClick(settingsDialog);
   closeOnBackdropClick(detailsDialog);
   detailsDialog.addEventListener('close', () => {
+    if (detailsDialog.open) return;
     fileListController?.abort();
     fileListController = null;
     detailsGameId = null;

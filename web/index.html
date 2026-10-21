@@ -110,7 +110,10 @@
           </a>
           <button id="spotlight-info" class="gs-card-info" type="button" aria-label="Information about selected game">i</button>
         </div>
-        <button id="show-all-games" class="gs-return-button" type="button">← Return to all games</button>
+        <div class="gs-spotlight-nav">
+          <button id="show-all-games" class="gs-return-button" type="button">Return</button>
+          <button id="reroll-game" class="gs-return-button gs-reroll-button" type="button" aria-label="Reroll game"><span class="gs-reroll-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><g transform="rotate(9 20 11)"><rect x="11" y="3" width="17" height="17" rx="3"/><circle cx="16" cy="8" r="1.25"/><circle cx="23" cy="8" r="1.25"/><circle cx="16" cy="15" r="1.25"/><circle cx="23" cy="15" r="1.25"/></g><g transform="rotate(-8 11 20)"><rect x="3" y="11" width="17" height="17" rx="3"/><circle cx="8" cy="16" r="1.25"/><circle cx="15" cy="16" r="1.25"/><circle cx="11.5" cy="19.5" r="1.25"/><circle cx="8" cy="23" r="1.25"/><circle cx="15" cy="23" r="1.25"/></g></svg></span><span>Reroll</span></button>
+        </div>
       </div>
     </div>
 
@@ -161,7 +164,7 @@
     <div class="gs-settings-backup">
       <span>
         <strong>Library data backup</strong>
-        <small>Download saved dates and uploaded covers.</small>
+        <small>Download saved dates, titles, and uploaded covers.</small>
       </span>
       <a href="/api/library-backup" download="gameshelf-library-backup.zip">Export data</a>
     </div>
@@ -174,6 +177,7 @@
       <button id="game-details-close" class="gs-settings-close" type="button" aria-label="Close game information">×</button>
     </div>
     <dl class="gs-details-list">
+      <div><dt>GameShelf title</dt><dd class="gs-title-detail"><input id="game-title-input" type="text" maxlength="120" aria-label="GameShelf title"><button id="save-game-title" class="gs-detail-action" type="button">Save</button></dd></div>
       <div><dt>Location in container</dt><dd id="game-details-path"></dd></div>
       <div><dt>Download size</dt><dd id="game-details-size"></dd></div>
       <div><dt>Cover art</dt><dd class="gs-cover-detail"><span id="game-details-cover"></span><button id="edit-game-cover" class="gs-detail-action" type="button">Add or edit</button></dd></div>
@@ -193,21 +197,24 @@
   <dialog id="cover-editor-dialog" class="gs-settings-dialog gs-cover-editor" aria-labelledby="cover-editor-title">
     <div class="gs-settings-header">
       <h2 id="cover-editor-title">Edit cover art</h2>
-      <button id="cover-editor-close" class="gs-settings-close" type="button" aria-label="Close cover editor">×</button>
+      <div class="gs-cover-header-actions"><button id="cover-editor-back" class="gs-settings-close" type="button" aria-label="Return to game information">←</button><button id="cover-editor-close" class="gs-settings-close" type="button" aria-label="Close cover editor">×</button></div>
     </div>
-    <label class="gs-cover-upload">Choose an image
-      <input id="cover-editor-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-    </label>
+    <div id="cover-preview" class="gs-cover-preview">
+      <canvas id="cover-editor-canvas" width="600" height="900" aria-label="Cover art preview"></canvas>
+      <div class="gs-cover-grid" aria-hidden="true"></div>
+      <label class="gs-cover-preview-upload" for="cover-editor-file" aria-label="Upload cover image" title="Upload cover image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v4h16v-4"/></svg><span class="gs-sr-only">Upload cover image</span></label>
+      <input id="cover-editor-file" class="gs-sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+    </div>
     <p class="gs-cover-editor-help">Drag to position the artwork. Zoom crops it to the card shape.</p>
-    <canvas id="cover-editor-canvas" width="600" height="900" aria-label="Cover art preview"></canvas>
     <div class="gs-cover-editor-controls">
       <button id="cover-rotate-left" class="gs-detail-action" type="button">↶ Rotate</button>
       <button id="cover-rotate-right" class="gs-detail-action" type="button">Rotate ↷</button>
-      <label>Zoom <input id="cover-zoom" type="range" min="1" max="2.5" step="0.05" value="1"></label>
-      <label>Tilt <input id="cover-tilt" type="range" min="-20" max="20" step="1" value="0"></label>
+      <label>Zoom <input id="cover-zoom" type="range" min="1" max="2.5" step="0.05" value="1"><output id="cover-zoom-value" for="cover-zoom">100%</output></label>
+      <label>Tilt <input id="cover-tilt" type="range" min="-20" max="20" step="1" value="0"><output id="cover-tilt-value" for="cover-tilt">0°</output></label>
     </div>
+    <p class="gs-cover-rotation">Rotation: <output id="cover-rotation-value">0°</output></p>
     <p id="cover-editor-status" role="status"></p>
-    <button id="cover-editor-save" class="gs-button" type="button" disabled>Save cover</button>
+    <div class="gs-cover-save-row"><button id="cover-editor-save" class="gs-button" type="button" disabled>Save</button></div>
   </dialog>
 
   <script src="/app.js"></script>

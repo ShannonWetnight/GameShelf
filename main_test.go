@@ -124,6 +124,30 @@ func TestLibraryBackupExportsSavedDates(t *testing.T) {
 	}
 }
 
+func TestGameTitlePersistsAndExports(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	w := httptest.NewRecorder()
+	handleGameTitle(w, httptest.NewRequest(http.MethodPut, "/api/game-title/alpha", strings.NewReader(`{"title":"My Favorite"}`)))
+	if w.Code != http.StatusOK || getGameEntryByID("alpha").Game.Name != "My Favorite" { t.Fatalf("save title: %d %s", w.Code, w.Body.String()) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	if getGameEntryByID("alpha").Game.Name != "My Favorite" { t.Fatal("refresh lost title") }
+	w = httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil { t.Fatal(err) }
+	file, err := archive.File[0].Open()
+	if err != nil { t.Fatal(err) }
+	defer file.Close()
+	var state libraryState
+	if err := json.NewDecoder(file).Decode(&state); err != nil { t.Fatal(err) }
+	if state.Titles[filepath.Join(rootDir, "Alpha")] != "My Favorite" { t.Fatalf("backup titles: %#v", state.Titles) }
+	w = httptest.NewRecorder()
+	handleGameTitle(w, httptest.NewRequest(http.MethodPut, "/api/game-title/alpha", strings.NewReader(`{"title":""}`)))
+	if w.Code != http.StatusOK || getGameEntryByID("alpha").Game.Name != "Alpha" { t.Fatalf("reset title: %d %s", w.Code, w.Body.String()) }
+}
+
 func TestUploadedCoverOverridesFolderArtAndIsBackedUp(t *testing.T) {
 	setupLibrary(t)
 	writeGame(t, "Alpha")
@@ -159,7 +183,7 @@ func TestUploadedCoverOverridesFolderArtAndIsBackedUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(archive.File) != 2 || archive.File[1].Name != "covers/"+filepath.Base(customCoverPath("Alpha")) {
+	if len(archive.File) != 2 || archive.File[1].Name != "covers/Alpha/cover.png" {
 		t.Fatalf("custom cover missing from backup: %#v", archive.File)
 	}
 	backupImage, err := archive.File[1].Open()
