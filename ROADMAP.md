@@ -77,7 +77,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
 * [ ] Add `/api/stats` for UI integrations
-* [ ] Detect game ID collisions so similarly named folders cannot hide each other
+* [x] Detect game ID collisions so similarly named folders cannot hide each other (persist ordinary slugs and deterministic SHA-256 suffixes; preserve folder-based metadata)
 
 ### Docker / GHCR
 * [ ] Add multi-arch builds (amd64 + arm64)

@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"maps"
 	"net/http"
 	"os"
 	"path"
@@ -28,6 +29,7 @@ var webFS embed.FS
 
 type Game struct {
 	ID          string `json:"id"`
+	IDPersisted bool   `json:"idPersisted"`
 	Name        string `json:"name"`
 	SizeBytes   int64  `json:"sizeBytes"`
 	HasCover    bool   `json:"hasCover"`
@@ -47,10 +49,13 @@ var (
 	rootDir   string
 	dataDir   string
 	gamesMu   sync.RWMutex
-	refreshMu sync.Mutex                   // serialize scans without blocking readers
+	refreshMu sync.Mutex                    // serialize scans without blocking readers
 	gamesMap  = make(map[string]*gameEntry) // id -> entry
-	buildVersion = "Development"
-	buildChannel = "development"
+	// Protected by refreshMu; retain absent folders as well as active ones.
+	cachedIDs                  map[string]string
+	cachedIDRoot, cachedIDData string
+	buildVersion               = "Development"
+	buildChannel               = "development"
 )
 
 func main() {
@@ -150,12 +155,13 @@ func refreshInterval() time.Duration {
 
 // -------- Game indexing --------
 
-// libraryState stores only the first time GameShelf indexed each folder. It
+// libraryState stores metadata and ID assignments for each folder. It
 // lives outside GAMESHELF_ROOT so the game library can remain read-only.
 type libraryState struct {
 	Version   int               `json:"version"`
 	FirstSeen map[string]string `json:"firstSeen"`
 	Titles    map[string]string `json:"titles,omitempty"`
+	IDs       map[string]string `json:"ids,omitempty"` // exact directory name -> stable ID
 }
 
 func readLibraryMetadata() (libraryState, error) {
@@ -188,6 +194,16 @@ func readLibraryMetadata() (libraryState, error) {
 		if path == "" || !validGameTitle(title) {
 			return libraryState{}, fmt.Errorf("invalid title for %q", path)
 		}
+	}
+	owners := make(map[string]string)
+	for name, id := range state.IDs {
+		if name == "" || id == "" || id != strings.TrimSpace(id) || strings.ContainsAny(id, "/\\") {
+			return libraryState{}, fmt.Errorf("invalid game ID assignment for %q", name)
+		}
+		if _, exists := owners[id]; exists {
+			return libraryState{}, fmt.Errorf("duplicate game ID assignment %q", id)
+		}
+		owners[id] = name
 	}
 	return state, nil
 }
@@ -253,6 +269,54 @@ func legacyCustomCoverPath(dirName string) string {
 	return filepath.Join(dataDir, "covers", fmt.Sprintf("%x.png", hash))
 }
 
+// assignGameIDs preserves saved assignments, including absent folders, so an old
+// URL never changes owners. On upgrade, the last name in ReadDir's sorted order
+// keeps a shared legacy slug, matching the old index's overwrite behavior.
+func assignGameIDs(entries []os.DirEntry, saved map[string]string) (map[string]string, bool) {
+	ids := make(map[string]string, len(saved)+len(entries))
+	used := make(map[string]bool)
+	winners := make(map[string]string)
+	for name, id := range saved {
+		ids[name] = id
+		used[id] = true
+	}
+	reserved := make(map[string]bool)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			slug := slugify(entry.Name())
+			reserved[slug] = true
+			winners[slug] = entry.Name()
+		}
+	}
+	changed := false
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || ids[name] != "" {
+			continue
+		}
+		slug := slugify(name)
+		id := slug
+		if id == "" || used[id] || winners[slug] != name {
+			prefix := slug
+			if prefix == "" {
+				prefix = "game"
+			}
+			hash := sha256.Sum256([]byte(name))
+			base := fmt.Sprintf("%s-%x", prefix, hash)
+			id = base
+			// Also reserve natural slugs: a folder can literally be named like
+			// a generated ID. The counter handles that and even a hash collision.
+			for n := 1; used[id] || reserved[id]; n++ {
+				id = fmt.Sprintf("%s-%d", base, n)
+			}
+		}
+		ids[name] = id
+		used[id] = true
+		changed = true
+	}
+	return ids, changed
+}
+
 func refreshGames() error {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
@@ -270,6 +334,35 @@ func refreshGames() error {
 	if err != nil {
 		return fmt.Errorf("reading rootDir: %w", err)
 	}
+	// A different library/storage pair must not inherit process-local assignments.
+	if cachedIDRoot != rootDir || cachedIDData != dataDir {
+		cachedIDs = nil
+	}
+	// Disk is authoritative on recovery. Reuse cached IDs only if neither their
+	// folder nor their ID has been claimed by a saved assignment.
+	savedIDs := make(map[string]string)
+	usedIDs := make(map[string]bool)
+	for name, id := range state.IDs {
+		savedIDs[name] = id
+		usedIDs[id] = true
+	}
+	names := make([]string, 0, len(cachedIDs))
+	for name := range cachedIDs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		id := cachedIDs[name]
+		if savedIDs[name] == "" && !usedIDs[id] {
+			savedIDs[name] = id
+			usedIDs[id] = true
+		}
+	}
+	ids, _ := assignGameIDs(entries, savedIDs)
+	persistedIDs := state.IDs
+	idsChanged := !maps.Equal(ids, persistedIDs)
+	state.IDs = ids
+	stateChanged = idsChanged
 
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -277,7 +370,7 @@ func refreshGames() error {
 		}
 
 		dirName := e.Name()
-		id := slugify(dirName)
+		id := ids[dirName]
 		absPath := filepath.Join(rootDir, dirName)
 
 		size, fileCount, err := dirStats(absPath)
@@ -341,15 +434,29 @@ func refreshGames() error {
 		if stateChanged {
 			state.FirstSeen = nextFirstSeen
 			if err := writeLibraryMetadata(state); err != nil {
+				if idsChanged {
+					log.Printf("Game ID assignments are temporary (in memory only): %v; URLs may change after restart if the folder set or saved state changes", err)
+				}
 				log.Printf("Date-added state could not be saved: %v", err)
 				for _, entry := range nextGames {
 					if firstSeen[entry.Game.Path] == "" {
 						entry.Game.AddedAt = ""
 					}
 				}
+			} else {
+				persistedIDs = ids
 			}
 		}
 	}
+	for name, id := range ids {
+		if entry := nextGames[id]; entry != nil && entry.DirName == name {
+			entry.Game.IDPersisted = persistedIDs[name] == id
+		}
+	}
+	if stateErr != nil && idsChanged {
+		log.Printf("Game ID assignments are temporary (in memory only): library state unavailable; URLs may change after restart if the folder set or saved state changes")
+	}
+	cachedIDs, cachedIDRoot, cachedIDData = ids, rootDir, dataDir
 
 	// Publish only a complete scan; readers keep the last successful index.
 	gamesMu.Lock()

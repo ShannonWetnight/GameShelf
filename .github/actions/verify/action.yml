@@ -16,7 +16,7 @@ runs:
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}
       run: |
-        docker run --rm --mount "type=bind,src=$PWD,dst=/src,readonly" --workdir /src \
+        docker run --rm --user 10002:10003 --env HOME=/tmp --env GOCACHE=/tmp/go-build --mount "type=bind,src=$PWD,dst=/src,readonly" --workdir /src \
           --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
         node --check web/app.js
         node --test tests/frontend.test.cjs
