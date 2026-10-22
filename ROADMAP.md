@@ -71,8 +71,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
   - Env to include, optional 
 * [ ] Add support for multiple directories
 * [ ] Explore a first-launch setup page for library paths, multiple directories, and clearly explained download/ZIP streaming options; define where settings persist and preserve read-only library access
-* [ ] Keep cover reads and ZIP contents within the selected game directory, including symlinks and files changed during a request
-* [ ] Handle unreadable files and interrupted ZIP downloads cleanly; avoid holding every streamed file open
+* [x] Keep cover reads and ZIP contents within the selected game directory, including symlinks and files changed during a request; preserve uploaded covers under application data
+* [x] Handle unreadable files and interrupted ZIP downloads cleanly; close each file after streaming and abort partial archives
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)

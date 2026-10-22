@@ -45,7 +45,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Instant ZIP downloads of game folders
 - Manual and scheduled rescan support
 - Zero-config outside of the indexing directory
-- Go backend and static web UI
+- Go backend and static web UI (Go 1.24 or later for source builds)
 - Easy deployment with Docker or Compose
 - Local search and sort functions
   - Search keyboard shortcuts (`/` to search, `Esc` to clear)
