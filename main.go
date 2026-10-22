@@ -11,10 +11,12 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"maps"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,7 @@ var webFS embed.FS
 
 type Game struct {
 	ID          string `json:"id"`
+	IDPersisted bool   `json:"idPersisted"`
 	Name        string `json:"name"`
 	SizeBytes   int64  `json:"sizeBytes"`
 	HasCover    bool   `json:"hasCover"`
@@ -45,10 +48,13 @@ var (
 	rootDir   string
 	dataDir   string
 	gamesMu   sync.RWMutex
-	refreshMu sync.Mutex                   // serialize scans without blocking readers
+	refreshMu sync.Mutex                    // serialize scans without blocking readers
 	gamesMap  = make(map[string]*gameEntry) // id -> entry
-	buildVersion = "Development"
-	buildChannel = "development"
+	// Protected by refreshMu; retain absent folders as well as active ones.
+	cachedIDs                  map[string]string
+	cachedIDRoot, cachedIDData string
+	buildVersion               = "Development"
+	buildChannel               = "development"
 )
 
 func main() {
@@ -327,17 +333,33 @@ func refreshGames() error {
 	if err != nil {
 		return fmt.Errorf("reading rootDir: %w", err)
 	}
-	savedIDs := state.IDs
-	if stateErr != nil {
-		// Keep the last successful in-memory assignments when state is unavailable.
-		savedIDs = make(map[string]string)
-		gamesMu.RLock()
-		for id, entry := range gamesMap {
-			savedIDs[entry.DirName] = id
-		}
-		gamesMu.RUnlock()
+	// A different library/storage pair must not inherit process-local assignments.
+	if cachedIDRoot != rootDir || cachedIDData != dataDir {
+		cachedIDs = nil
 	}
-	ids, idsChanged := assignGameIDs(entries, savedIDs)
+	// Disk is authoritative on recovery. Reuse cached IDs only if neither their
+	// folder nor their ID has been claimed by a saved assignment.
+	savedIDs := make(map[string]string)
+	usedIDs := make(map[string]bool)
+	for name, id := range state.IDs {
+		savedIDs[name] = id
+		usedIDs[id] = true
+	}
+	names := make([]string, 0, len(cachedIDs))
+	for name := range cachedIDs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		id := cachedIDs[name]
+		if savedIDs[name] == "" && !usedIDs[id] {
+			savedIDs[name] = id
+			usedIDs[id] = true
+		}
+	}
+	ids, _ := assignGameIDs(entries, savedIDs)
+	persistedIDs := state.IDs
+	idsChanged := !maps.Equal(ids, persistedIDs)
 	state.IDs = ids
 	stateChanged = idsChanged
 
@@ -412,7 +434,7 @@ func refreshGames() error {
 			state.FirstSeen = nextFirstSeen
 			if err := writeLibraryMetadata(state); err != nil {
 				if idsChanged {
-					return fmt.Errorf("saving game ID assignments: %w", err)
+					log.Printf("Game ID assignments are temporary (in memory only): %v; URLs may change after restart if the folder set or saved state changes", err)
 				}
 				log.Printf("Date-added state could not be saved: %v", err)
 				for _, entry := range nextGames {
@@ -420,9 +442,20 @@ func refreshGames() error {
 						entry.Game.AddedAt = ""
 					}
 				}
+			} else {
+				persistedIDs = ids
 			}
 		}
 	}
+	for name, id := range ids {
+		if entry := nextGames[id]; entry != nil && entry.DirName == name {
+			entry.Game.IDPersisted = persistedIDs[name] == id
+		}
+	}
+	if stateErr != nil && idsChanged {
+		log.Printf("Game ID assignments are temporary (in memory only): library state unavailable; URLs may change after restart if the folder set or saved state changes")
+	}
+	cachedIDs, cachedIDRoot, cachedIDData = ids, rootDir, dataDir
 
 	// Publish only a complete scan; readers keep the last successful index.
 	gamesMu.Lock()

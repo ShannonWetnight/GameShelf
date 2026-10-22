@@ -584,7 +584,7 @@ func TestCollidingGameIDsAreDistinctAndDeterministic(t *testing.T) {
 			if !reflect.DeepEqual(indexedIDs(t), before) {
 				t.Fatal("rescan changed IDs")
 			}
-			gamesMap = make(map[string]*gameEntry)
+			restartIndex()
 			if err := refreshGames(); err != nil {
 				t.Fatal(err)
 			}
@@ -598,7 +598,7 @@ func TestCollidingGameIDsAreDistinctAndDeterministic(t *testing.T) {
 			for i := len(names) - 1; i >= 0; i-- {
 				writeGame(t, names[i])
 			}
-			gamesMap = make(map[string]*gameEntry)
+			restartIndex()
 			if err := refreshGames(); err != nil {
 				t.Fatal(err)
 			}
@@ -825,38 +825,132 @@ func TestGameIDAssignmentsValidateUniqueOwners(t *testing.T) {
 	}
 }
 
-func TestNewGameIDsRequireDurableAssignments(t *testing.T) {
+// Clearing both structures models a real process restart.
+func restartIndex() {
+	gamesMap = make(map[string]*gameEntry)
+	cachedIDs = nil
+}
+
+func TestTemporaryIDsStartupRescanRestartAndRecovery(t *testing.T) {
+	for _, storage := range []string{"not-directory", "read-only"} {
+		t.Run(storage, func(t *testing.T) {
+			setupLibrary(t)
+			originalData := dataDir
+			if storage == "not-directory" {
+				dataDir = filepath.Join(dataDir, "blocked")
+				if err := os.WriteFile(dataDir, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.Chmod(dataDir, 0500); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(originalData, 0700) })
+				if f, err := os.CreateTemp(dataDir, "probe"); err == nil {
+					f.Close()
+					os.Remove(f.Name())
+					t.Skip("current user bypasses permissions")
+				}
+			}
+			writeGame(t, "Star Wars")
+			writeGame(t, "Star_Wars")
+			assertScan := func(want map[string]string, persisted bool) map[string]string {
+				t.Helper()
+				requestGames(t, "/api/games?forceRefresh=1", http.StatusOK)
+				got := indexedIDs(t)
+				if len(got) != 2 || (want != nil && !reflect.DeepEqual(got, want)) {
+					t.Fatalf("IDs = %#v; want %#v", got, want)
+				}
+				for _, entry := range gamesMap {
+					if entry.Game.IDPersisted != persisted {
+						t.Fatalf("incorrect persistence: %#v", entry.Game)
+					}
+					if !persisted && entry.Game.AddedAt != "" {
+						t.Fatal("invented saved date")
+					}
+				}
+				return got
+			}
+			before := assertScan(nil, false)
+			assertScan(before, false)
+			restartIndex()
+			assertScan(before, false)
+			// Reservations survive removal and re-addition during a process lifetime.
+			if err := os.RemoveAll(filepath.Join(rootDir, "Star_Wars")); err != nil {
+				t.Fatal(err)
+			}
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			writeGame(t, "Star_Wars")
+			assertScan(before, false)
+			if storage == "not-directory" {
+				if err := os.Remove(dataDir); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(dataDir, 0700); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.Chmod(dataDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			assertScan(before, true)
+			state, err := readLibraryMetadata()
+			if err != nil || !reflect.DeepEqual(state.IDs, before) {
+				t.Fatalf("saved IDs: %#v (%v)", state.IDs, err)
+			}
+			restartIndex()
+			assertScan(before, true)
+		})
+	}
+}
+
+func TestSavedIDsRemainAuthoritativeDuringWriteFailure(t *testing.T) {
 	setupLibrary(t)
 	writeGame(t, "Star Wars")
 	if err := refreshGames(); err != nil {
 		t.Fatal(err)
 	}
-	before := getGameEntryByID("star-wars")
-	if err := os.Chmod(dataDir, 0500); err != nil {
+	before := indexedIDs(t)
+	// A directory at the destination makes atomic replacement fail even as root,
+	// while the state is unavailable. Keep the exact saved bytes for recovery.
+	statePath := filepath.Join(dataDir, "library-state.json")
+	contents, err := os.ReadFile(statePath)
+	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dataDir, 0700) })
-	probe, err := os.CreateTemp(dataDir, ".write-probe-")
-	if err == nil {
-		probe.Close()
-		os.Remove(probe.Name())
-		t.Skip("current user bypasses directory write permissions")
+	if err := os.Remove(statePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(statePath, 0700); err != nil {
+		t.Fatal(err)
 	}
 	writeGame(t, "Star_Wars")
-	if err := refreshGames(); err == nil || !strings.Contains(err.Error(), "saving game ID assignments") {
-		t.Fatalf("expected ID persistence failure, got %v", err)
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
 	}
-	if len(gamesMap) != 1 || getGameEntryByID("star-wars") != before {
-		t.Fatal("published unsaved ID assignments")
+	temporary := indexedIDs(t)
+	if temporary["Star Wars"] != before["Star Wars"] || len(temporary) != 2 {
+		t.Fatal(temporary)
 	}
-	if err := os.Chmod(dataDir, 0700); err != nil {
+	if err := os.Remove(statePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(statePath, contents, 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := refreshGames(); err != nil {
 		t.Fatal(err)
 	}
-	if len(gamesMap) != 2 || getGameEntryByID("star-wars").DirName != "Star Wars" {
-		t.Fatal("failed to recover without reassigning old ID")
+	if !reflect.DeepEqual(indexedIDs(t), temporary) {
+		t.Fatal("recovery changed IDs")
+	}
+	restartIndex()
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(indexedIDs(t), temporary) {
+		t.Fatal("restart changed recovered IDs")
 	}
 }
 
@@ -887,4 +981,49 @@ func TestUnavailableStatePreservesCachedCollisionIDs(t *testing.T) {
 			t.Fatal("unavailable state lost cached first-seen date")
 		}
 	}
+}
+
+func TestReadableSavedIDsWithUnwritableStorage(t *testing.T) {
+ setupLibrary(t)
+ writeGame(t, "Star Wars")
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ statePath := filepath.Join(dataDir, "library-state.json")
+ saved, err := os.ReadFile(statePath); if err != nil { t.Fatal(err) }
+ if err := os.Chmod(dataDir, 0500); err != nil { t.Fatal(err) }
+ t.Cleanup(func() { _ = os.Chmod(dataDir, 0700) })
+ if f, err := os.CreateTemp(dataDir, "probe"); err == nil {
+  f.Close(); os.Remove(f.Name()); t.Skip("current user bypasses permissions")
+ }
+ writeGame(t, "Star_Wars")
+ restartIndex()
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ before := indexedIDs(t)
+ if before["Star Wars"] != "star-wars" || !getGameEntryByID("star-wars").Game.IDPersisted || getGameEntryByID(before["Star_Wars"]).Game.IDPersisted {
+  t.Fatalf("lost saved/temporary distinction: %#v", gamesMap)
+ }
+ contents, err := os.ReadFile(statePath)
+ if err != nil || !bytes.Equal(contents, saved) { t.Fatal("write failure altered saved state") }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if !reflect.DeepEqual(indexedIDs(t), before) { t.Fatal("rescan changed IDs") }
+ if err := os.Chmod(dataDir, 0700); err != nil { t.Fatal(err) }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if !reflect.DeepEqual(indexedIDs(t), before) { t.Fatal("recovery changed IDs") }
+ for _, entry := range gamesMap { if !entry.Game.IDPersisted { t.Fatal("recovery left temporary ID") } }
+}
+
+func TestRecoveredSavedIDsOverrideConflictingTemporaryIDs(t *testing.T) {
+ setupLibrary(t)
+ writeGame(t, "Star Wars")
+ // An invalid file is left untouched while browsing with temporary IDs.
+ statePath := filepath.Join(dataDir, "library-state.json")
+ if err := os.WriteFile(statePath, []byte("broken"), 0600); err != nil { t.Fatal(err) }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if getGameEntryByID("star-wars").Game.IDPersisted { t.Fatal("invalid state reported persisted") }
+ // Restore a historical assignment that reserves the temporary URL for an absent folder.
+ restored := map[string]string{"Absent": "star-wars", "Star Wars": "historical-id"}
+ if err := writeLibraryMetadata(libraryState{Version: 1, FirstSeen: map[string]string{}, IDs: restored}); err != nil { t.Fatal(err) }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if getGameEntryByID("star-wars") != nil || getGameEntryByID("historical-id") == nil || !getGameEntryByID("historical-id").Game.IDPersisted {
+  t.Fatal("temporary assignment overrode saved state")
+ }
 }
