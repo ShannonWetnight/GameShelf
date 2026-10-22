@@ -3,13 +3,20 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -246,7 +253,7 @@ func assertBackupFailed(t *testing.T, w *httptest.ResponseRecorder) {
 }
 
 func TestLibraryBackupRejectsUnavailableArtwork(t *testing.T) {
-	for _, failure := range []string{"missing", "read-error", "permission-denied"} {
+	for _, failure := range []string{"missing", "read-error", "permission-denied", "symlink-outside"} {
 		t.Run(failure, func(t *testing.T) {
 			setupLibrary(t)
 			writeGame(t, "Alpha")
@@ -264,6 +271,12 @@ func TestLibraryBackupRejectsUnavailableArtwork(t *testing.T) {
 				t.Fatal(err)
 			}
 			switch failure {
+			case "symlink-outside":
+				secret := filepath.Join(t.TempDir(), "secret.png")
+				if err := os.WriteFile(secret, []byte("private image"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				requireSymlink(t, secret, cover)
 			case "read-error":
 				// Opening a directory succeeds on Unix, but reading its bytes fails.
 				// This exercises failure after ZIP generation has already started.
@@ -801,3 +814,921 @@ func TestRefreshGamesChildReadFailurePreservesWholeIndex(t *testing.T) {
 	}
 }
 
+func requireSymlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+}
+
+func zipContents(t *testing.T, body []byte) map[string]string {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := make(map[string]string)
+	for _, item := range reader.File {
+		f, err := item.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(f)
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		result[item.Name] = string(data)
+	}
+	return result
+}
+
+func TestZIPOmitsSymlinksAndKeepsOrdinaryFiles(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	outside := filepath.Join(rootDir, "Beta", "secret.txt")
+	if err := os.WriteFile(outside, []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	game := filepath.Join(rootDir, "Alpha")
+	requireSymlink(t, outside, filepath.Join(game, "leak.txt"))
+	requireSymlink(t, "../Beta", filepath.Join(game, "other-game"))
+	requireSymlink(t, "game.txt", filepath.Join(game, "internal-link"))
+	requireSymlink(t, "missing", filepath.Join(game, "zz-broken"))
+	if err := os.Mkdir(filepath.Join(game, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(game, "nested", "save.dat"), []byte("save"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/alpha", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("ZIP status = %d", w.Code)
+	}
+	want := map[string]string{"game.txt": "game data", "nested/save.dat": "save"}
+	if got := zipContents(t, w.Body.Bytes()); !reflect.DeepEqual(got, want) {
+		t.Fatalf("ZIP contents = %#v", got)
+	}
+}
+
+func TestCollidingGameIDsKeepZIPsInTheirOwnFolders(t *testing.T) {
+	setupLibrary(t)
+	secret := filepath.Join(t.TempDir(), "secret.txt")
+	if err := os.WriteFile(secret, []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Star Wars", "Star_Wars"} {
+		writeGame(t, name)
+		gameDir := filepath.Join(rootDir, name)
+		if err := os.WriteFile(filepath.Join(gameDir, "game.txt"), []byte(name), 0644); err != nil {
+			t.Fatal(err)
+		}
+		requireSymlink(t, secret, filepath.Join(gameDir, "leak.txt"))
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	ids := indexedIDs(t)
+	if ids["Star Wars"] == ids["Star_Wars"] {
+		t.Fatalf("colliding folders share an ID: %#v", ids)
+	}
+	for name, id := range ids {
+		w := httptest.NewRecorder()
+		handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/"+id, nil))
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s ZIP status = %d", name, w.Code)
+		}
+		if got := zipContents(t, w.Body.Bytes()); !reflect.DeepEqual(got, map[string]string{"game.txt": name}) {
+			t.Fatalf("%s ZIP contents = %#v", name, got)
+		}
+	}
+}
+
+func TestFolderCoverRejectsLinksAndNonregularFiles(t *testing.T) {
+	for _, kind := range []string{"symlink", "directory"} {
+		t.Run(kind, func(t *testing.T) {
+			setupLibrary(t)
+			writeGame(t, "Alpha")
+			cover := filepath.Join(rootDir, "Alpha", "cover.png")
+			if kind == "symlink" {
+				secret := filepath.Join(t.TempDir(), "secret.png")
+				if err := os.WriteFile(secret, []byte("private image"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				requireSymlink(t, secret, cover)
+			} else if err := os.Mkdir(cover, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if got := findCover(filepath.Dir(cover)); got != "" {
+				t.Fatalf("unsafe cover selected: %q", got)
+			}
+			// A stale index must be revalidated at serving time too.
+			gamesMap["alpha"] = &gameEntry{DirName: "Alpha", CoverPath: cover, Game: Game{CoverSource: "folder"}}
+			w := httptest.NewRecorder()
+			handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+			if w.Code != http.StatusNotFound {
+				t.Fatalf("unsafe cover status = %d", w.Code)
+			}
+		})
+	}
+}
+
+func TestCoversRemainScopedAfterIndexing(t *testing.T) {
+	for _, source := range []string{"folder", "uploaded", "legacy"} {
+		t.Run(source, func(t *testing.T) {
+			setupLibrary(t)
+			writeGame(t, "Alpha")
+			cover := filepath.Join(rootDir, "Alpha", "cover.png")
+			if source == "uploaded" {
+				cover = customCoverPath("Alpha")
+			}
+			if source == "legacy" {
+				cover = legacyCustomCoverPath("Alpha")
+			}
+			if err := os.MkdirAll(filepath.Dir(cover), 0755); err != nil {
+				t.Fatal(err)
+			}
+			image := []byte("ordinary cover image")
+			if err := os.WriteFile(cover, image, 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+			if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), image) {
+				t.Fatalf("ordinary cover = %d, %q", w.Code, w.Body.String())
+			}
+			secret := filepath.Join(t.TempDir(), "secret.png")
+			if err := os.WriteFile(secret, []byte("private image"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(cover); err != nil {
+				t.Fatal(err)
+			}
+			requireSymlink(t, secret, cover)
+			w = httptest.NewRecorder()
+			handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+			if w.Code != http.StatusNotFound || strings.Contains(w.Body.String(), "private image") {
+				t.Fatalf("changed cover = %d, %q", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestChangedGameDirectoryCannotExposeSibling(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "cover.png"), []byte("cover"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(rootDir, "Alpha"), filepath.Join(rootDir, "old-alpha")); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, "Beta", filepath.Join(rootDir, "Alpha"))
+	for _, endpoint := range []struct {
+		url     string
+		handler http.HandlerFunc
+		status  int
+	}{
+		{"/download/alpha", handleDownload, http.StatusServiceUnavailable},
+		{"/api/game-file/alpha?path=game.txt", handleGameFileDownload, http.StatusNotFound},
+		{"/covers/alpha", handleCover, http.StatusNotFound},
+	} {
+		w := httptest.NewRecorder()
+		endpoint.handler(w, httptest.NewRequest(http.MethodGet, endpoint.url, nil))
+		if w.Code != endpoint.status {
+			t.Fatalf("%s = %d", endpoint.url, w.Code)
+		}
+	}
+}
+
+type mutationWriter struct {
+	bytes.Buffer
+	mutate func()
+}
+
+func (w *mutationWriter) Write(p []byte) (int, error) {
+	if w.mutate != nil {
+		fn := w.mutate
+		w.mutate = nil
+		fn()
+	}
+	return w.Buffer.Write(p)
+}
+
+func TestZIPUsesPinnedDirectoryDuringStreaming(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	root, err := openGameRoot(getGameEntryByID("alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "game.txt"), []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Incompressible data forces ZIP output while files remain to be read.
+	payload := make([]byte, 128*1024)
+	if _, err := rand.Read(payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "a-large.bin"), payload, 0644); err != nil {
+		t.Fatal(err)
+	}
+	writer := &mutationWriter{mutate: func() {
+		if err := os.Rename(filepath.Join(rootDir, "Alpha"), filepath.Join(rootDir, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		requireSymlink(t, outside, filepath.Join(rootDir, "Alpha"))
+	}}
+	if err := writeGameZIP(writer, root); err != nil {
+		t.Fatal(err)
+	}
+	if got := zipContents(t, writer.Bytes()); !reflect.DeepEqual(got, map[string]string{"a-large.bin": string(payload), "game.txt": "game data"}) {
+		t.Fatalf("ZIP after rename = %#v", got)
+	}
+}
+
+func TestPinnedReadsRejectReplacedIntermediateDirectory(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	game := filepath.Join(rootDir, "Alpha")
+	if err := os.Mkdir(filepath.Join(game, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(game)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret"), []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(game, "nested"), filepath.Join(game, "old")); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, outside, filepath.Join(game, "nested"))
+	file, _, err := openRegularFile(root, "nested/secret")
+	if err == nil {
+		file.Close()
+		t.Fatal("opened a replaced directory")
+	}
+}
+
+// Change a file after ZIP headers have reached the client, before its read.
+type changingResponse struct {
+	*httptest.ResponseRecorder
+	mutate func()
+}
+
+func (w *changingResponse) Write(p []byte) (int, error) {
+	if w.mutate != nil {
+		fn := w.mutate
+		w.mutate = nil
+		fn()
+	}
+	return w.ResponseRecorder.Write(p)
+}
+
+func TestZIPAbortsWhenFileChangesDuringRequest(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	payload := make([]byte, 128*1024)
+	if _, err := rand.Read(payload); err != nil {
+		t.Fatal(err)
+	}
+	game := filepath.Join(rootDir, "Alpha")
+	if err := os.WriteFile(filepath.Join(game, "a-large.bin"), payload, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "private.txt")
+	if err := os.WriteFile(outside, []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	w := &changingResponse{ResponseRecorder: httptest.NewRecorder(), mutate: func() {
+		if err := os.Remove(filepath.Join(game, "game.txt")); err != nil {
+			t.Fatal(err)
+		}
+		requireSymlink(t, outside, filepath.Join(game, "game.txt"))
+	}}
+	func() {
+		defer func() {
+			if got := recover(); got != http.ErrAbortHandler {
+				t.Errorf("stream failure panic = %v", got)
+			}
+		}()
+		handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/alpha", nil))
+		t.Error("changed file returned a successful archive")
+	}()
+	if bytes.Contains(w.Body.Bytes(), []byte("outside secret")) {
+		t.Fatal("outside content leaked")
+	}
+	if _, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len())); err == nil {
+		t.Fatal("partial ZIP was finalized")
+	}
+}
+
+func TestOpenedFileSurvivesPathReplacement(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	root, err := os.OpenRoot(filepath.Join(rootDir, "Alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	file, _, err := openRegularFile(root, "game.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	name := filepath.Join(rootDir, "Alpha", "game.txt")
+	if err := os.Remove(name); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(outside, []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, outside, name)
+	contents, err := io.ReadAll(file)
+	if err != nil || string(contents) != "game data" {
+		t.Fatalf("descriptor read = %q, %v", contents, err)
+	}
+}
+
+func TestSpecialFilesAreNeverDownloaded(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	game := filepath.Join(rootDir, "Alpha")
+	fifo := filepath.Join(game, "cover.png")
+	if err := exec.Command("mkfifo", fifo).Run(); err != nil {
+		t.Skipf("FIFO creation unavailable: %v", err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if gamesMap["alpha"].Game.HasCover {
+		t.Fatal("FIFO selected as artwork")
+	}
+	w := httptest.NewRecorder()
+	handleGameFileDownload(w, httptest.NewRequest(http.MethodGet, "/api/game-file/alpha?path=cover.png", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("FIFO download = %d", w.Code)
+	}
+	w = httptest.NewRecorder()
+	handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/alpha", nil))
+	if got := zipContents(t, w.Body.Bytes()); !reflect.DeepEqual(got, map[string]string{"game.txt": "game data"}) {
+		t.Fatalf("ZIP special files = %#v", got)
+	}
+}
+
+func TestUploadedCoverRejectsReplacedParent(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	cover := customCoverPath("Alpha")
+	if err := os.MkdirAll(filepath.Dir(cover), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cover, []byte("cover"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "cover.png"), []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Dir(cover), filepath.Join(dataDir, "old-cover")); err != nil {
+		t.Fatal(err)
+	}
+	requireSymlink(t, outside, filepath.Dir(cover))
+	w := httptest.NewRecorder()
+	handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("replaced uploaded parent = %d, %q", w.Code, w.Body.String())
+	}
+}
+
+func TestMissingCoverUsesPlaceholder(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/alpha", nil))
+	image, err := webFS.ReadFile("web/placeholder.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK || !bytes.Equal(image, w.Body.Bytes()) {
+		t.Fatalf("placeholder = %d", w.Code)
+	}
+}
+
+func indexedIDs(t *testing.T) map[string]string {
+	t.Helper()
+	result := make(map[string]string)
+	for id, entry := range gamesMap {
+		if id == "" || entry.Game.ID != id || result[entry.DirName] != "" {
+			t.Fatalf("invalid indexed entry: %q %#v", id, entry)
+		}
+		result[entry.DirName] = id
+	}
+	return result
+}
+
+func TestCollidingGameIDsAreDistinctAndDeterministic(t *testing.T) {
+	for _, names := range [][]string{
+		{"Star Wars", "Star_Wars", "star-wars", "Star--Wars"},
+		{"Alpha", "ALPHA", "alpha"},
+		{"Pilot's", "Pilots", `Pilot"s`},
+		{"---", "___", "'"},
+	} {
+		t.Run(strings.Join(names, ","), func(t *testing.T) {
+			setupLibrary(t)
+			for _, name := range names {
+				writeGame(t, name)
+			}
+			writeGame(t, "Ordinary Game")
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			before := indexedIDs(t)
+			if len(before) != len(names)+1 || before["Ordinary Game"] != "ordinary-game" {
+				t.Fatalf("IDs = %#v", before)
+			}
+			for _, name := range names {
+				if before[name] == "" {
+					t.Fatalf("missing %q: %#v", name, before)
+				}
+			}
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(indexedIDs(t), before) {
+				t.Fatal("rescan changed IDs")
+			}
+			restartIndex()
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(indexedIDs(t), before) {
+				t.Fatal("restart changed IDs")
+			}
+			// Fresh state produces the same initial assignments, independent of creation order.
+			dataDir = t.TempDir()
+			rootDir = t.TempDir()
+			writeGame(t, "Ordinary Game")
+			for i := len(names) - 1; i >= 0; i-- {
+				writeGame(t, names[i])
+			}
+			restartIndex()
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(indexedIDs(t), before) {
+				t.Fatal("fresh scan changed deterministic IDs")
+			}
+		})
+	}
+}
+
+func TestGameIDsSurviveCollisionGroupChanges(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Star Wars")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	first := indexedIDs(t)
+	if first["Star Wars"] != "star-wars" {
+		t.Fatal(first)
+	}
+	// Add a name that would win the old overwrite order.
+	writeGame(t, "Star_Wars")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	both := indexedIDs(t)
+	if len(both) != 2 || both["Star Wars"] != first["Star Wars"] || both["Star_Wars"] == "star-wars" {
+		t.Fatal(both)
+	}
+	if err := os.RemoveAll(filepath.Join(rootDir, "Star Wars")); err != nil {
+		t.Fatal(err)
+	}
+	gamesMap = make(map[string]*gameEntry)
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if getGameEntryByID("star-wars") != nil || indexedIDs(t)["Star_Wars"] != both["Star_Wars"] {
+		t.Fatal("removed ID was reassigned")
+	}
+	writeGame(t, "Star Wars")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(indexedIDs(t), both) {
+		t.Fatal("re-added folder lost its ID")
+	}
+}
+
+func TestGeneratedGameIDCannotHideNaturalSlug(t *testing.T) {
+	setupLibrary(t)
+	hash := sha256.Sum256([]byte("Star Wars"))
+	natural := fmt.Sprintf("star-wars-%x", hash)
+	// Reserve a generated candidate from an absent folder as well as two
+	// natural names with the same slug; every active folder must remain visible.
+	state := libraryState{Version: 1, FirstSeen: map[string]string{}, IDs: map[string]string{"Absent": natural}}
+	if err := writeLibraryMetadata(state); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Star Wars", "Star_Wars", natural, strings.ToUpper(natural)} {
+		writeGame(t, name)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	ids := indexedIDs(t)
+	if len(ids) != 4 || ids["Star Wars"] != natural+"-1" {
+		t.Fatalf("IDs = %#v", ids)
+	}
+}
+
+func TestCollisionUpgradePreservesMetadataAndRoutes(t *testing.T) {
+	setupLibrary(t)
+	names := []string{"Star Wars", "Star_Wars"}
+	dates := map[string]string{}
+	titles := map[string]string{}
+	covers := map[string][]byte{}
+	for i, name := range names {
+		writeGame(t, name)
+		dir := filepath.Join(rootDir, name)
+		if err := os.WriteFile(filepath.Join(dir, "game.txt"), []byte(name), 0644); err != nil {
+			t.Fatal(err)
+		}
+		dates[dir] = fmt.Sprintf("2026-10-%02dT12:00:00Z", i+1)
+		titles[dir] = "Custom " + name
+		covers[name] = []byte("folder " + name)
+		if err := os.WriteFile(filepath.Join(dir, "cover.png"), covers[name], 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Both current and legacy uploaded-art locations predate ID assignment.
+	for i, name := range names {
+		cover := customCoverPath(name)
+		if i == 1 {
+			cover = legacyCustomCoverPath(name)
+		}
+		if err := os.MkdirAll(filepath.Dir(cover), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(cover, covers[name], 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A version-1 state from before ID assignments existed.
+	if err := writeLibraryMetadata(libraryState{Version: 1, FirstSeen: dates, Titles: titles}); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	ids := indexedIDs(t)
+	for _, entry := range gamesMap {
+		if entry.Game.Name != titles[entry.Game.Path] || entry.Game.AddedAt != dates[entry.Game.Path] || entry.Game.CoverSource != "uploaded" {
+			t.Fatalf("upgrade lost existing metadata: %#v", entry.Game)
+		}
+	}
+	if len(ids) != 2 || ids["Star_Wars"] != "star-wars" {
+		t.Fatalf("legacy slug owner changed: %#v", ids)
+	}
+	for i, name := range names {
+		id := ids[name]
+		// Upload different valid art for each game through its public ID.
+		img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+		img.Set(0, 0, color.RGBA{R: uint8(50 + i*100), A: 255})
+		var body bytes.Buffer
+		if err := png.Encode(&body, img); err != nil {
+			t.Fatal(err)
+		}
+		covers[name] = append([]byte(nil), body.Bytes()...)
+		req := httptest.NewRequest(http.MethodPut, "/api/covers/"+url.PathEscape(id), &body)
+		req.Header.Set("Content-Type", "image/png")
+		w := httptest.NewRecorder()
+		handleCoverUpload(w, req)
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("cover upload: %d %s", w.Code, w.Body.String())
+		}
+		titleBody, _ := json.Marshal(map[string]string{"title": "Edited " + name})
+		w = httptest.NewRecorder()
+		handleGameTitle(w, httptest.NewRequest(http.MethodPut, "/api/game-title/"+url.PathEscape(id), bytes.NewReader(titleBody)))
+		if w.Code != http.StatusOK {
+			t.Fatalf("title update: %d %s", w.Code, w.Body.String())
+		}
+	}
+	gamesMap = make(map[string]*gameEntry)
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ids, indexedIDs(t)) {
+		t.Fatal("metadata writes lost ID assignments")
+	}
+	games := decodeGames(t, requestGames(t, "/api/games", http.StatusOK))
+	if len(games) != 2 {
+		t.Fatal(games)
+	}
+	for _, game := range games {
+		name := filepath.Base(game.Path)
+		if game.Name != "Edited "+name || game.AddedAt != dates[game.Path] || game.CoverSource != "uploaded" || game.FileCount != 2 || game.SizeBytes != int64(len(name)+len("folder "+name)) {
+			t.Fatalf("wrong game information: %#v", game)
+		}
+		w := httptest.NewRecorder()
+		handleCover(w, httptest.NewRequest(http.MethodGet, "/covers/"+url.PathEscape(game.ID), nil))
+		if w.Code != http.StatusOK || !bytes.Equal(w.Body.Bytes(), covers[name]) {
+			t.Fatalf("wrong cover for %q", name)
+		}
+		w = httptest.NewRecorder()
+		handleGameFiles(w, httptest.NewRequest(http.MethodGet, "/api/game-files/"+url.PathEscape(game.ID), nil))
+		var info struct {
+			Files []gameFile `json:"files"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &info); err != nil || w.Code != http.StatusOK || len(info.Files) != 2 || info.Files[1].Path != "game.txt" || info.Files[1].SizeBytes != int64(len(name)) {
+			t.Fatalf("wrong file information: %s (%v)", w.Body.String(), err)
+		}
+		w = httptest.NewRecorder()
+		handleGameFileDownload(w, httptest.NewRequest(http.MethodGet, "/api/game-file/"+url.PathEscape(game.ID)+"?path=game.txt", nil))
+		if w.Code != http.StatusOK || w.Body.String() != name {
+			t.Fatalf("wrong file download for %q: %s", name, w.Body.String())
+		}
+		w = httptest.NewRecorder()
+		handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/"+url.PathEscape(game.ID), nil))
+		if w.Code != http.StatusOK {
+			t.Fatal(w.Code)
+		}
+		archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, member := range archive.File {
+			if member.Name != "game.txt" {
+				continue
+			}
+			f, err := member.Open()
+			if err != nil {
+				t.Fatal(err)
+			}
+			contents, err := io.ReadAll(f)
+			f.Close()
+			if err != nil || string(contents) != name {
+				t.Fatalf("wrong ZIP for %q: %q (%v)", name, contents, err)
+			}
+			found = true
+		}
+		if !found {
+			t.Fatalf("ZIP omitted game.txt for %q", name)
+		}
+	}
+	state, err := readLibraryMetadata()
+	if err != nil || !reflect.DeepEqual(state.FirstSeen, dates) || !reflect.DeepEqual(state.IDs, ids) {
+		t.Fatalf("metadata = %#v (%v)", state, err)
+	}
+}
+
+func TestGameIDAssignmentsValidateUniqueOwners(t *testing.T) {
+	setupLibrary(t)
+	for _, ids := range []map[string]string{
+		{"Alpha": "shared", "Beta": "shared"},
+		{"Alpha": ""}, {"Alpha": " "}, {"Alpha": "a/b"}, {"Alpha": `a\b`},
+	} {
+		if err := writeLibraryMetadata(libraryState{Version: 1, FirstSeen: map[string]string{}, IDs: ids}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readLibraryMetadata(); err == nil {
+			t.Fatalf("accepted invalid IDs: %#v", ids)
+		}
+	}
+}
+
+// Clearing both structures models a real process restart.
+func restartIndex() {
+	gamesMap = make(map[string]*gameEntry)
+	cachedIDs = nil
+}
+
+func TestTemporaryIDsStartupRescanRestartAndRecovery(t *testing.T) {
+	for _, storage := range []string{"not-directory", "read-only"} {
+		t.Run(storage, func(t *testing.T) {
+			setupLibrary(t)
+			originalData := dataDir
+			if storage == "not-directory" {
+				dataDir = filepath.Join(dataDir, "blocked")
+				if err := os.WriteFile(dataDir, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.Chmod(dataDir, 0500); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(originalData, 0700) })
+				if f, err := os.CreateTemp(dataDir, "probe"); err == nil {
+					f.Close()
+					os.Remove(f.Name())
+					t.Skip("current user bypasses permissions")
+				}
+			}
+			writeGame(t, "Star Wars")
+			writeGame(t, "Star_Wars")
+			assertScan := func(want map[string]string, persisted bool) map[string]string {
+				t.Helper()
+				requestGames(t, "/api/games?forceRefresh=1", http.StatusOK)
+				got := indexedIDs(t)
+				if len(got) != 2 || (want != nil && !reflect.DeepEqual(got, want)) {
+					t.Fatalf("IDs = %#v; want %#v", got, want)
+				}
+				for _, entry := range gamesMap {
+					if entry.Game.IDPersisted != persisted {
+						t.Fatalf("incorrect persistence: %#v", entry.Game)
+					}
+					if !persisted && entry.Game.AddedAt != "" {
+						t.Fatal("invented saved date")
+					}
+				}
+				return got
+			}
+			before := assertScan(nil, false)
+			assertScan(before, false)
+			restartIndex()
+			assertScan(before, false)
+			// Reservations survive removal and re-addition during a process lifetime.
+			if err := os.RemoveAll(filepath.Join(rootDir, "Star_Wars")); err != nil {
+				t.Fatal(err)
+			}
+			if err := refreshGames(); err != nil {
+				t.Fatal(err)
+			}
+			writeGame(t, "Star_Wars")
+			assertScan(before, false)
+			if storage == "not-directory" {
+				if err := os.Remove(dataDir); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(dataDir, 0700); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.Chmod(dataDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			assertScan(before, true)
+			state, err := readLibraryMetadata()
+			if err != nil || !reflect.DeepEqual(state.IDs, before) {
+				t.Fatalf("saved IDs: %#v (%v)", state.IDs, err)
+			}
+			restartIndex()
+			assertScan(before, true)
+		})
+	}
+}
+
+func TestSavedIDsRemainAuthoritativeDuringWriteFailure(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Star Wars")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	before := indexedIDs(t)
+	// A directory at the destination makes atomic replacement fail even as root,
+	// while the state is unavailable. Keep the exact saved bytes for recovery.
+	statePath := filepath.Join(dataDir, "library-state.json")
+	contents, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(statePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(statePath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeGame(t, "Star_Wars")
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	temporary := indexedIDs(t)
+	if temporary["Star Wars"] != before["Star Wars"] || len(temporary) != 2 {
+		t.Fatal(temporary)
+	}
+	if err := os.Remove(statePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(statePath, contents, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(indexedIDs(t), temporary) {
+		t.Fatal("recovery changed IDs")
+	}
+	restartIndex()
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(indexedIDs(t), temporary) {
+		t.Fatal("restart changed recovered IDs")
+	}
+}
+
+func TestUnavailableStatePreservesCachedCollisionIDs(t *testing.T) {
+	setupLibrary(t)
+	for _, name := range []string{"Star Wars", "Star_Wars"} {
+		writeGame(t, name)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	before := indexedIDs(t)
+	dates := make(map[string]string)
+	for id, entry := range gamesMap {
+		dates[id] = entry.Game.AddedAt
+	}
+	if err := os.WriteFile(filepath.Join(dataDir, "library-state.json"), []byte("broken"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(indexedIDs(t), before) {
+		t.Fatal("unavailable state changed cached IDs")
+	}
+	for id, entry := range gamesMap {
+		if entry.Game.AddedAt != dates[id] {
+			t.Fatal("unavailable state lost cached first-seen date")
+		}
+	}
+}
+
+func TestReadableSavedIDsWithUnwritableStorage(t *testing.T) {
+ setupLibrary(t)
+ writeGame(t, "Star Wars")
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ statePath := filepath.Join(dataDir, "library-state.json")
+ saved, err := os.ReadFile(statePath); if err != nil { t.Fatal(err) }
+ if err := os.Chmod(dataDir, 0500); err != nil { t.Fatal(err) }
+ t.Cleanup(func() { _ = os.Chmod(dataDir, 0700) })
+ if f, err := os.CreateTemp(dataDir, "probe"); err == nil {
+  f.Close(); os.Remove(f.Name()); t.Skip("current user bypasses permissions")
+ }
+ writeGame(t, "Star_Wars")
+ restartIndex()
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ before := indexedIDs(t)
+ if before["Star Wars"] != "star-wars" || !getGameEntryByID("star-wars").Game.IDPersisted || getGameEntryByID(before["Star_Wars"]).Game.IDPersisted {
+  t.Fatalf("lost saved/temporary distinction: %#v", gamesMap)
+ }
+ contents, err := os.ReadFile(statePath)
+ if err != nil || !bytes.Equal(contents, saved) { t.Fatal("write failure altered saved state") }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if !reflect.DeepEqual(indexedIDs(t), before) { t.Fatal("rescan changed IDs") }
+ if err := os.Chmod(dataDir, 0700); err != nil { t.Fatal(err) }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if !reflect.DeepEqual(indexedIDs(t), before) { t.Fatal("recovery changed IDs") }
+ for _, entry := range gamesMap { if !entry.Game.IDPersisted { t.Fatal("recovery left temporary ID") } }
+}
+
+func TestRecoveredSavedIDsOverrideConflictingTemporaryIDs(t *testing.T) {
+ setupLibrary(t)
+ writeGame(t, "Star Wars")
+ // An invalid file is left untouched while browsing with temporary IDs.
+ statePath := filepath.Join(dataDir, "library-state.json")
+ if err := os.WriteFile(statePath, []byte("broken"), 0600); err != nil { t.Fatal(err) }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if getGameEntryByID("star-wars").Game.IDPersisted { t.Fatal("invalid state reported persisted") }
+ // Restore a historical assignment that reserves the temporary URL for an absent folder.
+ restored := map[string]string{"Absent": "star-wars", "Star Wars": "historical-id"}
+ if err := writeLibraryMetadata(libraryState{Version: 1, FirstSeen: map[string]string{}, IDs: restored}); err != nil { t.Fatal(err) }
+ if err := refreshGames(); err != nil { t.Fatal(err) }
+ if getGameEntryByID("star-wars") != nil || getGameEntryByID("historical-id") == nil || !getGameEntryByID("historical-id").Game.IDPersisted {
+  t.Fatal("temporary assignment overrode saved state")
+ }
+}

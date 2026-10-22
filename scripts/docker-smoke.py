@@ -257,9 +257,75 @@ def denied_root(image, root):
         root.chmod(0o755)
 
 
+def temporary_ids(image):
+    # Actual restricted UID/GID, not a root process that bypasses chmod.
+    for seeded in (False, True):
+        with tempfile.TemporaryDirectory(prefix="gameshelf-ids-") as temp:
+            base_dir = pathlib.Path(temp)
+            base_dir.chmod(0o755)
+            root, data = base_dir / "games", base_dir / "data"
+            root.mkdir(mode=0o755)
+            data.mkdir(mode=0o755)
+            for name in ("Star Wars", "Star_Wars"):
+                (root / name).mkdir(mode=0o755)
+                (root / name / "game.txt").write_bytes(name.encode())
+            if seeded:
+                (data / "library-state.json").write_text(json.dumps({
+                    "version": 1, "firstSeen": {},
+                    "ids": {"Star Wars": "star-wars", "Absent": "reserved"}}))
+                (data / "library-state.json").chmod(0o644)
+            data.chmod(0o555)
+            cid = None
+            try:
+                cid = docker("run", "--detach", *SECURITY,
+                             "--user", "10002:10003", "--publish", "127.0.0.1::8080",
+                             "--mount", f"type=bind,src={root},dst=/games,readonly",
+                             "--mount", f"type=bind,src={data},dst=/data",
+                             "--env", "GAMESHELF_REFRESH_INTERVAL=0", image)
+                def games(refresh=False):
+                    for attempt in range(50):
+                        try:
+                            address = docker("port", cid, "8080/tcp").splitlines()[0]
+                            with urllib.request.urlopen("http://" + address + "/api/games" +
+                                                        ("?forceRefresh=1" if refresh else ""), timeout=3) as r:
+                                return json.load(r)
+                        except (OSError, IndexError, urllib.error.URLError):
+                            if attempt == 49:
+                                raise
+                            time.sleep(0.1)
+                def ids(rows):
+                    assert len(rows) == 2 and len({g["id"] for g in rows}) == 2, rows
+                    return {g["name"]: g["id"] for g in rows}
+                first = games()
+                before = ids(first)
+                assert all(g["idPersisted"] == (seeded and g["name"] == "Star Wars") for g in first), first
+                if seeded:
+                    assert before["Star Wars"] == "star-wars", before
+                assert ids(games(True)) == before
+                docker("restart", cid)
+                assert ids(games()) == before
+                # The next scan retries persistence even without folder changes.
+                data.chmod(0o700)
+                ownership(image, data, "10002:10003")
+                recovered = games(True)
+                assert ids(recovered) == before and all(g["idPersisted"] for g in recovered), recovered
+                docker("exec", cid, "sh", "-ec", "test -s /data/library-state.json")
+                docker("restart", cid)
+                assert ids(games()) == before
+                assert all(g["idPersisted"] for g in games())
+                print(f"PASS: restricted UID 10002:10003, seeded={seeded}, temporary IDs, rescan, restart, storage recovery")
+            finally:
+                if cid:
+                    print(docker("logs", cid))
+                    docker("rm", "--force", "--volumes", cid)
+                ownership(image, data, f"{os.getuid()}:{os.getgid()}")
+                data.chmod(0o700)
+
+
 if __name__ == "__main__":
     image = sys.argv[1]
     assert docker("image", "inspect", "--format", "{{.Config.User}}", image) == "10001:10001"
+    temporary_ids(image)
     with tempfile.TemporaryDirectory(prefix="gameshelf-smoke-") as temp:
         root = pathlib.Path(temp)
         root.chmod(0o755)
