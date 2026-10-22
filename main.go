@@ -46,11 +46,12 @@ type gameEntry struct {
 }
 
 var (
-	rootDir   string
-	dataDir   string
-	gamesMu   sync.RWMutex
-	refreshMu sync.Mutex                    // serialize scans without blocking readers
-	gamesMap  = make(map[string]*gameEntry) // id -> entry
+	rootDir       string
+	dataDir       string
+	gamesMu       sync.RWMutex
+	refreshMu     sync.Mutex                    // serialize scans without blocking readers
+	gamesMap      = make(map[string]*gameEntry) // id -> entry
+	lastIndexedAt time.Time                    // last successful scan, protected by gamesMu
 	// Protected by refreshMu; retain absent folders as well as active ones.
 	cachedIDs                  map[string]string
 	cachedIDRoot, cachedIDData string
@@ -92,6 +93,7 @@ func main() {
 
 	// API endpoints
 	mux.HandleFunc("/api/games", handleGames)
+	mux.HandleFunc("/api/stats", handleStats)
 	mux.HandleFunc("/api/game-files/", handleGameFiles)
 	mux.HandleFunc("/api/game-file/", handleGameFileDownload)
 	mux.HandleFunc("/api/version", handleVersion)
@@ -461,6 +463,7 @@ func refreshGames() error {
 	// Publish only a complete scan; readers keep the last successful index.
 	gamesMu.Lock()
 	gamesMap = nextGames
+	lastIndexedAt = time.Now().UTC()
 	gamesMu.Unlock()
 
 	log.Printf("Indexed %d games", len(nextGames))
@@ -923,6 +926,42 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(list); err != nil {
 		log.Printf("encode games: %v", err)
+	}
+}
+
+// LibraryStats summarizes the last complete scan without exposing host paths.
+// Counts include regular files (including cover files) under indexed folders.
+type LibraryStats struct {
+	GameCount        int    `json:"gameCount"`
+	FileCount        int    `json:"fileCount"`
+	TotalSizeBytes   int64  `json:"totalSizeBytes"`
+	CoveredGameCount int    `json:"coveredGameCount"`
+	LastIndexedAt    string `json:"lastIndexedAt"`
+}
+
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	gamesMu.RLock()
+	stats := LibraryStats{GameCount: len(gamesMap)}
+	if !lastIndexedAt.IsZero() {
+		stats.LastIndexedAt = lastIndexedAt.Format(time.RFC3339)
+	}
+	for _, entry := range gamesMap {
+		stats.FileCount += entry.Game.FileCount
+		stats.TotalSizeBytes += entry.Game.SizeBytes
+		if entry.Game.HasCover {
+			stats.CoveredGameCount++
+		}
+	}
+	gamesMu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		log.Printf("encode stats: %v", err)
 	}
 }
 

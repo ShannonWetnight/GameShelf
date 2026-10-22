@@ -141,7 +141,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.selectedFocused, false);
     assert.equal(result.returnBelowCard, true);
     assert.ok(Math.abs(result.buttonGap - 8) <= 1, 'spotlight buttons need an 8px gap');
-    assert.ok(Math.abs(result.cardButtonGap - 8) <= 1, `card and buttons need an 8px gap; got ${result.cardButtonGap}`);
+    assert.ok(Math.abs(result.cardButtonGap - 12) <= 1, `selected card outline needs a 12px button offset; got ${result.cardButtonGap}`);
     assert.ok(result.buttonsCenterDifference <= 1, 'spotlight buttons are not centered');
     assert.ok(Math.abs(result.rerollIconSize - result.topDiceIconSize) <= 1, 'reroll dice icon should match the toolbar icon');
     assert.equal(result.rerollText, '');
