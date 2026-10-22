@@ -29,10 +29,14 @@ import (
 func setupLibrary(t *testing.T) string {
 	t.Helper()
 	previousRoot, previousData, previousGames := rootDir, dataDir, gamesMap
-	t.Cleanup(func() { rootDir, dataDir, gamesMap = previousRoot, previousData, previousGames })
+	previousIndexedAt := lastIndexedAt
+	t.Cleanup(func() {
+		rootDir, dataDir, gamesMap, lastIndexedAt = previousRoot, previousData, previousGames, previousIndexedAt
+	})
 	rootDir = t.TempDir()
 	dataDir = t.TempDir()
 	gamesMap = make(map[string]*gameEntry)
+	lastIndexedAt = time.Time{}
 	return rootDir
 }
 
@@ -87,6 +91,40 @@ func TestHandleVersion(t *testing.T) {
 	}
 	w = httptest.NewRecorder()
 	handleVersion(w, httptest.NewRequest(http.MethodPost, "/api/version", nil))
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST status = %d", w.Code)
+	}
+}
+
+func TestHandleStatsSummarizesSuccessfulScan(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	if err := os.WriteFile(filepath.Join(rootDir, "Beta", "cover.png"), []byte("cover"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	before := time.Now().UTC().Add(-time.Second)
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	handleStats(w, httptest.NewRequest(http.MethodGet, "/api/stats", nil))
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("stats status = %d, content type = %q", w.Code, w.Header().Get("Content-Type"))
+	}
+	var stats LibraryStats
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatal(err)
+	}
+	if stats.GameCount != 2 || stats.FileCount != 3 || stats.TotalSizeBytes != 23 || stats.CoveredGameCount != 1 {
+		t.Fatalf("unexpected stats: %#v", stats)
+	}
+	indexedAt, err := time.Parse(time.RFC3339, stats.LastIndexedAt)
+	if err != nil || indexedAt.Before(before) {
+		t.Fatalf("last indexed at = %q (%v)", stats.LastIndexedAt, err)
+	}
+	w = httptest.NewRecorder()
+	handleStats(w, httptest.NewRequest(http.MethodPost, "/api/stats", nil))
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST status = %d", w.Code)
 	}

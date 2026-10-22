@@ -42,6 +42,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Cache fetched artwork locally
   - If cached, skip fetch
 * [x] Add ability to upload and edit cover images from the UI while keeping game folders read-only
+* [x] Export uploaded and available game-folder covers with library data; exclude placeholder artwork
 
 ### Metadata & Sorting
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
@@ -76,7 +77,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
-* [ ] Add `/api/stats` for UI integrations
+* [x] Add `/api/stats` for UI integrations (read-only counts, total indexed bytes, covered games, and last successful scan time)
 * [x] Detect game ID collisions so similarly named folders cannot hide each other (persist ordinary slugs and deterministic SHA-256 suffixes; preserve folder-based metadata)
 
 ### Docker / GHCR

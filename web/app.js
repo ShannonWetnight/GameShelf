@@ -268,6 +268,9 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-details-path').textContent = game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-files').textContent = Number.isInteger(game.fileCount) ? String(game.fileCount) : '';
+  document.getElementById('game-details-download').href = `/download/${encodeURIComponent(game.id)}`;
+  const fileSummary = Number.isInteger(game.fileCount) ? `${game.fileCount} ${game.fileCount === 1 ? 'file' : 'files'} · ` : '';
+  document.getElementById('game-details-download-summary').textContent = `${fileSummary}${formatSize(game.sizeBytes)} ZIP`;
   document.getElementById('game-details-cover').textContent = game.coverSource === 'uploaded'
     ? 'Uploaded' : game.hasCover ? 'Available' : 'Missing';
   document.getElementById('edit-game-cover').textContent = game.hasCover ? 'Edit Cover' : 'Add Cover';

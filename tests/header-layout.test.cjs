@@ -145,15 +145,25 @@ test('settings and game information keep button and file text vertically centere
       document.querySelector('#settings-dialog').close();
       document.querySelector('#game-details-added').textContent = 'Oct 21, 2026';
       document.querySelector('#game-files-list').innerHTML =
-        '<li><span>Extras/patch-notes.txt</span><span>57 B</span><a href="#">↓</a></li>';
-      document.querySelector('#game-files-panel').classList.remove('hidden');
+        '<li><span>Extras/patch-notes.txt</span><span>57 B</span><a href="#">↓</a></li>'.repeat(8);
       document.querySelector('#game-details-dialog').showModal();
+      const imageFrame = document.querySelector('.gs-details-art-frame');
+      const frameBefore = imageFrame.getBoundingClientRect();
+      document.querySelector('#game-files-panel').classList.remove('hidden');
+      const frameAfter = imageFrame.getBoundingClientRect();
       const result = { exportText, dateText: center('#game-details-added'),
         fileName: center('#game-files-list li span:first-child'),
         fileSize: center('#game-files-list li span:nth-child(2)'),
         fileDownload: center('#game-files-list li a'),
         showFiles: center('#toggle-game-files'),
         coverAction: center('#edit-game-cover') };
+      result.stableArt = Math.abs(frameBefore.width - frameAfter.width) <= 1 &&
+        Math.abs(frameBefore.height - frameAfter.height) <= 1;
+      result.artFooterVisible = document.querySelector('.gs-details-art-footer').getBoundingClientRect().height >= 72;
+      result.detailsBounded = document.querySelector('.gs-details-layout').getBoundingClientRect().height <= 480.5;
+      result.detailsScrollable = document.querySelector('.gs-details-content').scrollHeight >
+        document.querySelector('.gs-details-content').clientHeight;
+      result.titleInputCentered = getComputedStyle(document.querySelector('#game-title-input')).lineHeight === '34px';
       const centerDifference = (inner, outer) => {
         const a = document.querySelector(inner).getBoundingClientRect();
         const b = document.querySelector(outer).getBoundingClientRect();
@@ -170,6 +180,7 @@ test('settings and game information keep button and file text vertically centere
       result.editorSave = center('#cover-editor-save');
       result.editorCancel = center('#cover-editor-cancel');
       result.editorReset = center('#cover-editor-reset');
+      result.disabledSaveCursor = getComputedStyle(document.querySelector('#cover-editor-save')).cursor;
       const report = document.createElement('pre');
       report.id = 'dialog-layout-report';
       report.textContent = JSON.stringify(result);
@@ -183,8 +194,20 @@ test('settings and game information keep button and file text vertically centere
     const result = readLayoutProbe(file, 1280, 'dialog-layout-report');
     assert.equal(result.artVisible, true, 'desktop game details should show the cover');
     assert.ok(result.attachedArtGap <= 1, 'cover should attach to the information panel');
+    assert.equal(result.stableArt, true, 'file list must not resize the cover');
+    assert.equal(result.artFooterVisible, true, 'desktop artwork footer must fill remaining panel space');
+    assert.equal(result.detailsBounded, true, 'expanded files should not grow the artwork panel indefinitely');
+    assert.equal(result.detailsScrollable, true, 'expanded files should scroll inside the details panel');
+    assert.equal(result.titleInputCentered, true, 'title input text should use the centered input line');
+    assert.equal(result.disabledSaveCursor, 'not-allowed', 'disabled cover save must not show a loading cursor');
     delete result.artVisible;
     delete result.attachedArtGap;
+    delete result.stableArt;
+    delete result.artFooterVisible;
+    delete result.detailsBounded;
+    delete result.detailsScrollable;
+    delete result.titleInputCentered;
+    delete result.disabledSaveCursor;
     for (const [name, difference] of Object.entries(result)) {
       assert.ok(difference <= 1.5, `${name} text is vertically off-center by ${difference}px`);
     }

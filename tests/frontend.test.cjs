@@ -183,6 +183,8 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(ui.element('game-details-path').textContent, '/GameShelf/Alpha');
   assert.equal(ui.element('game-details-size').textContent, '1.0 KB');
   assert.equal(ui.element('game-details-files').textContent, '2');
+  assert.equal(ui.element('game-details-download').href, '/download/alpha');
+  assert.match(ui.element('game-details-download-summary').textContent, /2 files/);
   assert.equal(ui.element('game-details-cover').textContent, 'Available');
   assert.match(ui.element('game-details-added').textContent, /2026/);
   ui.click('game-details-close');
