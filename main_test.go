@@ -605,6 +605,39 @@ func TestZIPOmitsSymlinksAndKeepsOrdinaryFiles(t *testing.T) {
 	}
 }
 
+func TestCollidingGameIDsKeepZIPsInTheirOwnFolders(t *testing.T) {
+	setupLibrary(t)
+	secret := filepath.Join(t.TempDir(), "secret.txt")
+	if err := os.WriteFile(secret, []byte("outside secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Star Wars", "Star_Wars"} {
+		writeGame(t, name)
+		gameDir := filepath.Join(rootDir, name)
+		if err := os.WriteFile(filepath.Join(gameDir, "game.txt"), []byte(name), 0644); err != nil {
+			t.Fatal(err)
+		}
+		requireSymlink(t, secret, filepath.Join(gameDir, "leak.txt"))
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	ids := indexedIDs(t)
+	if ids["Star Wars"] == ids["Star_Wars"] {
+		t.Fatalf("colliding folders share an ID: %#v", ids)
+	}
+	for name, id := range ids {
+		w := httptest.NewRecorder()
+		handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/"+id, nil))
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s ZIP status = %d", name, w.Code)
+		}
+		if got := zipContents(t, w.Body.Bytes()); !reflect.DeepEqual(got, map[string]string{"game.txt": name}) {
+			t.Fatalf("%s ZIP contents = %#v", name, got)
+		}
+	}
+}
+
 func TestFolderCoverRejectsLinksAndNonregularFiles(t *testing.T) {
 	for _, kind := range []string{"symlink", "directory"} {
 		t.Run(kind, func(t *testing.T) {
