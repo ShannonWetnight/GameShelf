@@ -72,12 +72,20 @@ function app(
     assert.ok(elements.has(id), `Missing HTML element: ${id}`);
     return elements.get(id);
   };
-  document.createElement = () => new Element();
+  document.createElement = () => {
+    const element = new Element();
+    element.click = () => { element.clicked = true; };
+    element.remove = () => { element.removed = true; };
+    return element;
+  };
   document.querySelectorAll = () => [];
   const requests = [];
   const timers = new Map();
   let timerId = 0;
+  const downloads = [];
+  const revoked = [];
   const context = vm.createContext({
+    URL: { createObjectURL: blob => { downloads.push(blob); return "blob:backup"; }, revokeObjectURL: url => revoked.push(url) },
     document, matchMedia: () => ({ matches: reducedMotion }), localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value)
@@ -94,13 +102,13 @@ function app(
       }
       return new Promise((resolve, reject) => {
         requests.push({ url, resolve, reject });
-        options.signal.addEventListener('abort', () => reject(new Error('Aborted')));
+        options?.signal?.addEventListener('abort', () => reject(new Error('Aborted')));
       });
     }
   });
   vm.runInContext(source, context);
   return {
-    requests, document, storage, element: id => elements.get(id),
+    requests, document, storage, downloads, revoked, element: id => elements.get(id),
     hidden: id => elements.get(id).classList.contains('hidden'),
     cards: () => elements.get('games-container').children,
     start: () => document.emit('DOMContentLoaded'),
@@ -535,3 +543,56 @@ test('successful refresh to an empty library removes stale cards and shows setup
   assert.equal(ui.hidden('search-hint'), true);
   assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
 });
+
+
+
+test('backup export waits for the complete response, prevents duplicate requests and releases its URL', async () => {
+  const ui = app();
+  ui.start();
+  const pending = ui.click('export-library-data');
+  assert.equal(ui.element('export-library-data').disabled, true);
+  assert.match(ui.element('library-backup-status').textContent, /Preparing/);
+  ui.click('export-library-data');
+  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup').length, 1);
+  let finish;
+  ui.requests.find(request => request.url === '/api/library-backup').resolve({
+    ok: true,
+    headers: { get: name => name === 'Content-Type' ? 'application/zip' : '123' },
+    blob: () => new Promise(resolve => { finish = resolve; })
+  });
+  await settle();
+  assert.equal(ui.downloads.length, 0);
+  const blob = { size: 123 };
+  finish(blob);
+  await pending;
+  assert.deepEqual(ui.downloads, [blob]);
+  assert.equal(ui.element('export-library-data').disabled, false);
+  assert.match(ui.element('library-backup-status').textContent, /download started/);
+  const link = ui.document.body.children.at(-1);
+  assert.equal(link.download, 'gameshelf-library-backup.zip');
+  assert.equal(link.clicked, true);
+  assert.equal(link.removed, true);
+  ui.tick(60000);
+  assert.deepEqual(ui.revoked, ['blob:backup']);
+});
+
+for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
+  test(`backup ${failure} failure shows a retryable error without downloading`, async () => {
+    const ui = app();
+    ui.start();
+    const pending = ui.click('export-library-data');
+    const request = ui.requests.find(request => request.url === '/api/library-backup');
+    if (failure === 'network') request.reject(new Error('offline'));
+    else request.resolve({
+      ok: failure !== 'http', status: 503,
+      headers: { get: name => name === 'Content-Type' ? (failure === 'wrong-type' ? 'text/plain' : 'application/zip') : '123' },
+      blob: async () => { if (failure === 'body') throw new Error('interrupted'); return { size: 12 }; }
+    });
+    await pending;
+    assert.equal(ui.downloads.length, 0);
+    assert.equal(ui.element('export-library-data').disabled, false);
+    assert.match(ui.element('library-backup-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
+    ui.click('export-library-data');
+    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup').length, 2);
+  });
+}

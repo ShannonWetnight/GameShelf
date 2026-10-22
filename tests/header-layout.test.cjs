@@ -141,7 +141,7 @@ test('settings and game information keep button and file text vertically centere
         return Math.abs((text.top + text.bottom - box.top - box.bottom) / 2);
       };
       document.querySelector('#settings-dialog').showModal();
-      const exportText = center('.gs-settings-backup a');
+      const exportText = center('.gs-settings-backup button');
       document.querySelector('#settings-dialog').close();
       document.querySelector('#game-details-added').textContent = 'Oct 21, 2026';
       document.querySelector('#game-files-list').innerHTML =
@@ -261,3 +261,4 @@ test('narrow screens keep controls and game cards within the viewport', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+

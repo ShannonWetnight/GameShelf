@@ -623,21 +623,91 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	state, err := readLibraryMetadata()
+	w.Header().Set("Cache-Control", "no-store")
+	file, size, err := prepareLibraryBackup()
 	if err != nil {
 		log.Printf("library backup unavailable: %v", err)
-		http.Error(w, "Library backup is unavailable. Check the container logs.", http.StatusServiceUnavailable)
+		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
 		return
+	}
+	defer func() {
+		file.Close()
+		os.Remove(file.Name())
+	}()
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-library-backup.zip"`)
+	w.Header().Set("Content-Length", fmt.Sprint(size))
+	if _, err := io.Copy(w, file); err != nil {
+		log.Printf("send library backup: %v", err)
+		// Abort the connection rather than finish a truncated successful response.
+		panic(http.ErrAbortHandler)
+	}
+}
+
+// Stage a complete ZIP on disk, keeping memory usage independent of artwork size.
+// Serialize with scans, title edits and uploads only until the snapshot is ready.
+func prepareLibraryBackup() (*os.File, int64, error) {
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+
+	// /data is already writable in containers with a read-only root filesystem.
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
+		return nil, 0, err
+	}
+	file, err := os.CreateTemp(dataDir, ".library-backup-*.zip")
+	if err != nil {
+		return nil, 0, err
+	}
+	ready := false
+	defer func() {
+		if !ready {
+			file.Close()
+			os.Remove(file.Name())
+		}
+	}()
+	if err := writeLibraryBackup(file); err != nil {
+		return nil, 0, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, 0, err
+	}
+	ready = true
+	return file, info.Size(), nil
+}
+
+// Use the same containment rules as cover serving while preparing backups.
+func openUploadedCoverForBackup(dirName, coverPath string) (*os.File, error) {
+	if coverPath != customCoverPath(dirName) && coverPath != legacyCustomCoverPath(dirName) {
+		return nil, fmt.Errorf("unsupported uploaded cover path")
+	}
+	root, err := os.OpenRoot(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	rel, err := filepath.Rel(dataDir, coverPath)
+	if err != nil {
+		return nil, err
+	}
+	file, _, err := openRegularFile(root, rel)
+	return file, err
+}
+
+// The caller serializes metadata and artwork changes with refreshMu.
+func writeLibraryBackup(dst io.Writer) error {
+	state, err := readLibraryMetadata()
+	if err != nil {
+		return err
 	}
 	contents, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		http.Error(w, "Library backup is unavailable.", http.StatusServiceUnavailable)
-		return
+		return err
 	}
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-library-backup.zip"`)
-	w.Header().Set("Cache-Control", "no-store")
-	archive := zip.NewWriter(w)
+	archive := zip.NewWriter(dst)
 	stateFile, err := archive.Create("library-state.json")
 	if err == nil {
 		_, err = stateFile.Write(append(contents, '\n'))
@@ -652,18 +722,20 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	gamesMu.RUnlock()
 	if err == nil {
 		for dirName, coverPath := range customCovers {
-			file, openErr := os.Open(coverPath)
+			file, openErr := openUploadedCoverForBackup(dirName, coverPath)
 			if openErr != nil {
-				err = openErr
+				err = fmt.Errorf("open uploaded cover for %q: %w", dirName, openErr)
 				break
 			}
-			member, createErr := archive.Create(path.Join("covers", dirName, "cover.png"))
-			if createErr == nil {
-				_, createErr = io.Copy(member, file)
+			member, copyErr := archive.Create(path.Join("covers", dirName, "cover.png"))
+			if copyErr == nil {
+				_, copyErr = io.Copy(member, file)
 			}
-			file.Close()
-			if createErr != nil {
-				err = createErr
+			if closeErr := file.Close(); copyErr == nil {
+				copyErr = closeErr
+			}
+			if copyErr != nil {
+				err = fmt.Errorf("copy uploaded cover for %q: %w", dirName, copyErr)
 				break
 			}
 		}
@@ -671,9 +743,7 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	if closeErr := archive.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		log.Printf("write library backup: %v", err)
-	}
+	return err
 }
 
 func handleGameTitle(w http.ResponseWriter, r *http.Request) {
@@ -1113,3 +1183,4 @@ func sanitizeFilename(name string) string {
 	s = strings.NewReplacer("/", "-", "\\", "-", ":", "-", `"`, "'", "\r", "", "\n", "").Replace(s)
 	return s
 }
+

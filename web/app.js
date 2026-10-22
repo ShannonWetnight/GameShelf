@@ -53,6 +53,40 @@ async function loadVersion() {
   }
 }
 
+async function exportLibraryData() {
+  const button = document.getElementById('export-library-data');
+  const status = document.getElementById('library-backup-status');
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = 'Preparing library backup…';
+  let downloadURL;
+  try {
+    const res = await fetch('/api/library-backup', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (res.headers.get('Content-Type') !== 'application/zip') throw new Error('Invalid backup response');
+    const backup = await res.blob();
+    const expectedSize = Number(res.headers.get('Content-Length'));
+    if (!backup.size || !Number.isSafeInteger(expectedSize) || expectedSize !== backup.size) {
+      throw new Error('Incomplete backup response');
+    }
+    downloadURL = URL.createObjectURL(backup);
+    const link = document.createElement('a');
+    link.href = downloadURL;
+    link.download = 'gameshelf-library-backup.zip';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    status.textContent = 'Library backup download started.';
+  } catch (err) {
+    console.error('Library backup failed', err);
+    status.textContent = 'Library backup failed. No backup was downloaded. Check the container logs and try again.';
+  } finally {
+    // Give the browser time to start consuming the object URL before releasing it.
+    if (downloadURL) setTimeout(() => URL.revokeObjectURL(downloadURL), 60000);
+    button.disabled = false;
+  }
+}
+
 async function fetchGames(isRefresh = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
@@ -848,6 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsDialog.showModal();
     slowAnimationsInput.focus();
   });
+  document.getElementById('export-library-data').addEventListener('click', exportLibraryData);
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
   document.getElementById('toggle-game-files').addEventListener('click', toggleGameFiles);
@@ -1009,3 +1044,4 @@ document.addEventListener('DOMContentLoaded', () => {
   updateActiveSort();
   applyViewMode();
 });
+

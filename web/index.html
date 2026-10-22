@@ -166,8 +166,9 @@
         <strong>Library Data Backup</strong>
         <small>Download saved dates, titles, and uploaded covers.</small>
       </span>
-      <a href="/api/library-backup" download="gameshelf-library-backup.zip"><span class="gs-control-label">Export Data</span></a>
+      <button id="export-library-data" type="button"><span class="gs-control-label">Export Data</span></button>
     </div>
+    <p id="library-backup-status" role="status" aria-live="polite"></p>
     <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>
   </dialog>
 
@@ -223,3 +224,4 @@
   <script src="/app.js"></script>
 </body>
 </html>
+
