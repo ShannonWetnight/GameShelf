@@ -278,7 +278,7 @@ function openGameDetails(game, trigger, card) {
     if (dialog.open) return;
     if (openingCoverEditor) { openingCoverEditor = false; return; }
     trigger.blur();
-    card.classList.add('gs-hover-suppressed');
+    card.classList.remove('gs-hover-suppressed');
   }, { once: true });
 }
 

@@ -697,6 +697,20 @@ func openUploadedCoverForBackup(dirName, coverPath string) (*os.File, error) {
 	return file, err
 }
 
+func openFolderCoverForBackup(entry gameEntry) (*os.File, error) {
+	root, err := openGameRoot(&entry)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	rel, err := filepath.Rel(filepath.Join(rootDir, entry.DirName), entry.CoverPath)
+	if err != nil {
+		return nil, err
+	}
+	file, _, err := openRegularFile(root, rel)
+	return file, err
+}
+
 // The caller serializes metadata and artwork changes with refreshMu.
 func writeLibraryBackup(dst io.Writer) error {
 	state, err := readLibraryMetadata()
@@ -713,21 +727,29 @@ func writeLibraryBackup(dst io.Writer) error {
 		_, err = stateFile.Write(append(contents, '\n'))
 	}
 	gamesMu.RLock()
-	customCovers := make(map[string]string)
+	covers := make([]gameEntry, 0)
 	for _, entry := range gamesMap {
-		if entry.Game.CoverSource == "uploaded" {
-			customCovers[entry.DirName] = entry.CoverPath
+		if entry.Game.HasCover && entry.CoverPath != "" && entry.Game.CoverSource != "placeholder" {
+			covers = append(covers, *entry)
 		}
 	}
 	gamesMu.RUnlock()
 	if err == nil {
-		for dirName, coverPath := range customCovers {
-			file, openErr := openUploadedCoverForBackup(dirName, coverPath)
+		for _, entry := range covers {
+			var file *os.File
+			var openErr error
+			archiveName := path.Join("covers", entry.DirName, "cover.png")
+			if entry.Game.CoverSource == "uploaded" {
+				file, openErr = openUploadedCoverForBackup(entry.DirName, entry.CoverPath)
+			} else {
+				file, openErr = openFolderCoverForBackup(entry)
+				archiveName = path.Join("folder-covers", entry.DirName, filepath.Base(entry.CoverPath))
+			}
 			if openErr != nil {
-				err = fmt.Errorf("open uploaded cover for %q: %w", dirName, openErr)
+				err = fmt.Errorf("open cover for %q: %w", entry.DirName, openErr)
 				break
 			}
-			member, copyErr := archive.Create(path.Join("covers", dirName, "cover.png"))
+			member, copyErr := archive.Create(archiveName)
 			if copyErr == nil {
 				_, copyErr = io.Copy(member, file)
 			}
@@ -735,7 +757,7 @@ func writeLibraryBackup(dst io.Writer) error {
 				copyErr = closeErr
 			}
 			if copyErr != nil {
-				err = fmt.Errorf("copy uploaded cover for %q: %w", dirName, copyErr)
+				err = fmt.Errorf("copy cover for %q: %w", entry.DirName, copyErr)
 				break
 			}
 		}

@@ -130,7 +130,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.downloadSuppressed, true);
     assert.equal(result.downloadPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.downloadRestored, true);
-    assert.equal(result.suppressed, true);
+    assert.equal(result.suppressed, false);
     assert.equal(result.closedPointer, result.touchLayout ? 'auto' : 'none');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

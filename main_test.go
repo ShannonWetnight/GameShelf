@@ -513,6 +513,34 @@ func TestLibraryBackupRestoresMetadataAndArtwork(t *testing.T) {
 	}
 }
 
+func TestLibraryBackupIncludesFolderCoversWithoutPlaceholders(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "With Cover")
+	writeGame(t, "No Cover")
+	cover := []byte("folder cover bytes")
+	if err := os.WriteFile(filepath.Join(rootDir, "With Cover", "cover.jpg"), cover, 0644); err != nil { t.Fatal(err) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup", nil))
+	if w.Code != http.StatusOK { t.Fatalf("backup status = %d: %s", w.Code, w.Body.String()) }
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil { t.Fatal(err) }
+	got := make(map[string]bool)
+	for _, member := range archive.File {
+		got[member.Name] = true
+		if member.Name == "folder-covers/With Cover/cover.jpg" {
+			f, err := member.Open()
+			if err != nil { t.Fatal(err) }
+			contents, err := io.ReadAll(f)
+			f.Close()
+			if err != nil || !bytes.Equal(contents, cover) { t.Fatalf("folder cover changed: %v", err) }
+		}
+	}
+	if !got["folder-covers/With Cover/cover.jpg"] || !got["library-state.json"] || len(got) != 2 {
+		t.Fatalf("unexpected archive contents: %v", got)
+	}
+}
+
 func TestHandleGameFilesIsScopedToSelectedGame(t *testing.T) {
 	setupLibrary(t)
 	writeGame(t, "Alpha")

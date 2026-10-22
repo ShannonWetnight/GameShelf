@@ -187,7 +187,7 @@ test('cover actions download the game and open read-only details', async () => {
   assert.match(ui.element('game-details-added').textContent, /2026/);
   ui.click('game-details-close');
   assert.equal(ui.element('game-details-dialog').open, false);
-  assert.equal(card.classList.contains('gs-hover-suppressed'), true);
+  assert.equal(card.classList.contains('gs-hover-suppressed'), false);
   assert.notEqual(card.focused, true);
 });
 
