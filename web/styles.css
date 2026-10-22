@@ -1444,17 +1444,17 @@ body {
 .gs-control-label { display: inline-block; transform: translateY(-1px); }
 .gs-details-dialog { width: min(760px, calc(100vw - 32px)); padding: 0; overflow: hidden; }
 .gs-details-layout { display: grid; grid-template-columns: minmax(210px, 250px) minmax(0, 1fr); max-height: calc(100vh - 34px); }
-.gs-details-art { position: relative; min-height: 430px; background: radial-gradient(circle at 50% 35%, #263759, #0a1324 75%); border-right: 1px solid var(--border-subtle); overflow: hidden; }
-.gs-details-art img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.gs-details-art { position: relative; align-self: start; width: 100%; aspect-ratio: 2 / 3; background: radial-gradient(circle at 50% 35%, #263759, #0a1324 75%); border-right: 1px solid var(--border-subtle); overflow: hidden; }
+.gs-details-art img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
 .gs-details-art.gs-no-cover img { display: none; }
 .gs-show-placeholders .gs-details-art.gs-no-cover img { display: block; object-fit: contain; }
 .gs-details-art #game-details-image-title { display: none; }
 .gs-details-art.gs-no-cover #game-details-image-title { position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; font-weight: 650; overflow-wrap: anywhere; }
 .gs-show-placeholders .gs-details-art.gs-no-cover #game-details-image-title { display: none; }
 .gs-details-content { min-width: 0; overflow-y: auto; padding: 1.25rem; }
-.gs-cover-save-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0.75rem; }
-.gs-cover-save-actions { display: flex; align-items: center; gap: 8px; }
-.gs-cover-save-actions .gs-detail-action { min-height: 38px; }
+.gs-cover-save-row { display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; margin-top: 0.75rem; }
+.gs-cover-save-actions { display: flex; align-items: center; gap: 0.7rem; }
+.gs-cover-save-row > button, .gs-cover-save-actions > button { box-sizing: border-box; min-width: 68px; height: 38px; min-height: 38px; padding: 0 0.8rem; display: inline-flex; align-items: center; justify-content: center; line-height: 1; font: 600 0.85rem var(--font-sans); }
 .gs-cover-cancel { min-height: 38px; padding: 0.5rem 0.8rem; border: 1px solid #ca5964; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: 600 0.85rem var(--font-sans); cursor: pointer; }
 .gs-cover-cancel:hover, .gs-cover-cancel:focus-visible { background: rgba(202, 89, 100, 0.12); border-color: #ee7682; }
 .gs-cover-preview { position: relative; width: min(100%, 280px); margin: 0.75rem auto; }
@@ -1472,11 +1472,27 @@ body {
 .gs-grid.gs-spotlight .gs-card:not(.gs-hover-suppressed):hover { transform: none; }
 .gs-spotlight-actions { gap: 8px; }
 .gs-spotlight-nav { display: flex; align-items: center; justify-content: center; gap: 8px; }
-.gs-spotlight-nav .gs-return-button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; gap: 8px; padding: 6px 12px; font-size: 1rem; line-height: 1; }
-.gs-spotlight-nav .gs-reroll-button { width: 48px; padding: 6px; }
+.gs-spotlight-nav .gs-return-button { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: 40px; min-height: 40px; gap: 8px; padding: 0 12px; font-size: 0.85rem; line-height: 1; }
+.gs-spotlight-nav .gs-reroll-button { width: 40px; padding: 0; }
 .gs-reroll-button svg { display: block; width: 32px; height: 32px; color: var(--text-muted); fill: none; }
 .gs-reroll-button svg rect { fill: var(--bg-elevated); stroke: currentColor; stroke-width: 1.8; }
 .gs-reroll-button svg circle { fill: currentColor; }
+/* Shared control geometry and hover color for dialogs and card actions. */
+.gs-details-list > div { min-height: 48px; padding-block: 0.45rem; }
+.gs-details-list dt, .gs-details-list dd { margin: 0; line-height: 1.25; }
+.gs-detail-action { line-height: 1; }
+#edit-game-cover { min-height: 36px; padding: 0 0.65rem; }
+.gs-card-info { border-color: rgba(174, 190, 219, 0.42); }
+.gs-card-info:hover, .gs-card-info:focus-visible,
+.gs-icon-button:hover, .gs-icon-button:focus-visible,
+.gs-detail-action:hover, .gs-detail-action:focus-visible,
+.gs-button:not(:disabled):hover, .gs-button:not(:disabled):focus-visible,
+.gs-cover-preview-upload:hover, .gs-cover-preview-upload:focus-visible {
+  background: rgba(249, 178, 52, 0.5);
+  border-color: var(--accent);
+  color: #1a1304;
+  filter: none;
+}
 @media (max-width: 700px) {
   .gs-details-dialog { width: min(420px, calc(100vw - 32px)); overflow: auto; }
   .gs-details-layout { display: block; max-height: none; }
