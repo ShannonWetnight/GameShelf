@@ -10,7 +10,12 @@ let loadError = false;
 let retryRefresh = false;
 
 let currentSort = 'all';
-let recentDays = Math.max(1, Number(localStorage.getItem('gameshelf:recent-days')) || 30);
+const storedRecentDays = Number(localStorage.getItem('gameshelf:recent-days'));
+const legacyRecentRange = storedRecentDays === 3650 && !localStorage.getItem('gameshelf:recent-days-v2');
+let recentDays = !legacyRecentRange && Number.isInteger(storedRecentDays) && storedRecentDays >= 1 && storedRecentDays <= 3650 ? storedRecentDays : 7;
+if (legacyRecentRange) localStorage.setItem('gameshelf:recent-days', '7');
+localStorage.setItem('gameshelf:recent-days-v2', 'true');
+let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
 let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
 let favoritePending = null;
@@ -39,6 +44,48 @@ let editorReturnGame = null;
 let editorGridTimer;
 
 const cardMap = new Map(); // game.id -> card element
+const openDialogs = new Set();
+const observedDialogs = new WeakSet();
+const saveFeedbackTimers = new WeakMap();
+let notificationTimer;
+
+function openModal(dialog) {
+  if (!observedDialogs.has(dialog)) {
+    dialog.addEventListener('close', () => {
+      openDialogs.delete(dialog);
+      if (openDialogs.size === 0) {
+        document.body.classList.remove('gs-modal-open');
+        document.documentElement?.classList.remove('gs-modal-open');
+      }
+    });
+    observedDialogs.add(dialog);
+  }
+  dialog.showModal();
+  openDialogs.add(dialog);
+  document.body.classList.add('gs-modal-open');
+  document.documentElement?.classList.add('gs-modal-open');
+}
+
+function showNotification(message) {
+  const banner = document.getElementById('notification-banner');
+  const detailsDialog = document.getElementById('game-details-dialog');
+  if (detailsDialog.open) detailsDialog.appendChild(banner);
+  else document.body.appendChild(banner);
+  document.getElementById('notification-text').textContent = message;
+  clearTimeout(notificationTimer);
+  banner.hidden = false;
+  if (banner.showPopover && !banner.matches(':popover-open')) banner.showPopover();
+  banner.classList.remove('gs-notification-visible');
+  void banner.offsetWidth;
+  banner.classList.add('gs-notification-visible');
+  notificationTimer = setTimeout(() => { if (banner.hidePopover && banner.matches(':popover-open')) banner.hidePopover(); banner.hidden = true; banner.classList.remove('gs-notification-visible'); document.body.appendChild(banner); }, 3500);
+}
+
+function showSaveFeedback(button) {
+  clearTimeout(saveFeedbackTimers.get(button));
+  button.classList.add('is-saved');
+  saveFeedbackTimers.set(button, setTimeout(() => button.classList.remove('is-saved'), 1100));
+}
 
 /* =============================
    Data Fetching
@@ -128,7 +175,7 @@ function openFavoriteConfirm(game) {
   document.getElementById('favorite-question').textContent = `${adding ? 'Add' : 'Remove'} this game ${adding ? 'to' : 'from'} favorites?`;
   document.getElementById('favorite-confirm').textContent = adding ? 'Add' : 'Remove';
   document.getElementById('favorite-status').textContent = '';
-  document.getElementById('favorite-dialog').showModal();
+  openModal(document.getElementById('favorite-dialog'));
 }
 
 async function saveFavorite() {
@@ -199,10 +246,10 @@ function animateControl(button) {
 
 const sortIconPaths = {
   all: '<path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>',
-  az: '<path d="M3 5h8M3 5v7m0 0 8-7M3 12h8M3 17h8l-8 5h8M18 4v16m0 0-3-3m3 3 3-3"/>',
-  za: '<path d="M3 5h8l-8 7h8M3 17h8M3 17v5m0 0 8-5M18 20V4m0 0-3 3m3-3 3 3"/>',
-  'size-desc': '<path d="M4 5h12M4 10h9M4 15h6M19 4v16m0 0-3-3m3 3 3-3"/>',
-  'size-asc': '<path d="M4 5h6M4 10h9M4 15h12M19 20V4m0 0-3 3m3-3 3 3"/>',
+  az: '<path d="m2.5 10 4-8 4 8M4 7h5M2.5 14h8l-8 8h8M18 3v18m-4-4 4 4 4-4"/>',
+  za: '<path d="M2.5 2h8l-8 8h8m-8 12 4-8 4 8M4 19h5M18 21V3m-4 4 4-4 4 4"/>',
+  'size-desc': '<path d="M3 5h11M3 10h8M3 15h5M18 3v18m-4-4 4 4 4-4"/>',
+  'size-asc': '<path d="M3 5h5M3 10h8M3 15h11M18 21V3m-4 4 4-4 4 4"/>',
   favorites: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
   recent: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
 };
@@ -372,7 +419,7 @@ function openGameDetails(game, trigger, card) {
   favorite.textContent = game.favorite ? '★' : '☆';
   document.getElementById('game-details-favorite-mobile').textContent = favorite.textContent;
   favorite.setAttribute('aria-label', game.favorite ? 'Remove from favorites' : 'Add to favorites');
-  dialog.showModal();
+  openModal(dialog);
   document.getElementById('game-details-close').focus();
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
@@ -389,7 +436,7 @@ async function toggleGameFiles() {
   if (!detailsGameId) return;
   const game = gamesCache.find(item => item.id === detailsGameId);
   document.getElementById('game-files-title').textContent = `Files: ${game?.name || 'Game'}`;
-  dialog.showModal();
+  openModal(dialog);
 
   fileListController?.abort();
   const controller = new AbortController();
@@ -454,6 +501,9 @@ function drawCoverEditor() {
 }
 
 function openCoverEditor(game) {
+  const save = document.getElementById('cover-editor-save');
+  clearTimeout(saveFeedbackTimers.get(save));
+  save.classList.remove('is-saved');
   editorReturnGame = game;
   editorGame = game;
   editorImage = null;
@@ -471,7 +521,7 @@ function openCoverEditor(game) {
   document.getElementById('cover-editor-save').disabled = true;
   openingCoverEditor = true;
   document.getElementById('game-details-dialog').close();
-  document.getElementById('cover-editor-dialog').showModal();
+  openModal(document.getElementById('cover-editor-dialog'));
   drawCoverEditor();
   if (game.hasCover) {
     const image = new Image();
@@ -602,6 +652,8 @@ function bindCoverEditor() {
   save.addEventListener('click', async () => {
     if (!editorGame || !editorImage || save.disabled) return;
     const game = editorGame;
+    const openVersion = editorOpenVersion;
+    const isCurrentSession = () => dialog.open && editorOpenVersion === openVersion;
     save.disabled = true;
     status.textContent = 'Saving cover…';
     try {
@@ -620,9 +672,12 @@ function bindCoverEditor() {
       oldCard.replaceWith(newCard);
       cardMap.set(game.id, newCard);
       applySearchFilter();
+      if (!isCurrentSession()) return;
       status.textContent = 'Cover saved.';
-      dialog.close();
+      showSaveFeedback(save);
+      setTimeout(() => { if (isCurrentSession()) dialog.close(); }, 850);
     } catch (error) {
+      if (!isCurrentSession()) return;
       status.textContent = 'Could not save cover. Please try again.';
       save.disabled = false;
     }
@@ -896,6 +951,18 @@ async function loadGames(isRefresh = false) {
    ============================= */
 document.addEventListener('DOMContentLoaded', () => {
   const uiWindow = typeof window === 'undefined' ? { scrollY: 0, matchMedia: () => ({ matches: false }), scrollTo: () => {} } : window;
+  const themeMedia = uiWindow.matchMedia('(prefers-color-scheme: dark)');
+  const themeSelect = document.getElementById('theme-select');
+  if (!['system', 'classic', 'light', 'dark'].includes(themePreference)) themePreference = 'system';
+  function applyTheme() {
+    const theme = themePreference === 'system' ? (themeMedia.matches ? 'classic' : 'light') : themePreference;
+    if (document.documentElement) document.documentElement.dataset.theme = theme;
+    document.body.dataset.theme = theme;
+    themeSelect.value = themePreference;
+  }
+  applyTheme();
+  themeMedia.addEventListener?.('change', () => { if (themePreference === 'system') applyTheme(); });
+  themeSelect.addEventListener('change', () => { themePreference = themeSelect.value; localStorage.setItem('gameshelf:theme', themePreference); applyTheme(); });
   document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars);
   document.body.classList.toggle('gs-favorite-stars-only', favoriteStarsOnly);
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
@@ -941,10 +1008,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (refreshLock || isLoading) return;
 
     clearTimeout(refreshFeedbackTimer);
+    refreshFeedbackTimer = null;
     refreshLock = true;
     logoText.textContent = refreshingText;
+    const stage = document.getElementById('library-stage');
+    stage.classList.add('gs-refreshing');
 
     const succeeded = await loadGames(isRefresh);
+    stage.classList.remove('gs-refreshing');
+    if (succeeded) {
+      stage.classList.remove('gs-home-enter');
+      void stage.offsetWidth;
+      stage.classList.add('gs-home-enter');
+    }
     logoText.textContent = succeeded ? doneText : 'FAILED';
     logoText.classList.toggle('bounce', succeeded);
     refreshLock = false;
@@ -952,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshFeedbackTimer = setTimeout(() => {
       logoText.classList.remove('bounce');
       refreshFeedbackTimer = null;
-      logoText.textContent = refreshHovered || document.activeElement === trigger ? 'REFRESH' : originalText;
+      logoText.textContent = refreshHovered ? 'REFRESH' : originalText;
     }, 1000);
   }
 
@@ -1025,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   settingsButton.addEventListener('click', () => {
     animateControl(settingsButton);
-    settingsDialog.showModal();
+    openModal(settingsDialog);
     slowAnimationsInput.focus();
   });
   const exportDialog = document.getElementById('export-dialog');
@@ -1033,19 +1109,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportAll = document.getElementById('export-all');
   document.getElementById('export-library-data').addEventListener('click', () => {
     exportOptions.replaceChildren();
-    const items = [{ id: 'state', kind: 'state', name: 'library-state.json' }, { id: 'settings', kind: 'settings', name: 'server-settings.json' }, { id: 'logs', kind: 'logs', name: 'logs.txt (recent container activity)' }, ...gamesCache.filter(game => game.hasCover).sort((a, b) => a.name.localeCompare(b.name)).map(game => ({ id: game.id, kind: 'cover', name: `${game.name}/cover image` }))];
-    for (const item of items) {
-      const label = document.createElement('label');
-      label.className = 'gs-settings-option';
-      const input = document.createElement('input');
-      input.type = 'checkbox'; input.value = item.id; input.dataset.kind = item.kind; input.checked = true;
-      input.addEventListener('change', () => { const options = [...exportOptions.querySelectorAll('input')]; exportAll.checked = options.every(option => option.checked); exportAll.indeterminate = !exportAll.checked && options.some(option => option.checked); });
-      label.append(input, document.createTextNode(item.name));
-      exportOptions.appendChild(label);
+    const groups = [
+      { title: 'GameShelf data', items: [{ id: 'state', kind: 'state', name: 'Library state (JSON)' }, { id: 'settings', kind: 'settings', name: 'Server settings (JSON)' }, { id: 'logs', kind: 'logs', name: 'Recent logs (TXT)' }] },
+      { title: 'Cover image archive', items: gamesCache.filter(game => game.hasCover).sort((a, b) => a.name.localeCompare(b.name)).map(game => ({ id: game.id, kind: 'cover', name: game.name })) }
+    ];
+    for (const group of groups) {
+      const section = document.createElement('section');
+      section.className = 'gs-export-section';
+      const heading = document.createElement('h3');
+      heading.textContent = group.title;
+      section.appendChild(heading);
+      if (!group.items.length) {
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'gs-export-empty';
+        emptyMessage.textContent = 'No cover images are available.';
+        section.appendChild(emptyMessage);
+      }
+      for (const item of group.items) {
+        const label = document.createElement('label');
+        label.className = 'gs-settings-option';
+        const input = document.createElement('input');
+        input.type = 'checkbox'; input.value = item.id; input.dataset.kind = item.kind; input.checked = true;
+        input.addEventListener('change', () => { const options = [...exportOptions.querySelectorAll('input')]; exportAll.checked = options.every(option => option.checked); exportAll.indeterminate = !exportAll.checked && options.some(option => option.checked); });
+        label.append(input, document.createTextNode(item.name));
+        section.appendChild(label);
+      }
+      exportOptions.appendChild(section);
     }
     exportAll.checked = true; exportAll.indeterminate = false;
     document.getElementById('export-status').textContent = '';
-    exportDialog.showModal();
+    openModal(exportDialog);
   });
   exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { input.checked = exportAll.checked; }); exportAll.indeterminate = false; });
   document.getElementById('export-confirm').addEventListener('click', exportLibraryData);
@@ -1072,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
   starsOnlyInput.addEventListener('change', event => { favoriteStarsOnly = event.target.checked; localStorage.setItem('gameshelf:favorite-stars-only', String(favoriteStarsOnly)); syncStarSettings(); });
   const daysInput = document.getElementById('recent-days');
   daysInput.value = String(recentDays);
-  daysInput.addEventListener('change', () => { recentDays = Math.max(1, Math.min(3650, Number(daysInput.value) || 30)); daysInput.value = String(recentDays); localStorage.setItem('gameshelf:recent-days', String(recentDays)); applySearchFilter(); });
+  daysInput.addEventListener('change', () => { recentDays = Math.max(1, Math.min(3650, Number(daysInput.value) || 7)); daysInput.value = String(recentDays); localStorage.setItem('gameshelf:recent-days', String(recentDays)); applySearchFilter(); });
   const serverDialog = document.getElementById('server-settings-dialog');
   document.getElementById('open-server-settings').addEventListener('click', () => {
     if (!serverSettings) { document.getElementById('settings-save-status').textContent = 'Server settings are unavailable. Try refreshing.'; return; }
@@ -1080,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('server-data-path').value = serverSettings.dataDir;
     document.getElementById('server-refresh-interval').value = serverSettings.refreshInterval;
     document.getElementById('server-settings-status').textContent = '';
-    serverDialog.showModal();
+    openModal(serverDialog);
   });
   for (const id of ['server-settings-close', 'server-settings-cancel']) document.getElementById(id).addEventListener('click', () => serverDialog.close());
   closeOnBackdropClick(serverDialog);
@@ -1102,7 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     input.disabled = true;
     try {
       await saveServerSettings({ ...serverSettings, verbose: input.checked });
-      document.getElementById('settings-save-status').textContent = 'Logging preference saved.';
+      document.getElementById('settings-save-status').textContent = '';
     } catch { input.checked = !input.checked; document.getElementById('settings-save-status').textContent = 'Could not save logging preference.'; }
     finally { input.disabled = false; }
   });
@@ -1119,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('reset-game-metadata').addEventListener('click', () => {
     document.querySelectorAll('#reset-metadata-options input').forEach(input => { input.checked = false; });
     document.getElementById('reset-metadata-status').textContent = '';
-    resetDialog.showModal();
+    openModal(resetDialog);
   });
   document.getElementById('reset-metadata-next').addEventListener('click', () => {
     const inputs = [...document.querySelectorAll('#reset-metadata-options input:checked')];
@@ -1129,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('reset-confirm-question').textContent = `The following items for “${game?.name || 'this game'}” will be reset: ${inputs.map(input => input.parentElement?.textContent?.trim() || input.value).join(', ')}. Are you sure?`;
     document.getElementById('reset-confirm-status').textContent = '';
     resetDialog.close();
-    resetConfirm.showModal();
+    openModal(resetConfirm);
   });
   document.getElementById('reset-confirm-save').addEventListener('click', async () => {
     const game = gamesCache.find(item => item.id === detailsGameId);
@@ -1157,6 +1250,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
       applySort(); applySearchFilter();
       resetConfirm.close();
+      showNotification('Metadata reset successfully.');
     } catch { document.getElementById('reset-confirm-status').textContent = 'Could not reset metadata. Try again.'; }
     finally { button.disabled = false; }
   });
@@ -1189,6 +1283,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cardMap.set(game.id, newCard);
       applySort();
       applySearchFilter();
+      showSaveFeedback(titleSave);
     } catch {
       titleInput.setCustomValidity('Could not save this title. Try again.');
       titleInput.reportValidity();

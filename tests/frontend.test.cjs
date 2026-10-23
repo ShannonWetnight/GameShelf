@@ -49,13 +49,19 @@ class Element {
   }
   append(...children) { children.forEach(child => this.appendChild(child)); }
   replaceChildren(...children) { this.children = []; this.append(...children); }
-  querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => child.children.filter(item => item.tagName === 'INPUT')) : []; }
+  querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => [child, ...child.querySelectorAll('input')]).filter(item => item.tagName === 'INPUT') : []; }
+  querySelector(selector) {
+    const name = selector.startsWith('.') ? selector.slice(1) : '';
+    return this.children.find(child => child.classList.contains(name)) ||
+      this.children.map(child => child.querySelector(selector)).find(Boolean) || null;
+  }
   set innerHTML(value) { this.children = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
-  addEventListener(event, callback) { this.listeners[event] = callback; }
+  addEventListener(event, callback) { (this.listeners[event] ||= []).push(callback); }
   emit(event, payload = {}) {
-    return this.listeners[event]?.({ target: this, currentTarget: this, stopPropagation() {}, preventDefault() {}, ...payload });
+    const result = { target: this, currentTarget: this, stopPropagation() {}, preventDefault() {}, ...payload };
+    return this.listeners[event]?.map(callback => callback(result)).at(-1);
   }
   blur() { this.focused = false; }
   contains(other) { return this === other || this.children.some(child => child.contains(other)); }
@@ -105,6 +111,7 @@ function app(
     }
     return [];
   };
+  const images = [];
   const requests = [];
   const timers = new Map();
   let timerId = 0;
@@ -116,6 +123,7 @@ function app(
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value)
     },
+    Image: class { constructor() { this.width = 600; this.height = 900; images.push(this); } },
     console: { error() {} }, AbortController,
     setTimeout(callback, delay) {
       timers.set(++timerId, { callback, delay });
@@ -137,7 +145,7 @@ function app(
   });
   vm.runInContext(source, context);
   return {
-    requests, document, storage, downloads, revoked, element: id => elements.get(id),
+    requests, document, storage, downloads, revoked, images, element: id => elements.get(id),
     hidden: id => elements.get(id).classList.contains('hidden'),
     cards: () => elements.get('games-container').children,
     start: () => document.emit('DOMContentLoaded'),
@@ -664,6 +672,70 @@ test('metadata reset reviews selected fields and refreshes the card after saving
   assert.equal(ui.element('reset-confirm-dialog').open, false);
   assert.equal(ui.element('game-details-title').textContent, 'Alpha');
   assert.equal(ui.cards()[0].dataset.name, 'alpha');
+  assert.equal(ui.element('notification-banner').hidden, false);
+  assert.equal(ui.element('notification-text').textContent, 'Metadata reset successfully.');
+});
+
+test('theme and recent range persist, including migration of the old 3650-day setting', () => {
+  const storage = new Map([['gameshelf:recent-days', '3650']]);
+  const ui = app(undefined, storage);
+  ui.start();
+  assert.equal(ui.element('recent-days').value, '7');
+  assert.equal(storage.get('gameshelf:recent-days'), '7');
+  assert.equal(ui.element('theme-select').value, 'system');
+  assert.equal(ui.document.body.dataset.theme, 'light');
+  ui.element('theme-select').value = 'dark';
+  ui.element('theme-select').emit('change');
+  assert.equal(storage.get('gameshelf:theme'), 'dark');
+  assert.equal(ui.document.body.dataset.theme, 'dark');
+  ui.element('recent-days').value = '3650';
+  ui.element('recent-days').emit('change');
+  const next = app(undefined, storage);
+  next.start();
+  assert.equal(next.element('recent-days').value, '3650');
+  assert.equal(next.element('theme-select').value, 'dark');
+});
+
+test('open dialogs lock page scrolling until the final menu closes', () => {
+  const ui = app();
+  ui.start();
+  ui.click('build-info');
+  assert.equal(ui.document.body.classList.contains('gs-modal-open'), true);
+  ui.click('export-library-data');
+  ui.click('export-close');
+  assert.equal(ui.document.body.classList.contains('gs-modal-open'), true);
+  ui.click('settings-close');
+  assert.equal(ui.document.body.classList.contains('gs-modal-open'), false);
+});
+
+test('export groups GameShelf data separately from cover images', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response([{ ...games[0], hasCover: true }]));
+  await settle();
+  ui.click('export-library-data');
+  const groups = ui.element('export-options').children;
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].children[0].textContent, 'GameShelf data');
+  assert.equal(groups[1].children[0].textContent, 'Cover image archive');
+  assert.equal(groups[0].querySelectorAll('input').length, 3);
+  assert.equal(groups[1].querySelectorAll('input').length, 1);
+});
+
+test('refresh feedback returns to the brand when the pointer has left', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.element('gs-refresh-trigger').emit('mouseenter');
+  ui.click('gs-refresh-trigger');
+  ui.element('gs-refresh-trigger').emit('mouseleave');
+  ui.requests[1].resolve(response(games));
+  await settle();
+  assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
+  assert.equal(ui.element('library-stage').classList.contains('gs-home-enter'), true);
+  ui.tick(1000);
+  assert.equal(ui.element('gs-logo-text').textContent, 'GAMESHELF');
 });
 
 
@@ -718,5 +790,85 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     assert.match(ui.element('library-backup-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
     ui.click('export-confirm');
     assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 2);
+  });
+}
+
+
+async function coverEditor() {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games.map(game => ({ ...game, hasCover: true }))));
+  await settle();
+  const canvas = ui.element('cover-editor-canvas');
+  canvas.getContext = () => ({ fillRect() {}, save() {}, translate() {}, rotate() {}, scale() {}, drawImage() {}, restore() {} });
+  canvas.toBlob = callback => callback({ size: 123 });
+  ui.openCover = id => {
+    ui.cards().find(card => card.dataset.id === id).children[0].children[1].children[1].emit('click');
+    ui.click('edit-game-cover');
+    ui.images.at(-1).onload();
+  };
+  ui.openCover('alpha');
+  return ui;
+}
+
+for (const next of ['cancel', 'same game', 'another game']) {
+  test(`cover save delay cannot dismiss a new session after ${next}`, async () => {
+    const ui = await coverEditor();
+    const pending = ui.click('cover-editor-save');
+    await settle();
+    ui.requests.find(request => request.url === '/api/covers/alpha').resolve(response({}));
+    await pending;
+    assert.equal(ui.element('cover-editor-dialog').open, true);
+    assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), true);
+    ui.click('cover-editor-cancel');
+    assert.equal(ui.element('game-details-dialog').open, true);
+    if (next !== 'cancel') {
+      if (next === 'same game') {
+        ui.click('edit-game-cover');
+        ui.images.at(-1).onload();
+      } else {
+        ui.click('game-details-close');
+        ui.openCover('beta');
+      }
+    }
+    ui.tick(850);
+    assert.equal(ui.element('cover-editor-dialog').open, next !== 'cancel');
+    if (next === 'cancel') assert.equal(ui.element('game-details-dialog').open, true);
+    else {
+      assert.equal(ui.element('cover-editor-title').textContent, `Cover Art: ${next === 'same game' ? 'Alpha' : 'Beta'}`);
+      assert.equal(ui.element('cover-editor-save').disabled, false);
+    }
+  });
+}
+
+test('cover save keeps confirmation visible until its normal delayed close', async () => {
+  const ui = await coverEditor();
+  const pending = ui.click('cover-editor-save');
+  await settle();
+  ui.requests.find(request => request.url === '/api/covers/alpha').resolve(response({}));
+  await pending;
+  assert.equal(ui.element('cover-editor-dialog').open, true);
+  assert.equal(ui.element('cover-editor-status').textContent, 'Cover saved.');
+  assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), true);
+  ui.tick(850);
+  assert.equal(ui.element('cover-editor-dialog').open, false);
+});
+
+for (const status of [200, 500]) {
+  test(`late cover upload response (${status}) cannot change a reopened editor`, async () => {
+    const ui = await coverEditor();
+    const pending = ui.click('cover-editor-save');
+    await settle();
+    const upload = ui.requests.find(request => request.url === '/api/covers/alpha');
+    ui.click('cover-editor-cancel');
+    ui.click('game-details-close');
+    ui.openCover('beta');
+    upload.resolve(response({}, status));
+    await pending;
+    assert.equal(ui.element('cover-editor-status').textContent, '');
+    assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), false);
+    assert.equal(ui.element('cover-editor-save').disabled, false);
+    ui.tick(850);
+    assert.equal(ui.element('cover-editor-dialog').open, true);
   });
 }
