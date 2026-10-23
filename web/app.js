@@ -50,6 +50,7 @@ const openDialogs = new Set();
 const observedDialogs = new WeakSet();
 const saveFeedbackTimers = new WeakMap();
 let notificationTimer;
+let notificationHideTimer;
 
 function openModal(dialog) {
   if (!observedDialogs.has(dialog)) {
@@ -74,12 +75,22 @@ function showNotification(message) {
   (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;
   clearTimeout(notificationTimer);
+  clearTimeout(notificationHideTimer);
   banner.hidden = false;
   if (banner.showPopover && !banner.matches(':popover-open')) banner.showPopover();
-  banner.classList.remove('gs-notification-visible');
+  banner.classList.remove('gs-notification-visible', 'gs-notification-leaving');
   void banner.offsetWidth;
   banner.classList.add('gs-notification-visible');
-  notificationTimer = setTimeout(() => { if (banner.hidePopover && banner.matches(':popover-open')) banner.hidePopover(); banner.hidden = true; banner.classList.remove('gs-notification-visible'); document.body.appendChild(banner); }, 3500);
+  notificationTimer = setTimeout(() => {
+    banner.classList.remove('gs-notification-visible');
+    banner.classList.add('gs-notification-leaving');
+    notificationHideTimer = setTimeout(() => {
+      if (banner.hidePopover && banner.matches(':popover-open')) banner.hidePopover();
+      banner.hidden = true;
+      banner.classList.remove('gs-notification-leaving');
+      document.body.appendChild(banner);
+    }, 250);
+  }, 3500);
 }
 
 function showSaveFeedback(button) {
@@ -116,6 +127,7 @@ async function loadServerSettings() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     serverSettings = await response.json();
     document.getElementById('verbose-logging').checked = Boolean(serverSettings.verbose);
+    document.getElementById('logs-setting').classList.toggle('hidden', !serverSettings.verbose);
   } catch {
     document.getElementById('settings-save-status').textContent = 'Could not load server settings.';
   }
@@ -295,9 +307,12 @@ function applyViewMode() {
 
   if (!container || !toggle) return;
 
-  const isList = currentView === 'list' && !suggestedGameId && !isShuffling;
+  const isList = currentView === 'list';
+  const showList = isList && !suggestedGameId && !isShuffling;
 
-  container.classList.toggle('list-view', isList);
+  container.classList.toggle('list-view', showList);
+  if (toggle.dataset.viewMode === currentView) return;
+  toggle.dataset.viewMode = currentView;
   toggle.classList.remove('gs-control-active');
   toggle.setAttribute('aria-label', isList ? 'Switch to grid view' : 'Switch to list view');
   toggle.dataset.tooltip = isList ? 'Switch to grid view' : 'Switch to list view';
@@ -1304,10 +1319,72 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await saveServerSettings({ ...serverSettings, verbose: input.checked });
       document.getElementById('settings-save-status').textContent = '';
+      document.getElementById('logs-setting').classList.toggle('hidden', !input.checked);
       showNotification('Logging preference saved.');
     } catch { input.checked = !input.checked; document.getElementById('settings-save-status').textContent = 'Could not save logging preference.'; }
     finally { input.disabled = false; }
   });
+  const logsDialog = document.getElementById('logs-dialog');
+  const logsContent = document.getElementById('logs-content');
+  const logsStatus = document.getElementById('logs-status');
+  const logsCopy = document.getElementById('logs-copy');
+  const logsDownload = document.getElementById('logs-download');
+  let logsRequestVersion = 0;
+  document.getElementById('view-logs').addEventListener('click', async () => {
+    if (!serverSettings?.verbose) return;
+    const requestVersion = ++logsRequestVersion;
+    logsContent.textContent = '';
+    logsStatus.textContent = 'Loading logs…';
+    logsCopy.disabled = true;
+    logsDownload.disabled = true;
+    openModal(logsDialog);
+    try {
+      const response = await fetch('/api/logs', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const contents = await response.text();
+      if (!logsDialog.open || requestVersion !== logsRequestVersion) return;
+      logsContent.textContent = contents;
+      logsStatus.textContent = contents ? '' : 'No application logs yet.';
+      logsCopy.disabled = !contents;
+      logsDownload.disabled = !contents;
+    } catch {
+      if (logsDialog.open && requestVersion === logsRequestVersion) logsStatus.textContent = 'Could not load logs. Close and try again.';
+    }
+  });
+  logsCopy.addEventListener('click', async () => {
+    if (!logsContent.textContent) return;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(logsContent.textContent);
+      else {
+        const field = document.createElement('textarea');
+        field.value = logsContent.textContent;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        logsDialog.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Copy unavailable');
+      }
+      showNotification('Logs copied.');
+    }
+    catch { logsStatus.textContent = 'Could not copy logs.'; }
+  });
+  logsDownload.addEventListener('click', () => {
+    if (!logsContent.textContent) return;
+    const url = URL.createObjectURL(new Blob([logsContent.textContent], { type: 'text/plain' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'gameshelf-logs.txt';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showNotification('Log download started.');
+  });
+  document.getElementById('logs-close').addEventListener('click', () => logsDialog.close());
+  logsDialog.addEventListener('close', () => { logsRequestVersion++; });
+  closeOnBackdropClick(logsDialog);
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
   document.getElementById('game-details-download-summary').addEventListener('click', toggleGameFiles);

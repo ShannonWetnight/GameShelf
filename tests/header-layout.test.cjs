@@ -17,13 +17,13 @@ const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
   : 'google-chrome');
 
-function readLayoutProbe(file, width, reportId) {
+function readLayoutProbe(file, width, reportId, height = 800) {
   let diagnostic = '';
   for (let attempt = 0; attempt < 2; attempt++) {
     const profile = path.join(path.dirname(file), `chrome-${width}-${attempt}`);
     const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
       '--disable-dev-shm-usage', '--no-first-run', `--user-data-dir=${profile}`,
-      `--window-size=${width},800`, '--virtual-time-budget=2000', '--dump-dom',
+      `--window-size=${width},${height}`, '--virtual-time-budget=2000', '--dump-dom',
       pathToFileURL(file).href], { encoding: 'utf8', timeout: 30000 });
     const match = run.stdout?.match(new RegExp(`<pre id="${reportId}">([^<]+)<\\/pre>`));
     if (run.status === 0 && match) return JSON.parse(match[1]);
@@ -126,6 +126,64 @@ test('header icons remain centered and toolbar buttons share one row', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('settings use three aligned columns except on portrait phones', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-settings-layout-'));
+  try {
+    const probe = `<script>
+      document.querySelector('#settings-dialog').showModal();
+      const sections = [...document.querySelectorAll('#settings-dialog .gs-settings-section')].map(el => el.getBoundingClientRect());
+      const buttons = ['#export-library-data','#open-library-restore','#open-server-settings'].map(selector => document.querySelector(selector).getBoundingClientRect().width);
+      const report = document.createElement('pre'); report.id = 'settings-layout-report';
+      report.textContent = JSON.stringify({columns:sections.map(box => Math.round(box.left)), widths:buttons,
+        checkboxCursor:getComputedStyle(document.querySelector('#verbose-logging')).cursor,
+        dialogWidth:document.querySelector('#settings-dialog').getBoundingClientRect().width,
+        viewportWidth:document.documentElement.clientWidth});
+      document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'settings-layout.html');
+    fs.writeFileSync(file, source);
+    const desktop = readLayoutProbe(file, 1280, 'settings-layout-report');
+    const portrait = readLayoutProbe(file, 390, 'settings-layout-report', 800);
+    const landscape = readLayoutProbe(file, 844, 'settings-layout-report', 390);
+    assert.equal(new Set(desktop.columns).size, 3);
+    assert.equal(new Set(portrait.columns).size, 1);
+    assert.equal(new Set(landscape.columns).size, 3);
+    assert.equal(new Set(desktop.widths.map(Math.round)).size, 1);
+    assert.equal(desktop.checkboxCursor, 'pointer');
+    for (const result of [desktop, portrait, landscape]) assert.ok(result.dialogWidth <= result.viewportWidth, JSON.stringify(result));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('back-to-top button stays outside grid and list card edges', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-scroll-rail-'));
+  try {
+    const probe = `<script>
+      const grid = document.querySelector('#games-container');
+      grid.innerHTML = Array.from({length:8}, (_, i) => '<article class="gs-card" style="height:140px">Game ' + i + '</article>').join('');
+      const button = document.querySelector('#scroll-to-top');
+      button.hidden = false;
+      const buttonLeft = button.getBoundingClientRect().left;
+      const edge = () => Math.max(...[...grid.children].map(card => card.getBoundingClientRect().right));
+      const gridEdge = edge();
+      grid.classList.add('list-view');
+      const listEdge = edge();
+      const report = document.createElement('pre'); report.id = 'scroll-rail-report';
+      report.textContent = JSON.stringify({buttonLeft,gridEdge,listEdge,viewportWidth:document.documentElement.clientWidth});
+      document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'scroll-rail.html');
+    fs.writeFileSync(file, source);
+    for (const width of [420, 844, 1280]) {
+      const result = readLayoutProbe(file, width, 'scroll-rail-report');
+      assert.ok(result.buttonLeft - result.gridEdge >= 12, JSON.stringify(result));
+      assert.ok(result.buttonLeft - result.listEdge >= 12, JSON.stringify(result));
+      assert.ok(result.buttonLeft <= result.viewportWidth, JSON.stringify(result));
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('settings and game information keep button and file text vertically centered', () => {

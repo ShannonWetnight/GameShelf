@@ -102,6 +102,7 @@ func main() {
 	mux.HandleFunc("/api/favorite/", handleFavorite)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
+	mux.HandleFunc("/api/logs", handleLogs)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -1472,6 +1473,14 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func handleLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	if !verboseLogging.Load() { http.Error(w, "Enable verbose logging to view logs", http.StatusForbidden); return }
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(applicationLogs.Snapshot())
 }
 
 type metadataResetRequest struct {

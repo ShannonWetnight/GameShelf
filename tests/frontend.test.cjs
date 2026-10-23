@@ -55,7 +55,7 @@ class Element {
     return this.children.find(child => child.classList.contains(name)) ||
       this.children.map(child => child.querySelector(selector)).find(Boolean) || null;
   }
-  set innerHTML(value) { this.children = []; }
+  set innerHTML(value) { this.children = []; this.htmlWrites = (this.htmlWrites || 0) + 1; }
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
   addEventListener(event, callback) { (this.listeners[event] ||= []).push(callback); }
@@ -117,9 +117,11 @@ function app(
   let timerId = 0;
   const downloads = [];
   const revoked = [];
+  const copied = [];
   const context = vm.createContext({
     URL: { createObjectURL: blob => { downloads.push(blob); return "blob:backup"; }, revokeObjectURL: url => revoked.push(url) }, URLSearchParams,
-    document, matchMedia: () => ({ matches: reducedMotion }), localStorage: {
+    document, Blob, navigator: { clipboard: { writeText: async value => copied.push(value) } },
+    matchMedia: () => ({ matches: reducedMotion }), localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value)
     },
@@ -145,7 +147,7 @@ function app(
   });
   vm.runInContext(source, context);
   return {
-    requests, document, storage, downloads, revoked, images, element: id => elements.get(id),
+    requests, document, storage, downloads, revoked, copied, images, element: id => elements.get(id),
     hidden: id => elements.get(id).classList.contains('hidden'),
     cards: () => elements.get('games-container').children,
     start: () => document.emit('DOMContentLoaded'),
@@ -629,6 +631,62 @@ test('favorites-first defaults on and groups favorites within every sort', async
   ui.element('favorites-first').emit('change');
   assert.equal(storage.get('gameshelf:favorites-first'), 'false');
   assert.deepEqual(ui.cards().map(card => card.dataset.id), ['alpha', 'beta']);
+});
+
+test('dice spotlight keeps the chosen view control unchanged', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('view-toggle');
+  const toggle = ui.element('view-toggle');
+  const writes = toggle.htmlWrites;
+  assert.equal(toggle.dataset.viewMode, 'list');
+  ui.click('random-game');
+  ui.tick(375);
+  ui.tick(687);
+  assert.equal(toggle.dataset.viewMode, 'list');
+  assert.equal(toggle.htmlWrites, writes);
+});
+
+test('notifications fade out before being hidden', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('game-details-download');
+  const banner = ui.element('notification-banner');
+  assert.equal(banner.hidden, false);
+  ui.tick(3500);
+  assert.equal(banner.classList.contains('gs-notification-leaving'), true);
+  assert.equal(banner.hidden, false);
+  ui.tick(250);
+  assert.equal(banner.hidden, true);
+});
+
+test('verbose logs can be viewed, copied, and downloaded', async () => {
+  const ui = app();
+  ui.start();
+  await settle();
+  assert.equal(ui.hidden('logs-setting'), true);
+  const input = ui.element('verbose-logging');
+  input.checked = true;
+  const saving = input.emit('change');
+  ui.requests.find(item => item.url === '/api/server-settings').resolve(response({ restartRequired: false }));
+  await saving;
+  assert.equal(ui.hidden('logs-setting'), false);
+  const opening = ui.click('view-logs');
+  assert.equal(ui.element('logs-dialog').open, true);
+  ui.requests.find(item => item.url === '/api/logs').resolve({ ok: true, text: async () => 'Scan complete\n' });
+  await opening;
+  assert.equal(ui.element('logs-content').textContent, 'Scan complete\n');
+  await ui.click('logs-copy');
+  assert.deepEqual(ui.copied, ['Scan complete\n']);
+  ui.click('logs-download');
+  assert.equal(ui.downloads.length, 1);
+  assert.equal(ui.element('notification-text').textContent, 'Log download started.');
+  ui.click('logs-close');
+  assert.equal(ui.element('logs-dialog').open, false);
 });
 
 test('saving library paths returns to settings and confirms in the banner', async () => {
