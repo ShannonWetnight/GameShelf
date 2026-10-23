@@ -37,8 +37,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Placeholder artwork fallback
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
   - Env to include, optional 
-* [ ] Cache fetched artwork locally
-  - If cached, skip fetch
+  - [ ] If enabled, cache fetched artwork locally and skip the remote fetch when a cached copy exists
 * [x] Add ability to upload and edit cover images from the UI while keeping game folders read-only
 * [x] Export uploaded and available game-folder covers with library data; exclude placeholder artwork
 
