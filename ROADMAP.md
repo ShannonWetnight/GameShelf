@@ -18,9 +18,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Make the header refresh control keyboard-accessible
 * [ ] Add theme support (drop-in CSS files)
 * [x] *(Planned)* Add micro-animations for hover and card transitions
-* [ ] Add optional About/Version info box within game card
-
-* [x] Add a read-only game information panel and show the app version in Settings
+* [x] Add a game-card information button that opens a read-only details panel; show the app version in Settings
 * [x] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
 * [ ] Add a toggle UI effects option
 
@@ -39,8 +37,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Placeholder artwork fallback
 * [ ] *(Planned)* Add optional external artwork fetching (IGDB / RAWG / SteamGridDB)
   - Env to include, optional 
-* [ ] Cache fetched artwork locally
-  - If cached, skip fetch
+  - [ ] If enabled, cache fetched artwork locally and skip the remote fetch when a cached copy exists
 * [x] Add ability to upload and edit cover images from the UI while keeping game folders read-only
 * [x] Export uploaded and available game-folder covers with library data; exclude placeholder artwork
 
@@ -50,7 +47,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add date-added sorting once its meaning and data source are defined
 
 * [x] Persist each game's first-seen date in a local JSON state file outside the read-only library
-* [x] Export saved first-seen dates from Settings for backup
+* [x] Save GameShelf-only title edits alongside first-seen dates without changing game folders
+* [x] Export saved first-seen dates, title edits, and artwork from Settings for backup
 * [ ] Add client-side filtering (genre, developer, year)
 * [ ] Add “Recently Added” section
 * [x] Add functional search bar
