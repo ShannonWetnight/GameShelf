@@ -197,6 +197,23 @@ function animateControl(button) {
   button.classList.add('gs-control-feedback');
 }
 
+const sortIconPaths = {
+  all: '<path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>',
+  az: '<path d="M3 5h8M3 5v7m0 0 8-7M3 12h8M3 17h8l-8 5h8M18 4v16m0 0-3-3m3 3 3-3"/>',
+  za: '<path d="M3 5h8l-8 7h8M3 17h8M3 17v5m0 0 8-5M18 20V4m0 0-3 3m3-3 3 3"/>',
+  'size-desc': '<path d="M4 5h12M4 10h9M4 15h6M19 4v16m0 0-3-3m3 3 3-3"/>',
+  'size-asc': '<path d="M4 5h6M4 10h9M4 15h12M19 20V4m0 0-3 3m3-3 3 3"/>',
+  favorites: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z"/>',
+  recent: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+};
+
+function updateSortIcon(sort) {
+  const button = document.getElementById('sort-button');
+  const symbol = sortIconPaths[sort] || sortIconPaths.all;
+  button.innerHTML = `<svg class="${sort === 'all' ? '' : 'gs-sort-symbol'}" viewBox="0 0 24 24" aria-hidden="true">${symbol}</svg>`;
+  animateControl(button);
+}
+
 function fuzzyMatch(haystack, needle) {
   if (!needle) return true;
 
@@ -664,6 +681,7 @@ function applySearchFilter() {
   const hint = document.getElementById('empty-hint');
   const title = document.getElementById('empty-title');
   const searchHint = document.getElementById('search-hint');
+  const filterHint = document.getElementById('filter-hint');
 
   let visibleCount = 0;
 
@@ -684,9 +702,12 @@ function applySearchFilter() {
   });
 
   const emptyLibrary = gamesCache.length === 0;
-  title.textContent = emptyLibrary ? 'No games found!' : 'No matching games!';
+  const hasSearch = currentSearch.length > 0;
+  title.textContent = emptyLibrary ? 'No games found!' : hasSearch ? 'No matching games!' : currentSort === 'favorites' ? 'No favorites yet' : currentSort === 'recent' ? 'No recently added games' : 'No games in this view';
   hint.classList.toggle('hidden', !emptyLibrary);
-  searchHint.classList.toggle('hidden', emptyLibrary);
+  searchHint.classList.toggle('hidden', emptyLibrary || !hasSearch);
+  filterHint.classList.toggle('hidden', emptyLibrary || hasSearch);
+  filterHint.textContent = currentSort === 'favorites' ? 'Add a game to favorites to see it here.' : currentSort === 'recent' ? 'Try a longer Recently Added range in Settings.' : '';
   empty.classList.toggle('hidden', isLoading || loadError || !hasLoadedGames || visibleCount > 0);
   document.getElementById('clear-search').classList.toggle('hidden', currentSearch.length === 0);
 }
@@ -874,6 +895,7 @@ async function loadGames(isRefresh = false) {
    DOM bindings
    ============================= */
 document.addEventListener('DOMContentLoaded', () => {
+  const uiWindow = typeof window === 'undefined' ? { scrollY: 0, matchMedia: () => ({ matches: false }), scrollTo: () => {} } : window;
   document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars);
   document.body.classList.toggle('gs-favorite-stars-only', favoriteStarsOnly);
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
@@ -908,6 +930,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let refreshLock = false;
   let refreshFeedbackTimer;
+  let refreshHovered = false;
+
+  trigger.addEventListener('mouseenter', () => { refreshHovered = true; if (!refreshLock && !refreshFeedbackTimer) logoText.textContent = 'REFRESH'; });
+  trigger.addEventListener('mouseleave', () => { refreshHovered = false; if (!refreshLock && !refreshFeedbackTimer) logoText.textContent = originalText; });
+  trigger.addEventListener('focus', () => { if (!refreshLock && !refreshFeedbackTimer) logoText.textContent = 'REFRESH'; });
+  trigger.addEventListener('blur', () => { if (!refreshLock && !refreshFeedbackTimer) logoText.textContent = originalText; });
 
   async function runRefresh(isRefresh = true) {
     if (refreshLock || isLoading) return;
@@ -923,22 +951,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshFeedbackTimer = setTimeout(() => {
       logoText.classList.remove('bounce');
-      logoText.textContent = originalText;
+      refreshFeedbackTimer = null;
+      logoText.textContent = refreshHovered || document.activeElement === trigger ? 'REFRESH' : originalText;
     }, 1000);
   }
 
   trigger.addEventListener('click', () => runRefresh());
   document.getElementById('gs-home-trigger').addEventListener('click', () => {
-    clearSuggestion();
-    clearSearch();
-    currentSort = 'all';
-    currentView = 'grid';
-    localStorage.setItem('gameshelf:view', currentView);
-    document.getElementById('sort-heading').classList.add('hidden');
-    applySort();
-    applyViewMode();
-    applySearchFilter();
+    const resetHome = () => {
+      clearSuggestion();
+      clearSearch();
+      currentSort = 'all';
+      currentView = 'grid';
+      localStorage.setItem('gameshelf:view', currentView);
+      document.getElementById('sort-heading').classList.add('hidden');
+      document.getElementById('sort-menu').classList.add('hidden');
+      document.getElementById('sort-button').classList.remove('gs-control-active');
+      document.body.classList.remove('gs-sort-open');
+      updateSortIcon('all');
+      applySort();
+      applyViewMode();
+      applySearchFilter();
+    };
+    if (document.startViewTransition && !uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(resetHome);
+    else {
+      resetHome();
+      const stage = document.getElementById('library-stage');
+      stage.classList.remove('gs-home-enter');
+      void stage.offsetWidth;
+      stage.classList.add('gs-home-enter');
+    }
+    uiWindow.scrollTo({ top: 0, behavior: uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
+  const scrollTopButton = document.getElementById('scroll-to-top');
+  const syncScrollTop = () => { scrollTopButton.hidden = uiWindow.scrollY < 420; };
+  uiWindow.addEventListener?.('scroll', syncScrollTop, { passive: true });
+  syncScrollTop();
+  scrollTopButton.addEventListener('click', () => uiWindow.scrollTo({ top: 0, behavior: uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
   document.getElementById('retry-button').addEventListener('click', () => runRefresh(retryRefresh));
 
   const randomButton = document.getElementById('random-game');
@@ -1111,9 +1160,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch { document.getElementById('reset-confirm-status').textContent = 'Could not reset metadata. Try again.'; }
     finally { button.disabled = false; }
   });
-  for (const id of ['reset-metadata-close', 'reset-metadata-cancel']) document.getElementById(id).addEventListener('click', () => resetDialog.close());
+  document.getElementById('reset-metadata-close').addEventListener('click', () => resetDialog.close());
   document.getElementById('reset-confirm-close').addEventListener('click', () => resetConfirm.close());
-  document.getElementById('reset-confirm-cancel').addEventListener('click', () => { resetConfirm.close(); resetDialog.showModal(); });
   closeOnBackdropClick(resetDialog); closeOnBackdropClick(resetConfirm);
   const titleInput = document.getElementById('game-title-input');
   const titleSave = document.getElementById('save-game-title');
@@ -1216,6 +1264,7 @@ document.addEventListener('DOMContentLoaded', () => {
   sortButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       currentSort = btn.dataset.sort;
+      updateSortIcon(currentSort);
       updateActiveSort();
       sortMenu.classList.add('hidden');
       sortButton.classList.remove('gs-control-active');

@@ -285,6 +285,7 @@ body {
   height: 32px;
   fill: var(--text-muted);
 }
+.gs-sort-button svg.gs-sort-symbol { fill: none; stroke: var(--text-muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .gs-sort-menu {
   position: absolute;
@@ -1000,7 +1001,6 @@ body {
 .gs-no-cover .gs-card-cover {
   background: radial-gradient(circle at 50% 35%, #263759, #0a1324 75%);
 }
-
 .gs-show-placeholders .gs-no-cover .gs-card-cover { background: #222; }
 
 .gs-no-cover .gs-card-cover img { display: none; }
@@ -1582,3 +1582,41 @@ body {
 .gs-settings-backup button:disabled { opacity: 0.6; cursor: wait; }
 #library-backup-status { font-size: 0.85rem; overflow-wrap: anywhere; }
 #library-backup-status:empty { display: none; }
+
+/* Settings are grouped by task, with one quiet surface per group. */
+#settings-dialog { width: min(520px, calc(100vw - 32px)); }
+#settings-dialog .gs-settings-header { margin-bottom: 1.2rem; }
+.gs-settings-section { margin: 0 0 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; background: rgba(8, 16, 30, .45); }
+.gs-settings-section h3 { margin: 0; padding: .8rem 1rem .45rem; color: var(--accent); font-size: .77rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+#settings-dialog .gs-settings-section .gs-settings-option,
+#settings-dialog .gs-settings-section .gs-settings-backup { margin: 0; padding: .75rem 1rem; border: 0; border-radius: 0; }
+#settings-dialog .gs-settings-section > :not(h3) + :not(h3) { border-top: 1px solid rgba(174, 190, 219, .1); }
+#settings-dialog .gs-settings-section .gs-settings-option:not(.gs-settings-number-option) { flex-direction: row-reverse; align-items: center; justify-content: space-between; }
+#settings-dialog .gs-settings-section .gs-settings-option > span { display: grid; gap: .2rem; min-width: 0; }
+#settings-dialog .gs-settings-section .gs-settings-option input[type="checkbox"] { flex: none; width: 18px; height: 18px; margin: 0 0 0 1rem; accent-color: var(--accent); }
+#settings-dialog .gs-settings-section .gs-settings-suboption { padding-left: 2rem; background: rgba(255,255,255,.015); }
+#settings-dialog .gs-settings-section .gs-settings-number-option { display: grid; grid-template-columns: minmax(0,1fr) 5.8rem auto; gap: .6rem; align-items: center; }
+#settings-dialog .gs-settings-section .gs-settings-number-option input { width: 100%; }
+#settings-dialog .gs-settings-section .gs-settings-backup { gap: 1rem; }
+#settings-dialog .gs-settings-section .gs-settings-backup > span { min-width: 0; }
+#settings-dialog .gs-settings-version { margin: .25rem 0 0; font-size: .75rem; color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* List controls live on a transparent carrier, including for games without art. */
+.gs-grid.list-view .gs-no-cover .gs-card-cover,
+.gs-show-placeholders .gs-grid.list-view .gs-no-cover .gs-card-cover { background: transparent; box-shadow: none; }
+.gs-grid.list-view .gs-card-cover { flex: 0 0 auto; }
+.gs-grid.list-view .gs-card-actions { position: static; inset: auto; width: auto; height: auto; }
+
+.gs-scroll-to-top { position: fixed; z-index: 20; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vw, 2rem); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(174,190,219,.42); border-radius: 12px; background: rgba(10,18,32,.94); color: var(--text); box-shadow: var(--shadow-soft); cursor: pointer; transition: opacity .18s ease, transform .18s ease, background .18s ease; }
+.gs-scroll-to-top[hidden] { display: none; }
+.gs-scroll-to-top:hover, .gs-scroll-to-top:focus-visible { background: rgba(249,178,52,.75); border-color: var(--accent); color: #1a1304; transform: translateY(-3px); }
+.gs-scroll-to-top svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gs-home-enter { animation: gs-home-enter .26s ease-out; }
+@keyframes gs-home-enter { from { opacity: .35; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.gs-danger-action, .gs-metadata-reset { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 82px; height: 40px; padding: 0 .85rem; border: 1px solid #ca5964; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: 600 .85rem var(--font-sans); line-height: 1; cursor: pointer; }
+.gs-danger-action:hover, .gs-danger-action:focus-visible, .gs-metadata-reset:hover, .gs-metadata-reset:focus-visible { background: rgba(202,89,100,.12); border-color: #ee7682; color: var(--text); }
+.gs-danger-action:disabled { opacity: .55; cursor: not-allowed; }
+.gs-reset-dialog .gs-export-actions > button { height: 40px; min-height: 40px; }
+.gs-reset-dialog p { overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .gs-home-enter, .gs-control-feedback svg { animation: none; } .gs-scroll-to-top { transition: none; } }

@@ -121,6 +121,7 @@
     <section id="empty-state" class="gs-empty hidden" role="status">
       <h2 id="empty-title">No games found!</h2>
       <p id="search-hint" class="hidden">Try a different search or press Escape to clear it.</p>
+      <p id="filter-hint" class="hidden"></p>
 
       <!-- Subheader to be omitted during search function-->
       <p id="empty-hint" class="gs-empty-hint">
@@ -129,11 +130,14 @@
     </section>
   </main>
 
+  <button id="scroll-to-top" class="gs-scroll-to-top" type="button" aria-label="Scroll to top" title="Scroll to top" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5m0 0-6 6m6-6 6 6"/></svg></button>
+
   <dialog id="settings-dialog" class="gs-settings-dialog" aria-labelledby="settings-title">
     <div class="gs-settings-header">
       <h2 id="settings-title">Settings</h2>
       <button id="settings-close" class="gs-settings-close" type="button" aria-label="Close settings">×</button>
     </div>
+    <section class="gs-settings-section" aria-labelledby="settings-display-title"><h3 id="settings-display-title">Appearance</h3>
     <label class="gs-settings-option">
       <input id="slow-animations" type="checkbox">
       <span>
@@ -162,9 +166,13 @@
         <small>Use the GameShelf image for games without cover art.</small>
       </span>
     </label>
+    </section>
+    <section class="gs-settings-section" aria-labelledby="settings-library-title"><h3 id="settings-library-title">Library view</h3>
     <label class="gs-settings-option"><input id="show-favorite-stars" type="checkbox"><span><strong>Show favorite stars on cards</strong><small>Allow favorites to be changed from grid and list cards.</small></span></label>
     <label class="gs-settings-option gs-settings-suboption" id="favorite-only-option"><input id="favorite-stars-only" type="checkbox" checked><span><strong>Show only on favorited cards</strong><small>Hide the star on cards that are not favorites.</small></span></label>
     <label class="gs-settings-option gs-settings-number-option"><span><strong>Recently Added range</strong><small>How many days count as recently added.</small></span><input id="recent-days" type="number" min="1" max="3650" value="30" aria-label="Recently Added range in days"><span class="gs-settings-unit">days</span></label>
+    </section>
+    <section class="gs-settings-section" aria-labelledby="settings-data-title"><h3 id="settings-data-title">Data and diagnostics</h3>
     <div class="gs-settings-backup">
       <span>
         <strong>Library Data Backup</strong>
@@ -174,6 +182,7 @@
     </div>
     <div class="gs-settings-backup"><span><strong>Library Paths and Refresh</strong><small>Change paths already available inside this container and the scan interval.</small></span><button id="open-server-settings" type="button">Configure</button></div>
     <label class="gs-settings-option"><input id="verbose-logging" type="checkbox"><span><strong>Verbose logging</strong><small>Record detailed scan and download activity in the container log.</small></span></label>
+    </section>
     <p id="settings-save-status" role="status"></p>
     <p id="library-backup-status" role="status" aria-live="polite"></p>
     <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>
@@ -227,8 +236,8 @@
   <dialog id="export-dialog" class="gs-settings-dialog gs-export-dialog" aria-labelledby="export-title"><div class="gs-settings-header"><h2 id="export-title">Export Data</h2><button id="export-close" class="gs-settings-close" type="button" aria-label="Close export options">×</button></div><label class="gs-settings-option"><input id="export-all" type="checkbox" checked><span><strong>Select all</strong></span></label><div id="export-options" class="gs-export-options"></div><p id="export-status" role="status"></p><div class="gs-export-actions"><button id="export-cancel" class="gs-detail-action" type="button">Cancel</button><button id="export-confirm" class="gs-button" type="button">Export</button></div></dialog>
   <dialog id="favorite-dialog" class="gs-settings-dialog gs-confirm-dialog" aria-labelledby="favorite-title"><div class="gs-settings-header"><h2 id="favorite-title">Favorites</h2><button id="favorite-close" class="gs-settings-close" type="button" aria-label="Close favorite confirmation">×</button></div><p id="favorite-question"></p><p id="favorite-status" role="status"></p><div class="gs-export-actions"><button id="favorite-cancel" class="gs-detail-action" type="button">Cancel</button><button id="favorite-confirm" class="gs-button" type="button">Confirm</button></div></dialog>
   <dialog id="game-files-dialog" class="gs-settings-dialog gs-files-dialog" aria-labelledby="game-files-title"><div class="gs-settings-header"><h2 id="game-files-title">Files</h2><button id="game-files-close" class="gs-settings-close" type="button" aria-label="Close files">×</button></div><div id="game-files-panel" class="gs-files-panel"><p id="game-files-status" role="status"></p><ul id="game-files-list"></ul></div></dialog>
-  <dialog id="reset-metadata-dialog" class="gs-settings-dialog gs-export-dialog" aria-labelledby="reset-metadata-title"><div class="gs-settings-header"><h2 id="reset-metadata-title">Reset Metadata</h2><button id="reset-metadata-close" class="gs-settings-close" type="button" aria-label="Close metadata reset">×</button></div><p>Select what to restore for this game. Date Added remains the original first-seen date.</p><div id="reset-metadata-options" class="gs-export-options"><label class="gs-settings-option"><input type="checkbox" value="title"><span><strong>GameShelf Title</strong></span></label><label class="gs-settings-option"><input type="checkbox" value="cover"><span><strong>Cover Art</strong></span></label><label class="gs-settings-option"><input type="checkbox" value="favorite"><span><strong>Favorite</strong></span></label></div><p id="reset-metadata-status" role="status"></p><div class="gs-export-actions"><button id="reset-metadata-cancel" class="gs-detail-action" type="button">Cancel</button><button id="reset-metadata-next" class="gs-button" type="button">Review Reset</button></div></dialog>
-  <dialog id="reset-confirm-dialog" class="gs-settings-dialog gs-confirm-dialog" aria-labelledby="reset-confirm-title"><div class="gs-settings-header"><h2 id="reset-confirm-title">Confirm Reset</h2><button id="reset-confirm-close" class="gs-settings-close" type="button" aria-label="Close reset confirmation">×</button></div><p id="reset-confirm-question"></p><p id="reset-confirm-status" role="status"></p><div class="gs-export-actions"><button id="reset-confirm-cancel" class="gs-detail-action" type="button">Cancel</button><button id="reset-confirm-save" class="gs-detail-action gs-title-save" type="button" aria-label="Save metadata reset"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l3 3v15H4zM7 3v7h9V3M7 21v-8h10v8"/></svg></button></div></dialog>
+  <dialog id="reset-metadata-dialog" class="gs-settings-dialog gs-export-dialog gs-reset-dialog" aria-labelledby="reset-metadata-title"><div class="gs-settings-header"><h2 id="reset-metadata-title">Reset Metadata</h2><button id="reset-metadata-close" class="gs-settings-close" type="button" aria-label="Close metadata reset">×</button></div><p>Select what to restore for this game. Date Added remains the original first-seen date.</p><div id="reset-metadata-options" class="gs-export-options"><label class="gs-settings-option"><input type="checkbox" value="title"><span><strong>GameShelf Title</strong></span></label><label class="gs-settings-option"><input type="checkbox" value="cover"><span><strong>Cover Art</strong></span></label><label class="gs-settings-option"><input type="checkbox" value="favorite"><span><strong>Favorite</strong></span></label></div><p id="reset-metadata-status" role="status"></p><div class="gs-export-actions"><button id="reset-metadata-next" class="gs-danger-action" type="button">Reset</button></div></dialog>
+  <dialog id="reset-confirm-dialog" class="gs-settings-dialog gs-confirm-dialog gs-reset-dialog" aria-labelledby="reset-confirm-title"><div class="gs-settings-header"><h2 id="reset-confirm-title">Confirm Reset</h2><button id="reset-confirm-close" class="gs-settings-close" type="button" aria-label="Close reset confirmation">×</button></div><p id="reset-confirm-question"></p><p id="reset-confirm-status" role="status"></p><div class="gs-export-actions"><button id="reset-confirm-save" class="gs-danger-action" type="button">Confirm</button></div></dialog>
   <dialog id="server-settings-dialog" class="gs-settings-dialog gs-server-dialog" aria-labelledby="server-settings-title"><div class="gs-settings-header"><h2 id="server-settings-title">Library Paths and Refresh</h2><button id="server-settings-close" class="gs-settings-close" type="button" aria-label="Close server settings">×</button></div><label class="gs-server-field">Game library path<input id="server-root-path" type="text" spellcheck="false"></label><label class="gs-server-field">Data path<input id="server-data-path" type="text" spellcheck="false"></label><label class="gs-server-field">Refresh interval<input id="server-refresh-interval" type="text" spellcheck="false" placeholder="12h or 0 to disable"></label><p class="gs-settings-help">Paths must already be mounted in the container. Changing the data path does not move existing saved data.</p><p id="server-settings-status" role="status"></p><div class="gs-export-actions"><button id="server-settings-cancel" class="gs-detail-action" type="button">Cancel</button><button id="server-settings-save" class="gs-button" type="button">Save</button></div></dialog>
 
   <script src="/app.js"></script>
