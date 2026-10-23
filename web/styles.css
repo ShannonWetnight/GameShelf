@@ -51,7 +51,7 @@ body {
     0 0 6px #f69500aa;
 }
 
-.gs-refresh:hover .gs-logo-icon {
+.gs-home-trigger:hover .gs-logo-icon {
   opacity: 1;
   transform: scale(1.05);
 }
@@ -96,6 +96,10 @@ body {
   color: inherit;
   font: inherit;
 }
+
+.gs-brand { display: flex; align-items: center; gap: 10px; }
+.gs-home-trigger { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.gs-home-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 
 .gs-refresh:focus-visible,
 .gs-search-clear:focus-visible {
@@ -699,7 +703,7 @@ body {
 #cover-editor-status { min-height: 1.3em; color: var(--text-muted); font-size: 0.8rem; }
 #cover-editor-save { min-height: 38px; }
 
-.gs-settings-option input {
+.gs-settings-option input[type="checkbox"] {
   width: 18px;
   height: 18px;
   margin: 0.15rem 0 0;
@@ -1515,7 +1519,35 @@ body {
 .gs-favorite-star { position: absolute; z-index: 2; top: 0.75rem; left: 0.75rem; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(174,190,219,.42); border-radius: 50%; background: rgba(5,9,16,.75); color: var(--accent); font-size: 1.35rem; line-height: 1; cursor: pointer; }
 .gs-favorite-star:hover, .gs-favorite-star:focus-visible { background: rgba(249,178,52,.75); color: #1a1304; border-color: var(--accent); }
 #game-details-favorite-mobile { display: none; }
-.gs-hide-favorite-stars .gs-card .gs-favorite-star, .gs-grid.list-view .gs-favorite-star { display: none; }
+.gs-hide-favorite-stars .gs-card .gs-favorite-star,
+.gs-favorite-stars-only .gs-card[data-favorite="false"] .gs-favorite-star { display: none; }
+.gs-settings-suboption { margin-left: 1.4rem; }
+.gs-settings-suboption.gs-disabled { opacity: .48; cursor: not-allowed; }
+.gs-settings-number-option { align-items: center; cursor: default; }
+.gs-settings-number-option > span:first-child { flex: 1; min-width: 0; }
+.gs-settings-number-option input[type="number"] { box-sizing: border-box; width: 5.8rem; height: 38px; flex: none; margin: 0; padding: 0 .5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: #0a1324; color: var(--text); font: inherit; text-align: center; }
+.gs-settings-unit { flex: none; color: var(--text-muted); font-size: .8rem; }
+.gs-file-summary { border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: .78rem; cursor: pointer; min-height: 28px; }
+.gs-file-summary:hover, .gs-file-summary:focus-visible { color: var(--accent); text-decoration: underline; }
+.gs-details-art-footer { flex: none; min-height: 96px; justify-content: center; gap: .25rem; padding: .7rem 1rem; }
+.gs-details-content { position: relative; scrollbar-gutter: stable; }
+.gs-metadata-reset { margin-top: auto; align-self: flex-end; min-height: 38px; }
+.gs-mobile-files { display: none; }
+.gs-files-dialog { width: min(680px, calc(100vw - 32px)); }
+.gs-files-dialog .gs-files-panel { max-height: min(60vh, 550px); }
+.gs-server-field { display: grid; gap: .35rem; margin-top: .75rem; font-size: .85rem; }
+.gs-server-field input { box-sizing: border-box; width: 100%; min-height: 38px; padding: 0 .6rem; background: #0a1324; color: var(--text); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font: inherit; }
+.gs-settings-help { color: var(--text-muted); font-size: .8rem; }
+.gs-control-feedback svg { animation: gs-view-morph 170ms ease-out; transform-origin: center; }
+.gs-grid.list-view .gs-card-cover { display: flex; align-items: center; gap: .5rem; }
+.gs-grid.list-view .gs-favorite-star { position: static; flex: none; width: 42px; height: 42px; border-radius: 50%; }
+.gs-grid.list-view .gs-card-actions { order: 2; gap: .5rem; align-items: center; padding: 0; }
+.gs-grid.list-view .gs-card-info { order: 0; }
+.gs-grid.list-view .gs-card-download { order: 1; }
+.gs-grid.list-view .gs-card-cover > .gs-favorite-star { order: 0; }
+.gs-grid.list-view .gs-card-actions { order: 1; }
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover .gs-favorite-star,
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):focus-within .gs-favorite-star { opacity: .65; }
 .gs-export-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
 .gs-export-options { display: grid; gap: 0.5rem; max-height: min(45vh, 360px); overflow-y: auto; margin-top: 0.5rem; }
 .gs-export-options .gs-settings-option { margin: 0; overflow-wrap: anywhere; }
@@ -1527,6 +1559,7 @@ body {
   .gs-details-layout { display: block; height: auto; max-height: none; }
   .gs-details-art { display: none; }
   .gs-details-content { overflow: visible; }
+  .gs-mobile-files { display: inline-flex; margin-top: .8rem; align-self: stretch; }
 }
 @media (hover: none) { .gs-cover-preview-upload { opacity: 1; } }
 

@@ -105,7 +105,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
       'gear artwork is horizontally off-center within its SVG');
     assert.ok(Math.abs(boxes.gearArtwork.cy - boxes.gearArtwork.viewportCy) <= 0.5,
       'gear artwork is vertically off-center within its SVG');
-    const toolbar = ['#random-game', '#sort-button', '#view-toggle', '#build-info'];
+    const toolbar = ['#sort-button', '#view-toggle', '#random-game', '#build-info'];
     for (const button of toolbar) {
       assert.ok(Math.abs(boxes[button].cy - boxes['#search-input'].cy) <= 1,
         `${button} is not aligned with the search field`);
@@ -116,7 +116,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
     const firstGap = boxes[toolbar[0]].x -
       (boxes['#search-input'].x + boxes['#search-input'].width);
     assert.ok(Math.abs(firstGap - controlGap) <= 1,
-      'search and dice gap differs from the toolbar spacing');
+      'search and sort gap differs from the toolbar spacing');
     for (let i = 1; i < toolbar.length; i++) {
       const gap = boxes[toolbar[i]].x -
         (boxes[toolbar[i - 1]].x + boxes[toolbar[i - 1]].width);
@@ -144,29 +144,28 @@ test('settings and game information keep button and file text vertically centere
       const exportText = center('.gs-settings-backup button');
       document.querySelector('#settings-dialog').close();
       document.querySelector('#game-details-added').textContent = 'Oct 21, 2026';
+      document.querySelector('#game-details-download-summary').textContent = '4 files · 207.5 KB ZIP';
       document.querySelector('#game-files-list').innerHTML =
         '<li><span>Extras/patch-notes.txt</span><span>57 B</span><a href="#">↓</a></li>'.repeat(8);
       document.querySelector('#game-details-dialog').showModal();
       const downloadBox = document.querySelector('#game-details-download').getBoundingClientRect();
-      const showBox = document.querySelector('#toggle-game-files').getBoundingClientRect();
-      const alignedDetailActions = Math.abs((downloadBox.top + downloadBox.bottom - showBox.top - showBox.bottom) / 2);
+      const summaryBox = document.querySelector('#game-details-download-summary').getBoundingClientRect();
       const imageFrame = document.querySelector('.gs-details-art-frame');
       const frameBefore = imageFrame.getBoundingClientRect();
-      document.querySelector('#game-files-panel').classList.remove('hidden');
+      document.querySelector('#game-files-dialog').showModal();
       const frameAfter = imageFrame.getBoundingClientRect();
+      document.querySelector('#game-files-dialog').close();
       const result = { exportText, dateText: center('#game-details-added'),
         fileName: center('#game-files-list li span:first-child'),
         fileSize: center('#game-files-list li span:nth-child(2)'),
         fileDownload: center('#game-files-list li a'),
-        showFiles: center('#toggle-game-files'),
+        showFiles: center('#game-details-download-summary'),
         coverAction: center('#edit-game-cover') };
       result.stableArt = Math.abs(frameBefore.width - frameAfter.width) <= 1 &&
         Math.abs(frameBefore.height - frameAfter.height) <= 1;
       result.artFooterVisible = document.querySelector('.gs-details-art-footer').getBoundingClientRect().height >= 72;
-      result.alignedDetailActions = alignedDetailActions;
+      result.summaryBelowDownload = summaryBox.top >= downloadBox.bottom;
       result.detailsBounded = document.querySelector('.gs-details-layout').getBoundingClientRect().height <= 480.5;
-      result.detailsScrollable = document.querySelector('.gs-details-content').scrollHeight >
-        document.querySelector('.gs-details-content').clientHeight;
       result.titleInputCentered = getComputedStyle(document.querySelector('#game-title-input')).lineHeight === '34px';
       const centerDifference = (inner, outer) => {
         const a = document.querySelector(inner).getBoundingClientRect();
@@ -200,18 +199,16 @@ test('settings and game information keep button and file text vertically centere
     assert.ok(result.attachedArtGap <= 1, 'cover should attach to the information panel');
     assert.equal(result.stableArt, true, 'file list must not resize the cover');
     assert.equal(result.artFooterVisible, true, 'desktop artwork footer must fill remaining panel space');
-    assert.ok(result.alignedDetailActions <= 2, `Show Files and Download Game differ by ${result.alignedDetailActions}px`);
-    assert.equal(result.detailsBounded, true, 'expanded files should not grow the artwork panel indefinitely');
-    assert.equal(result.detailsScrollable, true, 'expanded files should scroll inside the details panel');
+    assert.equal(result.summaryBelowDownload, true, 'file count should follow Download Game');
+    assert.equal(result.detailsBounded, true, 'files dialog should not grow the artwork panel');
     assert.equal(result.titleInputCentered, true, 'title input text should use the centered input line');
     assert.equal(result.disabledSaveCursor, 'not-allowed', 'disabled cover save must not show a loading cursor');
     delete result.artVisible;
     delete result.attachedArtGap;
     delete result.stableArt;
     delete result.artFooterVisible;
-    delete result.alignedDetailActions;
+    delete result.summaryBelowDownload;
     delete result.detailsBounded;
-    delete result.detailsScrollable;
     delete result.titleInputCentered;
     delete result.disabledSaveCursor;
     for (const [name, difference] of Object.entries(result)) {
@@ -276,7 +273,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
     }
     assert.ok(result.search.top >= result.logo.bottom,
       'mobile search should sit below the logo');
-    const controls = [result.random, result.sort, result.view, result.info];
+    const controls = [result.sort, result.view, result.random, result.info];
     assert.ok(controls.every(box => box.top >= result.search.bottom),
       'mobile buttons should sit below the full-width search field');
     assert.ok(controls.every(box => Math.abs(box.top - controls[0].top) <= 1),
@@ -289,5 +286,36 @@ test('narrow screens keep controls and game cards within the viewport', () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('recent-days input has usable dimensions and list star actions align', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-settings-list-'));
+  try {
+    const probe = `<script>
+      document.querySelector('#settings-dialog').showModal();
+      const days = document.querySelector('#recent-days').getBoundingClientRect();
+      const option = document.querySelector('.gs-settings-number-option').getBoundingClientRect();
+      document.querySelector('#settings-dialog').close();
+      const grid = document.querySelector('#games-container');
+      grid.classList.add('list-view');
+      grid.innerHTML = '<article class="gs-card" data-favorite="true"><div class="gs-card-cover"><img><div class="gs-card-actions"><a class="gs-icon-button gs-card-download">↓</a><button class="gs-card-info">i</button></div><button class="gs-favorite-star">★</button></div><div class="gs-card-body"><div class="gs-card-content"><h3 class="gs-card-title">Game</h3></div></div></article>';
+      const box = selector => document.querySelector(selector).getBoundingClientRect();
+      const star = box('.gs-card .gs-favorite-star'), info = box('.gs-card-info'), download = box('.gs-card-download'), card = box('.gs-card');
+      const result = { daysWidth: days.width, daysHeight: days.height, daysInside: days.right < option.right && days.left > option.left,
+        ordered: star.right < info.left && info.right < download.left,
+        equalGaps: Math.abs((info.left - star.right) - (download.left - info.right)),
+        aligned: Math.max(Math.abs((star.top + star.bottom - info.top - info.bottom) / 2), Math.abs((info.top + info.bottom - download.top - download.bottom) / 2)),
+        insideCard: star.top >= card.top && download.bottom <= card.bottom };
+      const report = document.createElement('pre'); report.id = 'settings-list-report'; report.textContent = JSON.stringify(result); document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'settings-list.html');
+    fs.writeFileSync(file, source);
+    const result = readLayoutProbe(file, 1280, 'settings-list-report');
+    assert.ok(result.daysWidth >= 70 && result.daysHeight >= 36 && result.daysInside, `recent-days input: ${JSON.stringify(result)}`);
+    assert.equal(result.ordered, true, 'star, info, download order');
+    assert.ok(result.equalGaps <= 2, `list action gaps differ by ${result.equalGaps}px`);
+    assert.ok(result.aligned <= 2 && result.insideCard, `list action alignment: ${JSON.stringify(result)}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

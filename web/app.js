@@ -9,10 +9,12 @@ let hasLoadedGames = false;
 let loadError = false;
 let retryRefresh = false;
 
-let currentSort = 'az';
+let currentSort = 'all';
 let recentDays = Math.max(1, Number(localStorage.getItem('gameshelf:recent-days')) || 30);
-let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') !== 'false';
+let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
+let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
 let favoritePending = null;
+let serverSettings = null;
 let currentSearch = '';
 let suggestedGameId = null;
 let shuffleGameId = null;
@@ -56,6 +58,25 @@ async function loadVersion() {
   }
 }
 
+async function loadServerSettings() {
+  try {
+    const response = await fetch('/api/server-settings', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    serverSettings = await response.json();
+    document.getElementById('verbose-logging').checked = Boolean(serverSettings.verbose);
+  } catch {
+    document.getElementById('settings-save-status').textContent = 'Could not load server settings.';
+  }
+}
+
+async function saveServerSettings(settings) {
+  const response = await fetch('/api/server-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+  if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+  const result = await response.json();
+  serverSettings = settings;
+  return result;
+}
+
 async function exportLibraryData() {
   const button = document.getElementById('export-confirm');
   const status = document.getElementById('library-backup-status');
@@ -65,7 +86,9 @@ async function exportLibraryData() {
   if (!checked.length) { document.getElementById('export-status').textContent = 'Select at least one item.'; return; }
   const params = new URLSearchParams({ select: '1' });
   for (const input of checked) {
-    if (input.value === 'state') params.set('state', '1');
+    if (input.dataset.kind === 'state') params.set('state', '1');
+    else if (input.dataset.kind === 'logs') params.set('logs', '1');
+    else if (input.dataset.kind === 'settings') params.set('settings', '1');
     else params.append('cover', input.value);
   }
   button.disabled = true;
@@ -168,6 +191,12 @@ function formatAddedDate(value) {
   return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
 }
 
+function animateControl(button) {
+  button.classList.remove('gs-control-feedback');
+  void button.offsetWidth;
+  button.classList.add('gs-control-feedback');
+}
+
 function fuzzyMatch(haystack, needle) {
   if (!needle) return true;
 
@@ -196,10 +225,10 @@ function applyViewMode() {
   const isList = currentView === 'list' && !suggestedGameId && !isShuffling;
 
   container.classList.toggle('list-view', isList);
-  toggle.classList.toggle('gs-control-active', isList);
+  toggle.classList.remove('gs-control-active');
   toggle.setAttribute('aria-label', isList ? 'Switch to grid view' : 'Switch to list view');
   toggle.dataset.tooltip = isList ? 'Switch to grid view' : 'Switch to list view';
-  toggle.innerHTML = isList ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>';
+  toggle.innerHTML = isList ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h4v8H3zM10 3h4v8h-4zM17 3h4v8h-4zM3 13h4v8H3zM10 13h4v8h-4zM17 13h4v8h-4z"/></svg>';
   toggle.classList.remove('gs-view-morph');
   void toggle.offsetWidth;
   toggle.classList.add('gs-view-morph');
@@ -305,12 +334,6 @@ function openGameDetails(game, trigger, card) {
   fileListController?.abort();
   fileListController = null;
   detailsGameId = game.id;
-  const fileToggle = document.getElementById('toggle-game-files');
-  document.getElementById('game-files-toggle-label').textContent = 'Show Files';
-  fileToggle.setAttribute('aria-expanded', 'false');
-  document.getElementById('game-files-panel').classList.add('hidden');
-  document.getElementById('game-files-status').textContent = '';
-  document.getElementById('game-files-list').innerHTML = '';
   document.getElementById('game-details-title').textContent = game.name;
   const detailArt = document.getElementById('game-details-art');
   detailArt.classList.toggle('gs-no-cover', game.hasCover === false);
@@ -323,6 +346,7 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-details-download').href = `/download/${encodeURIComponent(game.id)}`;
   const fileSummary = Number.isInteger(game.fileCount) ? `${game.fileCount} ${game.fileCount === 1 ? 'file' : 'files'} · ` : '';
   document.getElementById('game-details-download-summary').textContent = `${fileSummary}${formatSize(game.sizeBytes)} ZIP`;
+  document.getElementById('game-details-files-mobile').textContent = `${game.fileCount ?? 0} ${game.fileCount === 1 ? 'file' : 'files'} · Show Files`;
   document.getElementById('game-details-cover').textContent = game.coverSource === 'uploaded'
     ? 'Uploaded' : game.hasCover ? 'Available' : 'Missing';
   document.getElementById('edit-game-cover').textContent = game.hasCover ? 'Edit Cover' : 'Add Cover';
@@ -342,20 +366,13 @@ function openGameDetails(game, trigger, card) {
 }
 
 async function toggleGameFiles() {
-  const panel = document.getElementById('game-files-panel');
-  const toggle = document.getElementById('toggle-game-files');
+  const dialog = document.getElementById('game-files-dialog');
   const status = document.getElementById('game-files-status');
   const list = document.getElementById('game-files-list');
-  const opening = panel.classList.contains('hidden');
-  panel.classList.toggle('hidden', !opening);
-  document.getElementById('game-files-toggle-label').textContent = opening ? 'Hide Files' : 'Show Files';
-  toggle.setAttribute('aria-expanded', String(opening));
-  if (!opening) {
-    fileListController?.abort();
-    fileListController = null;
-    return;
-  }
   if (!detailsGameId) return;
+  const game = gamesCache.find(item => item.id === detailsGameId);
+  document.getElementById('game-files-title').textContent = `Files: ${game?.name || 'Game'}`;
+  dialog.showModal();
 
   fileListController?.abort();
   const controller = new AbortController();
@@ -369,7 +386,7 @@ async function toggleGameFiles() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     if (!result || !Array.isArray(result.files)) throw new Error('Invalid file list');
-    if (fileListController !== controller || panel.classList.contains('hidden')) return;
+    if (fileListController !== controller || !dialog.open) return;
     for (const file of result.files) {
       if (typeof file.path !== 'string' || !Number.isFinite(file.sizeBytes)) continue;
       const item = document.createElement('li');
@@ -858,10 +875,12 @@ async function loadGames(isRefresh = false) {
    ============================= */
 document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars);
+  document.body.classList.toggle('gs-favorite-stars-only', favoriteStarsOnly);
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
   document.body.classList.toggle('gs-show-game-titles', showGameTitles);
   document.body.classList.toggle('gs-show-placeholders', showPlaceholderImages);
   loadVersion();
+  loadServerSettings();
   loadGames();
 
   /* -------- Search -------- */
@@ -909,6 +928,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   trigger.addEventListener('click', () => runRefresh());
+  document.getElementById('gs-home-trigger').addEventListener('click', () => {
+    clearSuggestion();
+    clearSearch();
+    currentSort = 'all';
+    currentView = 'grid';
+    localStorage.setItem('gameshelf:view', currentView);
+    document.getElementById('sort-heading').classList.add('hidden');
+    applySort();
+    applyViewMode();
+    applySearchFilter();
+  });
   document.getElementById('retry-button').addEventListener('click', () => runRefresh(retryRefresh));
 
   const randomButton = document.getElementById('random-game');
@@ -945,6 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
 
   settingsButton.addEventListener('click', () => {
+    animateControl(settingsButton);
     settingsDialog.showModal();
     slowAnimationsInput.focus();
   });
@@ -953,12 +984,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportAll = document.getElementById('export-all');
   document.getElementById('export-library-data').addEventListener('click', () => {
     exportOptions.replaceChildren();
-    const items = [{ id: 'state', name: 'library-state.json' }, ...gamesCache.filter(game => game.hasCover).sort((a, b) => a.name.localeCompare(b.name)).map(game => ({ id: game.id, name: `${game.name}/cover image` }))];
+    const items = [{ id: 'state', kind: 'state', name: 'library-state.json' }, { id: 'settings', kind: 'settings', name: 'server-settings.json' }, { id: 'logs', kind: 'logs', name: 'logs.txt (recent container activity)' }, ...gamesCache.filter(game => game.hasCover).sort((a, b) => a.name.localeCompare(b.name)).map(game => ({ id: game.id, kind: 'cover', name: `${game.name}/cover image` }))];
     for (const item of items) {
       const label = document.createElement('label');
       label.className = 'gs-settings-option';
       const input = document.createElement('input');
-      input.type = 'checkbox'; input.value = item.id; input.checked = true;
+      input.type = 'checkbox'; input.value = item.id; input.dataset.kind = item.kind; input.checked = true;
       input.addEventListener('change', () => { const options = [...exportOptions.querySelectorAll('input')]; exportAll.checked = options.every(option => option.checked); exportAll.indeterminate = !exportAll.checked && options.some(option => option.checked); });
       label.append(input, document.createTextNode(item.name));
       exportOptions.appendChild(label);
@@ -977,14 +1008,113 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('favorite-confirm').addEventListener('click', saveFavorite);
   for (const id of ['favorite-close', 'favorite-cancel']) document.getElementById(id).addEventListener('click', () => favoriteDialog.close());
   closeOnBackdropClick(favoriteDialog);
-  document.getElementById('show-favorite-stars').checked = showFavoriteStars;
-  document.getElementById('show-favorite-stars').addEventListener('change', event => { showFavoriteStars = event.target.checked; localStorage.setItem('gameshelf:favorite-stars', String(showFavoriteStars)); document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars); });
+  const starsInput = document.getElementById('show-favorite-stars');
+  const starsOnlyInput = document.getElementById('favorite-stars-only');
+  function syncStarSettings() {
+    starsInput.checked = showFavoriteStars;
+    starsOnlyInput.checked = favoriteStarsOnly;
+    starsOnlyInput.disabled = !showFavoriteStars;
+    document.getElementById('favorite-only-option').classList.toggle('gs-disabled', !showFavoriteStars);
+    document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars);
+    document.body.classList.toggle('gs-favorite-stars-only', favoriteStarsOnly);
+  }
+  syncStarSettings();
+  starsInput.addEventListener('change', event => { showFavoriteStars = event.target.checked; localStorage.setItem('gameshelf:favorite-stars', String(showFavoriteStars)); syncStarSettings(); });
+  starsOnlyInput.addEventListener('change', event => { favoriteStarsOnly = event.target.checked; localStorage.setItem('gameshelf:favorite-stars-only', String(favoriteStarsOnly)); syncStarSettings(); });
   const daysInput = document.getElementById('recent-days');
   daysInput.value = String(recentDays);
   daysInput.addEventListener('change', () => { recentDays = Math.max(1, Math.min(3650, Number(daysInput.value) || 30)); daysInput.value = String(recentDays); localStorage.setItem('gameshelf:recent-days', String(recentDays)); applySearchFilter(); });
+  const serverDialog = document.getElementById('server-settings-dialog');
+  document.getElementById('open-server-settings').addEventListener('click', () => {
+    if (!serverSettings) { document.getElementById('settings-save-status').textContent = 'Server settings are unavailable. Try refreshing.'; return; }
+    document.getElementById('server-root-path').value = serverSettings.rootDir;
+    document.getElementById('server-data-path').value = serverSettings.dataDir;
+    document.getElementById('server-refresh-interval').value = serverSettings.refreshInterval;
+    document.getElementById('server-settings-status').textContent = '';
+    serverDialog.showModal();
+  });
+  for (const id of ['server-settings-close', 'server-settings-cancel']) document.getElementById(id).addEventListener('click', () => serverDialog.close());
+  closeOnBackdropClick(serverDialog);
+  document.getElementById('server-settings-save').addEventListener('click', async () => {
+    const button = document.getElementById('server-settings-save');
+    if (!serverSettings || button.disabled) return;
+    const next = { ...serverSettings, rootDir: document.getElementById('server-root-path').value.trim(), dataDir: document.getElementById('server-data-path').value.trim(), refreshInterval: document.getElementById('server-refresh-interval').value.trim() };
+    button.disabled = true;
+    try {
+      const result = await saveServerSettings(next);
+      document.getElementById('server-settings-status').textContent = result.restartRequired ? 'Saved. Restart the container to apply path or interval changes.' : 'Saved.';
+      document.getElementById('settings-save-status').textContent = document.getElementById('server-settings-status').textContent;
+    } catch (error) { document.getElementById('server-settings-status').textContent = `Could not save settings: ${error.message}`; }
+    finally { button.disabled = false; }
+  });
+  document.getElementById('verbose-logging').addEventListener('change', async event => {
+    const input = event.target;
+    if (!serverSettings) { input.checked = false; return; }
+    input.disabled = true;
+    try {
+      await saveServerSettings({ ...serverSettings, verbose: input.checked });
+      document.getElementById('settings-save-status').textContent = 'Logging preference saved.';
+    } catch { input.checked = !input.checked; document.getElementById('settings-save-status').textContent = 'Could not save logging preference.'; }
+    finally { input.disabled = false; }
+  });
   document.getElementById('settings-close').addEventListener('click', () => settingsDialog.close());
   document.getElementById('game-details-close').addEventListener('click', () => detailsDialog.close());
-  document.getElementById('toggle-game-files').addEventListener('click', toggleGameFiles);
+  document.getElementById('game-details-download-summary').addEventListener('click', toggleGameFiles);
+  document.getElementById('game-details-files-mobile').addEventListener('click', toggleGameFiles);
+  document.getElementById('game-files-close').addEventListener('click', () => document.getElementById('game-files-dialog').close());
+  closeOnBackdropClick(document.getElementById('game-files-dialog'));
+  document.getElementById('game-files-dialog').addEventListener('close', () => { fileListController?.abort(); fileListController = null; });
+  const resetDialog = document.getElementById('reset-metadata-dialog');
+  const resetConfirm = document.getElementById('reset-confirm-dialog');
+  let resetSelection = null;
+  document.getElementById('reset-game-metadata').addEventListener('click', () => {
+    document.querySelectorAll('#reset-metadata-options input').forEach(input => { input.checked = false; });
+    document.getElementById('reset-metadata-status').textContent = '';
+    resetDialog.showModal();
+  });
+  document.getElementById('reset-metadata-next').addEventListener('click', () => {
+    const inputs = [...document.querySelectorAll('#reset-metadata-options input:checked')];
+    if (!inputs.length) { document.getElementById('reset-metadata-status').textContent = 'Select at least one item.'; return; }
+    resetSelection = Object.fromEntries(inputs.map(input => [input.value, true]));
+    const game = gamesCache.find(item => item.id === detailsGameId);
+    document.getElementById('reset-confirm-question').textContent = `The following items for “${game?.name || 'this game'}” will be reset: ${inputs.map(input => input.parentElement?.textContent?.trim() || input.value).join(', ')}. Are you sure?`;
+    document.getElementById('reset-confirm-status').textContent = '';
+    resetDialog.close();
+    resetConfirm.showModal();
+  });
+  document.getElementById('reset-confirm-save').addEventListener('click', async () => {
+    const game = gamesCache.find(item => item.id === detailsGameId);
+    const button = document.getElementById('reset-confirm-save');
+    if (!game || !resetSelection || button.disabled) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(`/api/metadata-reset/${encodeURIComponent(game.id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(resetSelection) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const updated = await response.json();
+      Object.assign(game, updated);
+      if (resetSelection.cover) coverVersions.set(game.id, Date.now());
+      const oldCard = cardMap.get(game.id);
+      const newCard = createGameCard(game);
+      oldCard.replaceWith(newCard);
+      cardMap.set(game.id, newCard);
+      document.getElementById('game-details-title').textContent = game.name;
+      document.getElementById('game-details-image-title').textContent = game.name;
+      document.getElementById('game-title-input').value = game.name;
+      document.getElementById('game-details-cover').textContent = game.hasCover ? 'Available' : 'Missing';
+      document.getElementById('edit-game-cover').textContent = game.hasCover ? 'Edit Cover' : 'Add Cover';
+      document.getElementById('game-details-image').src = `/covers/${encodeURIComponent(game.id)}?v=${coverVersions.get(game.id) || 0}`;
+      document.getElementById('game-details-art').classList.toggle('gs-no-cover', !game.hasCover);
+      document.getElementById('game-details-favorite').textContent = game.favorite ? '★' : '☆';
+      document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
+      applySort(); applySearchFilter();
+      resetConfirm.close();
+    } catch { document.getElementById('reset-confirm-status').textContent = 'Could not reset metadata. Try again.'; }
+    finally { button.disabled = false; }
+  });
+  for (const id of ['reset-metadata-close', 'reset-metadata-cancel']) document.getElementById(id).addEventListener('click', () => resetDialog.close());
+  document.getElementById('reset-confirm-close').addEventListener('click', () => resetConfirm.close());
+  document.getElementById('reset-confirm-cancel').addEventListener('click', () => { resetConfirm.close(); resetDialog.showModal(); });
+  closeOnBackdropClick(resetDialog); closeOnBackdropClick(resetConfirm);
   const titleInput = document.getElementById('game-title-input');
   const titleSave = document.getElementById('save-game-title');
   titleSave.addEventListener('click', async () => {
@@ -1053,11 +1183,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const sortButton = document.getElementById('sort-button');
   const sortMenu = document.getElementById('sort-menu');
   const viewToggle = document.getElementById('view-toggle');
-  const toolbar = sortButton.parentElement;
-  if (toolbar?.insertBefore) {
-    toolbar.insertBefore(sortButton, randomButton);
-    toolbar.insertBefore(viewToggle, randomButton);
-  }
   const sortButtons = document.querySelectorAll('.gs-sort-menu button');
 
   function updateActiveSort() {
@@ -1068,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
+    animateControl(sortButton);
     if (suggestedGameId || isShuffling) clearSuggestion();
     updateActiveSort();
 
@@ -1096,7 +1222,9 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.classList.remove('gs-sort-open');
       applySort();
       applySearchFilter();
-      document.getElementById('sort-heading').textContent = `${currentSort === 'favorites' || currentSort === 'recent' ? 'Showing' : 'Sorted by'}: ${btn.textContent.trim()}`;
+      const heading = document.getElementById('sort-heading');
+      heading.classList.toggle('hidden', currentSort === 'all');
+      heading.textContent = currentSort === 'all' ? '' : `${currentSort === 'favorites' || currentSort === 'recent' ? 'Showing' : 'Sorted by'}: ${btn.textContent.trim()}`;
     });
   });
 
@@ -1112,6 +1240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close sort menu if open
     sortMenu.classList.add('hidden');
     sortButton.classList.remove('gs-control-active');
+    document.body.classList.remove('gs-sort-open');
     });
   }
 

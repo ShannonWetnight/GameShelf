@@ -10,10 +10,7 @@
 <body>
   <header class="gs-header">
     <div class="gs-header-row">
-      <button id="gs-refresh-trigger" class="gs-refresh" type="button" aria-label="Refresh game library">
-        <img src="gameshelf_icon.png" class="gs-logo-icon" alt="">
-        <span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span>
-      </button>
+      <div class="gs-brand"><button id="gs-home-trigger" class="gs-home-trigger" type="button" aria-label="Show all games in grid view"><img id="gs-logo-icon" src="gameshelf_icon.png" class="gs-logo-icon" alt=""></button><button id="gs-refresh-trigger" class="gs-refresh" type="button" aria-label="Refresh game library"><span id="gs-logo-text" class="gs-logo-text">GAMESHELF</span></button></div>
 
       <!-- Sort control -->
       <div class="gs-search-wrapper">
@@ -34,6 +31,25 @@
         </div>
 
         <div class="gs-sort">
+          <button id="sort-button"
+          class="gs-sort-button gs-has-tooltip"
+          aria-label="Sort by"
+          data-tooltip="Sort by">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
+            </svg>
+          </button>
+
+          <button
+            id="view-toggle"
+            class="gs-view-toggle gs-has-tooltip"
+            aria-label="Switch to list view"
+            data-tooltip="Switch to list view">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 3h4v8H3zM10 3h4v8h-4zM17 3h4v8h-4zM3 13h4v8H3zM10 13h4v8h-4zM17 13h4v8h-4z"/>
+            </svg>
+          </button>
+
           <button id="random-game" class="gs-view-toggle gs-random gs-has-tooltip" type="button"
                   aria-label="Suggest a random game" data-tooltip="Add games to enable random suggestions" disabled>
             <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -51,25 +67,6 @@
             </svg>
           </button>
 
-          <button id="sort-button"
-          class="gs-sort-button gs-has-tooltip"
-          aria-label="Sort by"
-          data-tooltip="Sort by">
-            <svg viewBox="0 0 24 24">
-              <path d="M3 6h14v2H3V6zm0 5h10v2H3v-2zm0 5h6v2H3v-2zm16-9 4 4-4 4V7z"/>
-            </svg>
-          </button>
-
-          <button
-            id="view-toggle"
-            class="gs-view-toggle gs-has-tooltip"
-            aria-label="Switch to list view"
-            data-tooltip="Switch to list view">
-            <svg viewBox="0 0 24 24">
-              <path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/>
-            </svg>
-          </button>
-
           <button id="build-info" class="gs-view-toggle gs-build-info gs-has-tooltip" type="button"
                   aria-label="Open settings" aria-haspopup="dialog" aria-controls="settings-dialog"
                   data-tooltip="Settings">
@@ -79,6 +76,7 @@
           </button>
 
           <div id="sort-menu" class="gs-sort-menu hidden">
+            <button data-sort="all">All</button>
             <button data-sort="az">A to Z</button>
             <button data-sort="za">Z to A</button>
             <button data-sort="size-desc">Size: High to Low</button>
@@ -102,7 +100,7 @@
     </section>
 
     <div id="library-stage" class="gs-library-stage">
-      <p id="sort-heading" class="gs-sort-heading">Sorted by: A to Z</p>
+      <p id="sort-heading" class="gs-sort-heading hidden"></p>
       <section id="games-container" class="gs-grid">
         <!-- Cards inserted by app.js -->
       </section>
@@ -164,8 +162,9 @@
         <small>Use the GameShelf image for games without cover art.</small>
       </span>
     </label>
-    <label class="gs-settings-option"><input id="show-favorite-stars" type="checkbox" checked><span><strong>Show favorite stars on cards</strong><small>Keep the favorite control visible on game covers.</small></span></label>
-    <label class="gs-settings-option"><span><strong>Recently Added range</strong><small>How many days count as recently added.</small></span><input id="recent-days" type="number" min="1" max="3650" value="30" aria-label="Recently Added range in days"></label>
+    <label class="gs-settings-option"><input id="show-favorite-stars" type="checkbox"><span><strong>Show favorite stars on cards</strong><small>Allow favorites to be changed from grid and list cards.</small></span></label>
+    <label class="gs-settings-option gs-settings-suboption" id="favorite-only-option"><input id="favorite-stars-only" type="checkbox" checked><span><strong>Show only on favorited cards</strong><small>Hide the star on cards that are not favorites.</small></span></label>
+    <label class="gs-settings-option gs-settings-number-option"><span><strong>Recently Added range</strong><small>How many days count as recently added.</small></span><input id="recent-days" type="number" min="1" max="3650" value="30" aria-label="Recently Added range in days"><span class="gs-settings-unit">days</span></label>
     <div class="gs-settings-backup">
       <span>
         <strong>Library Data Backup</strong>
@@ -173,6 +172,9 @@
       </span>
       <button id="export-library-data" type="button"><span class="gs-control-label">Export Data</span></button>
     </div>
+    <div class="gs-settings-backup"><span><strong>Library Paths and Refresh</strong><small>Change paths already available inside this container and the scan interval.</small></span><button id="open-server-settings" type="button">Configure</button></div>
+    <label class="gs-settings-option"><input id="verbose-logging" type="checkbox"><span><strong>Verbose logging</strong><small>Record detailed scan and download activity in the container log.</small></span></label>
+    <p id="settings-save-status" role="status"></p>
     <p id="library-backup-status" role="status" aria-live="polite"></p>
     <p class="gs-settings-version">Version: <span id="settings-version">Loading version…</span></p>
   </dialog>
@@ -181,7 +183,7 @@
     <div class="gs-details-layout">
       <div id="game-details-art" class="gs-details-art">
         <div class="gs-details-art-frame"><img id="game-details-image" alt=""><span id="game-details-image-title"></span><button id="game-details-favorite" class="gs-favorite-star" type="button" aria-label="Add to favorites">☆</button></div>
-        <div class="gs-details-art-footer"><span id="game-details-download-summary"></span><a id="game-details-download" class="gs-detail-action gs-details-download" href="#">Download Game</a></div>
+        <div class="gs-details-art-footer"><a id="game-details-download" class="gs-detail-action gs-details-download" href="#">Download Game</a><button id="game-details-download-summary" class="gs-file-summary" type="button" aria-label="Show game files"></button></div>
       </div>
       <div class="gs-details-content">
         <div class="gs-settings-header">
@@ -196,14 +198,8 @@
           <div><dt>Cover Art</dt><dd class="gs-cover-detail"><span id="game-details-cover"></span><button id="edit-game-cover" class="gs-detail-action" type="button">Add or Edit</button></dd></div>
           <div><dt>Date Added</dt><dd id="game-details-added"></dd></div>
         </dl>
-        <div class="gs-files-section">
-          <button id="toggle-game-files" class="gs-files-toggle" type="button"
-                  aria-expanded="false" aria-controls="game-files-panel"><span id="game-files-toggle-label" class="gs-control-label">Show Files</span></button>
-        </div>
-        <div id="game-files-panel" class="gs-files-panel hidden">
-          <p id="game-files-status" role="status"></p>
-          <ul id="game-files-list"></ul>
-        </div>
+        <button id="game-details-files-mobile" class="gs-detail-action gs-mobile-files" type="button">Show Files</button>
+        <button id="reset-game-metadata" class="gs-detail-action gs-metadata-reset" type="button">Reset Metadata</button>
       </div>
     </div>
   </dialog>
@@ -230,6 +226,10 @@
   </dialog>
   <dialog id="export-dialog" class="gs-settings-dialog gs-export-dialog" aria-labelledby="export-title"><div class="gs-settings-header"><h2 id="export-title">Export Data</h2><button id="export-close" class="gs-settings-close" type="button" aria-label="Close export options">×</button></div><label class="gs-settings-option"><input id="export-all" type="checkbox" checked><span><strong>Select all</strong></span></label><div id="export-options" class="gs-export-options"></div><p id="export-status" role="status"></p><div class="gs-export-actions"><button id="export-cancel" class="gs-detail-action" type="button">Cancel</button><button id="export-confirm" class="gs-button" type="button">Export</button></div></dialog>
   <dialog id="favorite-dialog" class="gs-settings-dialog gs-confirm-dialog" aria-labelledby="favorite-title"><div class="gs-settings-header"><h2 id="favorite-title">Favorites</h2><button id="favorite-close" class="gs-settings-close" type="button" aria-label="Close favorite confirmation">×</button></div><p id="favorite-question"></p><p id="favorite-status" role="status"></p><div class="gs-export-actions"><button id="favorite-cancel" class="gs-detail-action" type="button">Cancel</button><button id="favorite-confirm" class="gs-button" type="button">Confirm</button></div></dialog>
+  <dialog id="game-files-dialog" class="gs-settings-dialog gs-files-dialog" aria-labelledby="game-files-title"><div class="gs-settings-header"><h2 id="game-files-title">Files</h2><button id="game-files-close" class="gs-settings-close" type="button" aria-label="Close files">×</button></div><div id="game-files-panel" class="gs-files-panel"><p id="game-files-status" role="status"></p><ul id="game-files-list"></ul></div></dialog>
+  <dialog id="reset-metadata-dialog" class="gs-settings-dialog gs-export-dialog" aria-labelledby="reset-metadata-title"><div class="gs-settings-header"><h2 id="reset-metadata-title">Reset Metadata</h2><button id="reset-metadata-close" class="gs-settings-close" type="button" aria-label="Close metadata reset">×</button></div><p>Select what to restore for this game. Date Added remains the original first-seen date.</p><div id="reset-metadata-options" class="gs-export-options"><label class="gs-settings-option"><input type="checkbox" value="title"><span><strong>GameShelf Title</strong></span></label><label class="gs-settings-option"><input type="checkbox" value="cover"><span><strong>Cover Art</strong></span></label><label class="gs-settings-option"><input type="checkbox" value="favorite"><span><strong>Favorite</strong></span></label></div><p id="reset-metadata-status" role="status"></p><div class="gs-export-actions"><button id="reset-metadata-cancel" class="gs-detail-action" type="button">Cancel</button><button id="reset-metadata-next" class="gs-button" type="button">Review Reset</button></div></dialog>
+  <dialog id="reset-confirm-dialog" class="gs-settings-dialog gs-confirm-dialog" aria-labelledby="reset-confirm-title"><div class="gs-settings-header"><h2 id="reset-confirm-title">Confirm Reset</h2><button id="reset-confirm-close" class="gs-settings-close" type="button" aria-label="Close reset confirmation">×</button></div><p id="reset-confirm-question"></p><p id="reset-confirm-status" role="status"></p><div class="gs-export-actions"><button id="reset-confirm-cancel" class="gs-detail-action" type="button">Cancel</button><button id="reset-confirm-save" class="gs-detail-action gs-title-save" type="button" aria-label="Save metadata reset"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l3 3v15H4zM7 3v7h9V3M7 21v-8h10v8"/></svg></button></div></dialog>
+  <dialog id="server-settings-dialog" class="gs-settings-dialog gs-server-dialog" aria-labelledby="server-settings-title"><div class="gs-settings-header"><h2 id="server-settings-title">Library Paths and Refresh</h2><button id="server-settings-close" class="gs-settings-close" type="button" aria-label="Close server settings">×</button></div><label class="gs-server-field">Game library path<input id="server-root-path" type="text" spellcheck="false"></label><label class="gs-server-field">Data path<input id="server-data-path" type="text" spellcheck="false"></label><label class="gs-server-field">Refresh interval<input id="server-refresh-interval" type="text" spellcheck="false" placeholder="12h or 0 to disable"></label><p class="gs-settings-help">Paths must already be mounted in the container. Changing the data path does not move existing saved data.</p><p id="server-settings-status" role="status"></p><div class="gs-export-actions"><button id="server-settings-cancel" class="gs-detail-action" type="button">Cancel</button><button id="server-settings-save" class="gs-button" type="button">Save</button></div></dialog>
 
   <script src="/app.js"></script>
 </body>
