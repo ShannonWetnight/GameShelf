@@ -854,7 +854,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 
 .gs-main {
   flex: 1;
-  padding: 1.5rem 3vw 2.5rem;
+  padding: 1.5rem max(3vw, 72px) 2.5rem 3vw;
 }
 
 .gs-grid {
@@ -1353,7 +1353,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
   }
 
   .gs-main {
-    padding: 1rem 1rem 2rem;
+    padding: 1rem 72px 2rem 1rem;
   }
 
   .gs-grid {
@@ -1634,7 +1634,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 .gs-grid.list-view .gs-card-cover { flex: 0 0 auto; }
 .gs-grid.list-view .gs-card-actions { position: static; inset: auto; width: auto; height: auto; }
 
-.gs-scroll-to-top { position: fixed; z-index: 20; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vw, 2rem); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(174,190,219,.42); border-radius: 12px; background: rgba(10,18,32,.94); color: var(--text); box-shadow: var(--shadow-soft); cursor: pointer; transition: opacity .18s ease, transform .18s ease, background .18s ease; }
+.gs-scroll-to-top { position: fixed; z-index: 20; right: 12px; bottom: clamp(1rem, 3vw, 2rem); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid rgba(174,190,219,.42); border-radius: 12px; background: rgba(10,18,32,.94); color: var(--text); box-shadow: var(--shadow-soft); cursor: pointer; transition: opacity .18s ease, transform .18s ease, background .18s ease; }
 .gs-scroll-to-top[hidden] { display: none; }
 .gs-scroll-to-top:hover, .gs-scroll-to-top:focus-visible { background: rgba(249,178,52,.75); border-color: var(--accent); color: #1a1304; transform: translateY(-3px); }
 .gs-scroll-to-top svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

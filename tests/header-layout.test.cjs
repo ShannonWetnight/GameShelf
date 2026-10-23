@@ -157,6 +157,35 @@ test('settings use three aligned columns except on portrait phones', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('back-to-top button stays outside grid and list card edges', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-scroll-rail-'));
+  try {
+    const probe = `<script>
+      const grid = document.querySelector('#games-container');
+      grid.innerHTML = Array.from({length:8}, (_, i) => '<article class="gs-card" style="height:140px">Game ' + i + '</article>').join('');
+      const button = document.querySelector('#scroll-to-top');
+      button.hidden = false;
+      const buttonLeft = button.getBoundingClientRect().left;
+      const edge = () => Math.max(...[...grid.children].map(card => card.getBoundingClientRect().right));
+      const gridEdge = edge();
+      grid.classList.add('list-view');
+      const listEdge = edge();
+      const report = document.createElement('pre'); report.id = 'scroll-rail-report';
+      report.textContent = JSON.stringify({buttonLeft,gridEdge,listEdge,viewportWidth:document.documentElement.clientWidth});
+      document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'scroll-rail.html');
+    fs.writeFileSync(file, source);
+    for (const width of [420, 844, 1280]) {
+      const result = readLayoutProbe(file, width, 'scroll-rail-report');
+      assert.ok(result.buttonLeft - result.gridEdge >= 12, JSON.stringify(result));
+      assert.ok(result.buttonLeft - result.listEdge >= 12, JSON.stringify(result));
+      assert.ok(result.buttonLeft <= result.viewportWidth, JSON.stringify(result));
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('settings and game information keep button and file text vertically centered', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-dialog-layout-'));
   try {
