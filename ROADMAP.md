@@ -5,7 +5,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ---
 
 ### Recommended Next
-* [ ] Add a validated restore flow for exported library backups. Show a preview and resolve conflicts before writing to `/data`; keep the mounted game library read-only. Export already captures the state and artwork needed for a backup, but restoring currently requires manual file extraction.
+* [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
+* [ ] Add an optional download queue for selecting several games and creating one ZIP, with clear size estimates and cancellation before packaging.
 
 ### Core UX & Stability
 * [x] *(Planned)* Responsive UI layout
