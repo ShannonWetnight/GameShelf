@@ -7,16 +7,18 @@ import (
 	"testing"
 )
 
-func TestLogsRequireVerboseLogging(t *testing.T) {
+func TestLogsRemainAvailableWithoutVerboseLogging(t *testing.T) {
 	previous := verboseLogging.Load()
 	t.Cleanup(func() { verboseLogging.Store(previous) })
 	verboseLogging.Store(false)
+	applicationLogs.Write([]byte("unique-log-viewer-entry\n"))
 	w := httptest.NewRecorder()
 	handleLogs(w, httptest.NewRequest(http.MethodGet, "/api/logs", nil))
-	if w.Code != http.StatusForbidden { t.Fatalf("disabled logs: %d", w.Code) }
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "unique-log-viewer-entry") {
+		t.Fatalf("base logs: %d %q", w.Code, w.Body.String())
+	}
 
 	verboseLogging.Store(true)
-	applicationLogs.Write([]byte("unique-log-viewer-entry\n"))
 	w = httptest.NewRecorder()
 	handleLogs(w, httptest.NewRequest(http.MethodGet, "/api/logs", nil))
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "unique-log-viewer-entry") {
