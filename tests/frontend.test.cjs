@@ -615,6 +615,22 @@ test('favorite confirmation persists selection and Favorites filters cards', asy
   assert.equal(ui.element('notification-text').textContent, 'Added to favorites.');
 });
 
+test('favorites-first defaults on and groups favorites within every sort', async () => {
+  const storage = new Map();
+  const ui = app(undefined, storage);
+  ui.start();
+  ui.requests[0].resolve(response([{ ...games[0], favorite: true }, { ...games[1], favorite: false }]));
+  await settle();
+  assert.equal(ui.element('favorites-first').checked, true);
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['beta', 'alpha']);
+  ui.element('sort-menu').children.find(button => button.dataset.sort === 'size-asc').emit('click');
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['beta', 'alpha']);
+  ui.element('favorites-first').checked = false;
+  ui.element('favorites-first').emit('change');
+  assert.equal(storage.get('gameshelf:favorites-first'), 'false');
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['alpha', 'beta']);
+});
+
 test('saving library paths returns to settings and confirms in the banner', async () => {
   const ui = app();
   ui.start();

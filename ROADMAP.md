@@ -59,6 +59,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add client-side filtering (genre, developer, year)
 * [x] Add a “Recently Added” filter with a configurable date range
 * [x] Save favorites locally and filter the library to favorite games
+* [x] Offer a default-on setting that places favorites first within every sort and filter
 * [x] Restore selected title, cover, and favorite metadata to their detected defaults with confirmation
 * [x] Add functional search bar
 * [x] Add a dice icon and randomize logic from parsed folder names to suggest a game download

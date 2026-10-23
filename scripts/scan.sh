@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Retain the scanner version used by GameShelf's previous verification workflow.
-scanner=aquasec/trivy:0.76.0
+scanner=ghcr.io/aquasecurity/trivy:0.76.1
 docker pull "$scanner"
 docker image inspect "$scanner" > reports/scanner-image.json
 blocked=0

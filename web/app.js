@@ -18,6 +18,7 @@ localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
 let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
+let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') !== 'false';
 let favoritePending = null;
 let serverSettings = null;
 let currentSearch = '';
@@ -728,6 +729,7 @@ function applySort() {
   const cards = Array.from(cardMap.values());
 
   cards.sort((a, b) => {
+    if (favoritesFirst && a.dataset.favorite !== b.dataset.favorite) return a.dataset.favorite === 'true' ? -1 : 1;
     const nameA = a.dataset.name;
     const nameB = b.dataset.name;
     const sizeA = Number(a.dataset.size);
@@ -1248,6 +1250,13 @@ document.addEventListener('DOMContentLoaded', () => {
   for (const id of ['favorite-close', 'favorite-cancel']) document.getElementById(id).addEventListener('click', () => favoriteDialog.close());
   closeOnBackdropClick(favoriteDialog);
   const starsInput = document.getElementById('show-favorite-stars');
+  const favoritesFirstInput = document.getElementById('favorites-first');
+  favoritesFirstInput.checked = favoritesFirst;
+  favoritesFirstInput.addEventListener('change', () => {
+    favoritesFirst = favoritesFirstInput.checked;
+    localStorage.setItem('gameshelf:favorites-first', String(favoritesFirst));
+    applySort();
+  });
   const starsOnlyInput = document.getElementById('favorite-stars-only');
   function syncStarSettings() {
     starsInput.checked = showFavoriteStars;

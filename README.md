@@ -52,7 +52,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Grid and list views with optional list thumbnails, a random game picker, and card details with individual file downloads
 - System, GameShelf Classic, light, and dark themes; optional game title banners, placeholder art, button hints, card stars, and slower picker animations in Settings
 - Editable GameShelf titles and uploaded cover art with crop, rotation, and tilt controls
-- Saved favorites, configurable Recently Added range, selective metadata reset, and success notifications for downloads and changes
+- Saved favorites with an on-by-default favorites-first setting, configurable Recently Added range, selective metadata reset, and success notifications for downloads and changes
 - Selective library backup export of state, server settings, logs, and available covers
 - Preview and restore exported library state, uploaded covers, and compatible server settings from Settings
 - Read-only `/api/stats` summary for local integrations
