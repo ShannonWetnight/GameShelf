@@ -718,7 +718,10 @@ body {
   height: 18px;
   margin: 0.15rem 0 0;
   accent-color: var(--accent);
+  cursor: pointer;
 }
+input[type="checkbox"] { cursor: pointer; }
+input[type="checkbox"]:disabled { cursor: not-allowed; }
 
 .gs-settings-option span {
   display: flex;
@@ -1593,9 +1596,11 @@ body {
 #library-backup-status:empty { display: none; }
 
 /* Settings are grouped by task, with one quiet surface per group. */
-#settings-dialog { width: min(520px, calc(100vw - 32px)); }
+#settings-dialog { width: min(1180px, calc(100vw - 32px)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; align-content: start; }
+#settings-dialog:not([open]) { display: none; }
+#settings-dialog > :not(.gs-settings-section) { grid-column: 1 / -1; }
 #settings-dialog .gs-settings-header { margin-bottom: 1.2rem; }
-.gs-settings-section { margin: 0 0 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; background: rgba(8, 16, 30, .45); }
+.gs-settings-section { margin: 0 0 1rem; min-width: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden; background: rgba(8, 16, 30, .45); }
 .gs-settings-section h3 { margin: 0; padding: .8rem 1rem .45rem; color: var(--accent); font-size: .77rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 #settings-dialog .gs-settings-section .gs-settings-option,
 #settings-dialog .gs-settings-section .gs-settings-backup { margin: 0; padding: .75rem 1rem; border: 0; border-radius: 0; }
@@ -1608,7 +1613,20 @@ body {
 #settings-dialog .gs-settings-section .gs-settings-number-option input { width: 100%; }
 #settings-dialog .gs-settings-section .gs-settings-backup { gap: 1rem; }
 #settings-dialog .gs-settings-section .gs-settings-backup > span { min-width: 0; }
+#settings-dialog .gs-settings-backup button { width: 112px; padding-inline: .35rem; }
 #settings-dialog .gs-settings-version { margin: .25rem 0 0; font-size: .75rem; color: var(--text-muted); overflow-wrap: anywhere; }
+@media (max-width: 900px) and (orientation: portrait) {
+  #settings-dialog { width: min(520px, calc(100vw - 32px)); grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) and (orientation: landscape) {
+  #settings-dialog { gap: 0 .5rem; padding: .75rem; }
+  #settings-dialog .gs-settings-section .gs-settings-option,
+  #settings-dialog .gs-settings-section .gs-settings-backup { padding: .6rem; }
+  #settings-dialog .gs-settings-backup { flex-wrap: wrap; }
+  #settings-dialog .gs-settings-backup button { width: 100%; }
+  #settings-dialog .gs-theme-option { flex-wrap: wrap; }
+  #settings-dialog .gs-theme-option select { width: 100%; max-width: none; }
+}
 
 /* List controls live on a transparent carrier, including for games without art. */
 .gs-grid.list-view .gs-no-cover .gs-card-cover,
@@ -1667,8 +1685,10 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-notification-banner[hidden] { display: none; }
 .gs-notification-banner:popover-open { margin: 0; right: auto; bottom: auto; }
 .gs-notification-banner.gs-notification-visible { animation: gs-notification-in .25s ease-out forwards; }
+.gs-notification-banner.gs-notification-leaving { animation: gs-notification-out .25s ease-in forwards; }
 .gs-notification-check { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; background: #5cae7b; color: #081710; font-weight: 800; }
 @keyframes gs-notification-in { to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes gs-notification-out { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -12px); } }
 .gs-refreshing { opacity: .3; transition: opacity .15s ease; }
 
 /* Destructive outline also identifies every Cancel action. */
@@ -1684,6 +1704,15 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 #export-dialog .gs-export-select-all { align-items: center; margin: 0 0 .75rem; }
 #export-dialog .gs-export-select-all > span { display: grid; gap: .2rem; }
 .gs-export-options { display: block; max-height: min(48vh, 420px); margin-top: 0; }
+#restore-file { height: auto; min-height: 46px; padding: .4rem .6rem; line-height: 32px; cursor: pointer; }
+#restore-file::file-selector-button { height: 32px; margin-right: .7rem; padding: 0 .7rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text); font: inherit; cursor: pointer; }
+.gs-logs-dialog { width: min(800px, calc(100vw - 32px)); }
+.gs-logs-actions { display: flex; align-items: center; gap: .4rem; }
+.gs-log-icon { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; }
+.gs-log-icon:hover:not(:disabled), .gs-log-icon:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; }
+.gs-log-icon:disabled { opacity: .45; cursor: default; }
+.gs-log-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gs-logs-content { box-sizing: border-box; min-height: 220px; max-height: min(60vh, 560px); overflow: auto; margin: 0; padding: 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--input-background); color: var(--text); font: .8rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .gs-export-section { margin: 0 0 .75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--section-background); overflow: hidden; }
 .gs-export-section h3 { margin: 0; padding: .8rem 1rem .5rem; color: var(--accent); font-size: .77rem; text-transform: uppercase; letter-spacing: .08em; }
 .gs-export-section .gs-settings-option { margin: 0; padding: .75rem 1rem; border: 0; border-radius: 0; min-height: 42px; align-items: center; }
