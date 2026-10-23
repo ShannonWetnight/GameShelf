@@ -80,6 +80,8 @@ function app(
   for (const match of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
     const element = new Element(match[0].match(/class="([^"]*)"/)?.[1]);
     element.id = match[1];
+    if (match[0].includes(' checked')) element.checked = true;
+    if (match[0].includes('value="')) element.value = match[0].match(/value="([^"]*)"/)[1];
     elements.set(match[1], element);
   }
   for (const match of html.matchAll(/<button data-sort="([^"]+)">([^<]+)<\/button>/g)) {
@@ -103,6 +105,7 @@ function app(
   };
   document.createTextNode = text => { const node = new Element(); node.textContent = text; return node; };
   document.querySelectorAll = selector => {
+    if (selector === '#logs-filters input') return ['app', 'request', 'scan', 'download'].map(type => elements.get(`logs-filter-${type}`));
     if (selector === '.gs-sort-menu button') return elements.get('sort-menu').children;
     if (selector === '#export-options input:checked') return elements.get('export-options').querySelectorAll('input').filter(input => input.checked);
     if (selector === '#reset-metadata-options input' || selector === '#reset-metadata-options input:checked') {
@@ -485,7 +488,7 @@ test('settings dialog defaults off and slows dice and card shuffle together', as
   assert.equal(ui.element('random-game').classList.contains('gs-slow-animations'), false);
   ui.click('build-info');
   assert.equal(ui.element('settings-dialog').open, true);
-  assert.equal(ui.element('slow-animations').focused, true);
+  assert.equal(ui.element('settings-basic').focused, true);
   ui.element('slow-animations').checked = true;
   ui.element('slow-animations').emit('change');
   assert.equal(storage.get('gameshelf:slow-animations'), 'true');
@@ -664,29 +667,64 @@ test('notifications fade out before being hidden', async () => {
   assert.equal(banner.hidden, true);
 });
 
-test('verbose logs can be viewed, copied, and downloaded', async () => {
+test('application logs are always available, configurable, filterable, and exportable', async () => {
   const ui = app();
   ui.start();
   await settle();
-  assert.equal(ui.hidden('logs-setting'), true);
-  const input = ui.element('verbose-logging');
-  input.checked = true;
-  const saving = input.emit('change');
+  assert.equal(ui.hidden('logs-setting'), false);
+  ui.click('configure-logs');
+  assert.equal(ui.element('log-config-dialog').open, true);
+  assert.equal(ui.element('log-requests').disabled, true);
+  ui.element('log-verbose').checked = true;
+  ui.element('log-verbose').emit('change');
+  assert.equal(ui.element('log-requests').disabled, false);
+  ui.element('log-override-days').checked = true;
+  ui.element('log-override-days').emit('change');
+  assert.equal(ui.element('log-days').disabled, false);
+  const saving = ui.click('log-config-save');
   ui.requests.find(item => item.url === '/api/server-settings').resolve(response({ restartRequired: false }));
   await saving;
-  assert.equal(ui.hidden('logs-setting'), false);
+  assert.equal(ui.element('log-config-dialog').open, false);
   const opening = ui.click('view-logs');
   assert.equal(ui.element('logs-dialog').open, true);
-  ui.requests.find(item => item.url === '/api/logs').resolve({ ok: true, text: async () => 'Scan complete\n' });
+  ui.requests.find(item => item.url === '/api/logs').resolve({ ok: true, text: async () => 'Scan complete\n[request] GET /api/games\n' });
   await opening;
+  assert.equal(ui.element('logs-content').textContent, 'Scan complete\n[request] GET /api/games\n');
+  ui.element('logs-filter-request').checked = false;
+  ui.element('logs-filter-request').emit('change');
   assert.equal(ui.element('logs-content').textContent, 'Scan complete\n');
+  ui.click('logs-clear-filters');
+  assert.equal(ui.element('logs-content').textContent, 'Scan complete\n[request] GET /api/games\n');
   await ui.click('logs-copy');
-  assert.deepEqual(ui.copied, ['Scan complete\n']);
+  assert.deepEqual(ui.copied, ['Scan complete\n[request] GET /api/games\n']);
   ui.click('logs-download');
   assert.equal(ui.downloads.length, 1);
   assert.equal(ui.element('notification-text').textContent, 'Log download started.');
   ui.click('logs-close');
   assert.equal(ui.element('logs-dialog').open, false);
+});
+
+test('download cart reviews games and starts one combined ZIP', async () => {
+  const storage = new Map();
+  const ui = app(undefined, storage);
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  const findCart = element => element.className === 'gs-card-cart' ? element : element.children.map(findCart).find(Boolean);
+  findCart(ui.cards()[0]).emit('click');
+  assert.equal(ui.element('cart-count').textContent, '1');
+  assert.equal(ui.element('cart-count').hidden, false);
+  ui.click('open-cart');
+  assert.equal(ui.element('cart-dialog').open, true);
+  assert.equal(ui.element('cart-items').children.length, 1);
+  assert.match(ui.element('cart-total').textContent, /1 game/);
+  ui.click('cart-checkout');
+  assert.equal(ui.element('cart-dialog').open, false);
+  const link = ui.document.body.children.find(child => child.href?.startsWith('/download-cart?'));
+  assert.ok(link?.href.includes('game=alpha'));
+  assert.equal(link.clicked, true);
+  assert.equal(ui.element('notification-text').textContent, 'Cart download started.');
+  assert.equal(storage.get('gameshelf:cart'), '["alpha"]');
 });
 
 test('saving library paths returns to settings and confirms in the banner', async () => {

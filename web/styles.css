@@ -1324,7 +1324,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 
   .gs-sort {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.65rem;
   }
 
@@ -1615,6 +1615,23 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 #settings-dialog .gs-settings-section .gs-settings-backup > span { min-width: 0; }
 #settings-dialog .gs-settings-backup button { width: 112px; padding-inline: .35rem; }
 #settings-dialog .gs-settings-version { margin: .25rem 0 0; font-size: .75rem; color: var(--text-muted); overflow-wrap: anywhere; }
+#settings-dialog .gs-settings-version a { color: var(--accent); text-decoration: none; }
+#settings-dialog .gs-settings-version a:hover { text-decoration: underline; }
+#settings-dialog { row-gap: 0; }
+#settings-dialog .gs-settings-section { margin-bottom: .35rem; }
+#settings-dialog .gs-settings-section { align-self: start; }
+#settings-save-status:empty { display: none; }
+#settings-dialog .gs-settings-version { margin: .35rem 0 0; }
+#settings-dialog[data-settings-level="basic"] [data-setting-level="advanced"] { display: none; }
+.gs-settings-mode { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: 220px; margin: 0 0 .8rem; padding: 3px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--input-background); }
+.gs-settings-mode-slider { position: absolute; inset: 3px auto 3px 3px; width: calc(50% - 3px); border-radius: 7px; background: var(--accent); transition: transform .2s ease; }
+#settings-dialog[data-settings-level="advanced"] .gs-settings-mode-slider { transform: translateX(100%); }
+.gs-settings-mode button { position: relative; z-index: 1; padding: .4rem .5rem; border: 0; background: transparent; color: var(--text-muted); font: 700 .8rem var(--font-sans); cursor: pointer; }
+.gs-settings-mode button[aria-pressed="true"] { color: #171307; }
+.gs-settings-dual-actions { display: flex; flex: none; gap: .4rem; }
+#settings-dialog .gs-settings-dual-actions button { width: 84px; }
+#settings-dialog #logs-setting { flex-wrap: wrap; }
+#settings-dialog #logs-setting .gs-settings-dual-actions { margin-left: auto; }
 @media (max-width: 900px) and (orientation: portrait) {
   #settings-dialog { width: min(520px, calc(100vw - 32px)); grid-template-columns: minmax(0, 1fr); }
 }
@@ -1713,6 +1730,35 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-log-icon:disabled { opacity: .45; cursor: default; }
 .gs-log-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .gs-logs-content { box-sizing: border-box; min-height: 220px; max-height: min(60vh, 560px); overflow: auto; margin: 0; padding: 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--input-background); color: var(--text); font: .8rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.gs-logs-filters { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: 0 0 .55rem; font-size: .8rem; color: var(--text-muted); }
+.gs-logs-filters label { display: inline-flex; align-items: center; gap: .25rem; cursor: pointer; }
+.gs-logs-filters button { border: 0; background: none; color: var(--accent); cursor: pointer; }
+.gs-log-config-dialog { width: min(580px, calc(100vw - 32px)); }
+.gs-log-config-dialog > .gs-settings-option { margin-bottom: .5rem; }
+.gs-log-config-group { padding-left: 1rem; }
+.gs-log-config-group .gs-settings-option { margin: 0 0 .5rem; }
+.gs-log-retention { display: grid; grid-template-columns: minmax(0,1fr) 5.8rem 2.5rem; align-items: center; gap: .5rem; margin-top: .5rem; }
+.gs-log-retention .gs-settings-option { margin: 0; }
+.gs-log-retention > input { box-sizing: border-box; width: 100%; height: 38px; padding: 0 .5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--input-background); color: var(--text); font: inherit; text-align: center; }
+.gs-log-retention > input:disabled { opacity: .45; }
+.gs-cart-toggle { position: relative; }
+.gs-cart-toggle svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gs-cart-count { position: absolute; top: 0; right: 0; min-width: 16px; border-radius: 10px; background: var(--accent); color: #171307; font-size: .65rem; font-weight: 800; }
+.gs-cart-count[hidden] { display: none; }
+.gs-card-cart { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--border-subtle); border-radius: 50%; background: var(--bg-elevated); color: var(--text); font-size: 1.3rem; cursor: pointer; }
+.gs-card-cart.is-added { border-color: var(--accent); color: var(--accent); }
+.gs-card-cart.is-added::after { content: '✓'; position: absolute; font-size: .8rem; }
+.gs-card-cart.is-added { font-size: 0; }
+.gs-cart-dialog { width: min(540px, calc(100vw - 32px)); }
+.gs-cart-items { max-height: 45vh; overflow: auto; list-style: none; margin: .7rem 0; padding: 0; }
+.gs-cart-items li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .7rem; border-bottom: 1px solid var(--border-subtle); }
+.gs-cart-items li span { min-width: 0; overflow-wrap: anywhere; }
+.gs-cart-items li button { flex: none; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: .4rem .6rem; background: transparent; color: var(--text); cursor: pointer; }
+.gs-cart-total { font-weight: 700; }
+#loading-state { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+.gs-card.gs-tile-fill:not(.gs-shuffle-preview):not(.gs-spotlight-enter) { animation: gs-tile-fill .32s ease-out both; }
+@keyframes gs-tile-fill { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.gs-no-animations *, .gs-no-animations *::before, .gs-no-animations *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 .gs-export-section { margin: 0 0 .75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--section-background); overflow: hidden; }
 .gs-export-section h3 { margin: 0; padding: .8rem 1rem .5rem; color: var(--accent); font-size: .77rem; text-transform: uppercase; letter-spacing: .08em; }
 .gs-export-section .gs-settings-option { margin: 0; padding: .75rem 1rem; border: 0; border-radius: 0; min-height: 42px; align-items: center; }

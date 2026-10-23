@@ -48,7 +48,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
         };
         const selectors = ['#search-input', '.gs-search-icon', '#clear-search',
           '#clear-search svg', '#random-game', '#random-game svg', '#sort-button', '#sort-button svg',
-          '#view-toggle', '#view-toggle svg', '#build-info', '#build-info svg'];
+          '#view-toggle', '#view-toggle svg', '#open-cart', '#open-cart svg', '#build-info', '#build-info svg'];
         const result = Object.fromEntries(selectors.map(selector => [selector, box(selector)]));
         const dice = document.querySelector('#random-game svg');
         const diceBounds = dice.getBBox();
@@ -105,7 +105,7 @@ test('header icons remain centered and toolbar buttons share one row', () => {
       'gear artwork is horizontally off-center within its SVG');
     assert.ok(Math.abs(boxes.gearArtwork.cy - boxes.gearArtwork.viewportCy) <= 0.5,
       'gear artwork is vertically off-center within its SVG');
-    const toolbar = ['#sort-button', '#view-toggle', '#random-game', '#build-info'];
+    const toolbar = ['#sort-button', '#view-toggle', '#random-game', '#open-cart', '#build-info'];
     for (const button of toolbar) {
       assert.ok(Math.abs(boxes[button].cy - boxes['#search-input'].cy) <= 1,
         `${button} is not aligned with the search field`);
@@ -137,7 +137,7 @@ test('settings use three aligned columns except on portrait phones', () => {
       const buttons = ['#export-library-data','#open-library-restore','#open-server-settings'].map(selector => document.querySelector(selector).getBoundingClientRect().width);
       const report = document.createElement('pre'); report.id = 'settings-layout-report';
       report.textContent = JSON.stringify({columns:sections.map(box => Math.round(box.left)), widths:buttons,
-        checkboxCursor:getComputedStyle(document.querySelector('#verbose-logging')).cursor,
+        checkboxCursor:getComputedStyle(document.querySelector('#show-list-images')).cursor,
         dialogWidth:document.querySelector('#settings-dialog').getBoundingClientRect().width,
         viewportWidth:document.documentElement.clientWidth});
       document.body.append(report);
@@ -301,6 +301,7 @@ test('narrow screens keep controls and game cards within the viewport', () => {
           sort: bounds('#sort-button'),
           view: bounds('#view-toggle'),
           info: bounds('#build-info'),
+          cart: bounds('#open-cart'),
           card: bounds('.gs-card')
         };
         grid.classList.add('list-view');
@@ -329,12 +330,12 @@ test('narrow screens keep controls and game cards within the viewport', () => {
       assert.ok(box.left >= -1 && box.right <= result.viewportWidth + 1,
         `${name} extends past the viewport`);
     };
-    for (const name of ['logo', 'search', 'random', 'sort', 'view', 'info', 'card', 'listCard', 'listButton']) {
+    for (const name of ['logo', 'search', 'random', 'sort', 'view', 'cart', 'info', 'card', 'listCard', 'listButton']) {
       within(result[name], name);
     }
     assert.ok(result.search.top >= result.logo.bottom,
       'mobile search should sit below the logo');
-    const controls = [result.sort, result.view, result.random, result.info];
+    const controls = [result.sort, result.view, result.random, result.cart, result.info];
     assert.ok(controls.every(box => box.top >= result.search.bottom),
       'mobile buttons should sit below the full-width search field');
     assert.ok(controls.every(box => Math.abs(box.top - controls[0].top) <= 1),

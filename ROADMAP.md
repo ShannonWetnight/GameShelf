@@ -6,7 +6,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Recommended Next
 * [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
-* [ ] Add an optional download queue for selecting several games and creating one ZIP, with clear size estimates and cancellation before packaging.
+* [x] Add a download cart for choosing several games, reviewing their estimated size, and creating one ZIP.
+* [ ] Add a first-launch setup guide for library and data mounts, including a path check and clear guidance for read-only library access.
 
 ### Core UX & Stability
 * [x] *(Planned)* Responsive UI layout
@@ -24,7 +25,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Add micro-animations for hover and card transitions
 * [x] Add a game-card information button that opens a read-only details panel; show the app version in Settings
 * [x] *(Planned)* Add grid/list view toggle with optional cover thumbnails in list view
-* [ ] Add a toggle UI effects option
+* [x] Add tile-fill animation on library load and refresh, plus switches for tile animation and all UI effects
+* [x] Add Basic and Advanced Settings views with a sliding selector
 
 * [x] Add a slow-motion setting for dice and card-shuffle animations
 
@@ -79,7 +81,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Include optional server settings and recent application logs in the export
 * [x] Confirm successful title, cover, favorite, settings, metadata-reset, and export actions with a notification banner
 * [x] *(Planned)* Folder autodiscovery
-* [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
+* [x] Add a cart to download multiple game folders in one ZIP
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
   - Env to include, optional 
 * [ ] Add support for multiple directories
@@ -97,6 +99,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add multi-arch builds (amd64 + arm64)
 * [x] *(Planned)* Environment variable configuration
 * [x] Add a responsible distribution use/disclaimer statement tp README
-* [x] Add a verbose logging option and an exportable bounded log snapshot
+* [x] Add always-visible application logs with filters, optional verbose categories, and configurable size and age retention
 > [!NOTE]
 > For substantial features that are beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)

@@ -104,6 +104,7 @@ func main() {
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
 	mux.HandleFunc("/api/logs", handleLogs)
 	mux.HandleFunc("/download/", handleDownload)
+	mux.HandleFunc("/download-cart", handleDownloadCart)
 	mux.HandleFunc("/covers/", handleCover)
 
 	// Static frontend
@@ -135,7 +136,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
+		if logTypeEnabled("requests") { log.Printf("[request] %s %s %s", r.Method, r.URL.Path, time.Since(start)) }
 	})
 }
 
@@ -389,7 +390,7 @@ func refreshGames() error {
 		}
 
 		dirName := e.Name()
-		if verboseLogging.Load() { log.Printf("verbose: scanning %q", dirName) }
+		if logTypeEnabled("scans") { log.Printf("[scan] scanning %q", dirName) }
 		id := ids[dirName]
 		absPath := filepath.Join(rootDir, dirName)
 
@@ -1133,6 +1134,7 @@ func handleGameFileDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	if logTypeEnabled("downloads") { log.Printf("[download] file %s/%s", entry.Game.ID, rel) }
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, sanitizeFilename(filepath.Base(rel))))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -1163,6 +1165,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer root.Close()
+	if logTypeEnabled("downloads") { log.Printf("[download] game %s", entry.Game.ID) }
 	w.Header().Set("Content-Type", "application/zip")
 	filename := fmt.Sprintf("%s.zip", sanitizeFilename(entry.Game.Name))
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
@@ -1194,6 +1197,11 @@ func (w *zipResponseWriter) Write(p []byte) (int, error) {
 // an entry that changes or becomes unreadable aborts the archive.
 func writeGameZIP(dst io.Writer, root *os.Root) error {
 	zw := zip.NewWriter(dst)
+	if err := addGameToZIP(zw, root, ""); err != nil { return err }
+	return zw.Close()
+}
+
+func addGameToZIP(zw *zip.Writer, root *os.Root, base string) error {
 	var walk func(*os.Root, string) error
 	walk = func(dir *os.Root, prefix string) error {
 		listing, err := dir.Open(".")
@@ -1239,10 +1247,44 @@ func writeGameZIP(dst io.Writer, root *os.Root) error {
 		}
 		return nil
 	}
-	if err := walk(root, ""); err != nil {
+	if err := walk(root, base); err != nil {
 		return err
 	}
-	return zw.Close()
+	return nil
+}
+
+func handleDownloadCart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	ids := r.URL.Query()["game"]
+	if len(ids) == 0 || len(ids) > 50 { http.Error(w, "select 1 to 50 games", http.StatusBadRequest); return }
+	type item struct { id string; root *os.Root }
+	items := make([]item, 0, len(ids))
+	defer func() { for _, selected := range items { selected.root.Close() } }()
+	seen := make(map[string]bool)
+	for _, id := range ids {
+		if id == "" || seen[id] { http.Error(w, "invalid cart selection", http.StatusBadRequest); return }
+		seen[id] = true
+		entry := getGameEntryByID(id)
+		if entry == nil { http.NotFound(w, r); return }
+		root, err := openGameRoot(entry)
+		if err != nil { http.Error(w, "Unable to read a selected game.", http.StatusServiceUnavailable); return }
+		items = append(items, item{id, root})
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-cart.zip"`)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	output := &zipResponseWriter{ResponseWriter:w}
+	archive := zip.NewWriter(output)
+	for _, selected := range items {
+		if logTypeEnabled("downloads") { log.Printf("[download] cart game %s", selected.id) }
+		if err := addGameToZIP(archive, selected.root, selected.id); err != nil {
+			log.Printf("cart zip error: %v", err)
+			if output.started { panic(http.ErrAbortHandler) }
+			http.Error(w, "Unable to package selected games.", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	if err := archive.Close(); err != nil { log.Printf("cart zip close: %v", err); panic(http.ErrAbortHandler) }
 }
 
 func handleCover(w http.ResponseWriter, r *http.Request) {
@@ -1334,6 +1376,34 @@ type serverSettings struct {
 	DataDir string `json:"dataDir"`
 	RefreshInterval string `json:"refreshInterval"`
 	Verbose bool `json:"verbose"`
+	LogOptions *logOptions `json:"logOptions,omitempty"`
+}
+
+type logOptions struct {
+	Requests bool `json:"requests"`
+	Scans bool `json:"scans"`
+	Downloads bool `json:"downloads"`
+	OverrideSize bool `json:"overrideSize"`
+	SizeMB int `json:"sizeMB"`
+	OverrideDays bool `json:"overrideDays"`
+	Days int `json:"days"`
+}
+
+func defaultLogOptions() *logOptions { return &logOptions{Requests:true, Scans:true, Downloads:true, SizeMB:10, Days:7} }
+
+func normalizeLogOptions(value *logOptions) *logOptions {
+	if value == nil { return defaultLogOptions() }
+	copy := *value
+	if copy.SizeMB == 0 { copy.SizeMB = 10 }
+	if copy.Days == 0 { copy.Days = 7 }
+	return &copy
+}
+
+func logTypeEnabled(kind string) bool {
+	if !verboseLogging.Load() { return false }
+	settingsMu.RLock(); options := normalizeLogOptions(configuredSettings.LogOptions); settingsMu.RUnlock()
+	switch kind { case "requests": return options.Requests; case "scans": return options.Scans; case "downloads": return options.Downloads }
+	return false
 }
 
 var (
@@ -1349,22 +1419,52 @@ var (
 type boundedLog struct {
 	mu sync.Mutex
 	data []byte
+	limit int
+	maxAge time.Duration
+}
+
+func (b *boundedLog) Configure(options *logOptions) {
+	options = normalizeLogOptions(options)
+	b.mu.Lock(); defer b.mu.Unlock()
+	b.limit = 10 << 20
+	if options.OverrideSize { b.limit = options.SizeMB << 20 }
+	b.maxAge = 7 * 24 * time.Hour
+	if options.OverrideDays { b.maxAge = time.Duration(options.Days) * 24 * time.Hour }
+	b.prune()
+}
+
+func (b *boundedLog) prune() {
+	if b.limit <= 0 { b.limit = 10 << 20 }
+	if b.maxAge <= 0 { b.maxAge = 7 * 24 * time.Hour }
+	cutoff := time.Now().Add(-b.maxAge)
+	lines := bytes.SplitAfter(b.data, []byte("\n"))
+	first := 0
+	for first < len(lines) {
+		line := lines[first]
+		if len(line) < 19 { break }
+		stamp, err := time.ParseInLocation("2006/01/02 15:04:05", string(line[:19]), time.Local)
+		if err != nil || !stamp.Before(cutoff) { break }
+		first++
+	}
+	if first > 0 { b.data = bytes.Join(lines[first:], nil) }
+	if len(b.data) > b.limit {
+		b.data = bytes.Clone(b.data[len(b.data)-b.limit:])
+		if index := bytes.IndexByte(b.data, '\n'); index >= 0 { b.data = b.data[index+1:] }
+	}
 }
 
 func (b *boundedLog) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.data = append(b.data, p...)
-	const limit = 1 << 20
-	if len(b.data) > limit {
-		b.data = bytes.Clone(b.data[len(b.data)-limit:])
-	}
+	b.prune()
 	return len(p), nil
 }
 
 func (b *boundedLog) Snapshot() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.prune()
 	return bytes.Clone(b.data)
 }
 
@@ -1375,7 +1475,7 @@ func defaultServerSettings() serverSettings {
 	if data == "" { data = "/data" }
 	interval := os.Getenv("GAMESHELF_REFRESH_INTERVAL")
 	if interval == "" { interval = "12h" }
-	return serverSettings{RootDir: root, DataDir: data, RefreshInterval: interval}
+	return serverSettings{RootDir: root, DataDir: data, RefreshInterval: interval, LogOptions: defaultLogOptions()}
 }
 
 func settingsFile() string { return filepath.Join(settingsHome, "server-settings.json") }
@@ -1396,6 +1496,7 @@ func validRefreshInterval(value string) bool {
 }
 
 func validateServerSettings(value serverSettings) error {
+	if options := normalizeLogOptions(value.LogOptions); options.SizeMB < 1 || options.SizeMB > 100 || options.Days < 1 || options.Days > 3650 { return errors.New("log retention must be 1–100 MB and 1–3650 days") }
 	if !filepath.IsAbs(value.RootDir) || !filepath.IsAbs(value.DataDir) || !filepath.IsLocal(filepath.Base(value.RootDir)) || !filepath.IsLocal(filepath.Base(value.DataDir)) {
 		return errors.New("paths must be absolute container paths")
 	}
@@ -1426,13 +1527,16 @@ func initializeServerSettings() serverSettings {
 		log.Printf("server settings unavailable: %v", err)
 	}
 	settingsMu.Lock()
+	value.LogOptions = normalizeLogOptions(value.LogOptions)
 	configuredSettings = value
 	settingsMu.Unlock()
 	verboseLogging.Store(value.Verbose)
+	applicationLogs.Configure(value.LogOptions)
 	return value
 }
 
 func saveServerSettings(value serverSettings) error {
+	value.LogOptions = normalizeLogOptions(value.LogOptions)
 	if err := validateServerSettings(value); err != nil { return err }
 	contents, err := json.MarshalIndent(value, "", "  ")
 	if err != nil { return err }
@@ -1448,6 +1552,7 @@ func saveServerSettings(value serverSettings) error {
 	configuredSettings = value
 	settingsMu.Unlock()
 	verboseLogging.Store(value.Verbose)
+	applicationLogs.Configure(value.LogOptions)
 	return nil
 }
 
@@ -1477,7 +1582,6 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 
 func handleLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
-	if !verboseLogging.Load() { http.Error(w, "Enable verbose logging to view logs", http.StatusForbidden); return }
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Write(applicationLogs.Snapshot())
