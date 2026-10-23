@@ -501,6 +501,9 @@ function drawCoverEditor() {
 }
 
 function openCoverEditor(game) {
+  const save = document.getElementById('cover-editor-save');
+  clearTimeout(saveFeedbackTimers.get(save));
+  save.classList.remove('is-saved');
   editorReturnGame = game;
   editorGame = game;
   editorImage = null;
@@ -649,6 +652,8 @@ function bindCoverEditor() {
   save.addEventListener('click', async () => {
     if (!editorGame || !editorImage || save.disabled) return;
     const game = editorGame;
+    const openVersion = editorOpenVersion;
+    const isCurrentSession = () => dialog.open && editorOpenVersion === openVersion;
     save.disabled = true;
     status.textContent = 'Saving cover…';
     try {
@@ -667,10 +672,12 @@ function bindCoverEditor() {
       oldCard.replaceWith(newCard);
       cardMap.set(game.id, newCard);
       applySearchFilter();
+      if (!isCurrentSession()) return;
       status.textContent = 'Cover saved.';
       showSaveFeedback(save);
-      setTimeout(() => { if (dialog.open) dialog.close(); }, 850);
+      setTimeout(() => { if (isCurrentSession()) dialog.close(); }, 850);
     } catch (error) {
+      if (!isCurrentSession()) return;
       status.textContent = 'Could not save cover. Please try again.';
       save.disabled = false;
     }

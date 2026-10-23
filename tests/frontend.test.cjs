@@ -50,6 +50,11 @@ class Element {
   append(...children) { children.forEach(child => this.appendChild(child)); }
   replaceChildren(...children) { this.children = []; this.append(...children); }
   querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => [child, ...child.querySelectorAll('input')]).filter(item => item.tagName === 'INPUT') : []; }
+  querySelector(selector) {
+    const name = selector.startsWith('.') ? selector.slice(1) : '';
+    return this.children.find(child => child.classList.contains(name)) ||
+      this.children.map(child => child.querySelector(selector)).find(Boolean) || null;
+  }
   set innerHTML(value) { this.children = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
@@ -106,6 +111,7 @@ function app(
     }
     return [];
   };
+  const images = [];
   const requests = [];
   const timers = new Map();
   let timerId = 0;
@@ -117,6 +123,7 @@ function app(
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value)
     },
+    Image: class { constructor() { this.width = 600; this.height = 900; images.push(this); } },
     console: { error() {} }, AbortController,
     setTimeout(callback, delay) {
       timers.set(++timerId, { callback, delay });
@@ -138,7 +145,7 @@ function app(
   });
   vm.runInContext(source, context);
   return {
-    requests, document, storage, downloads, revoked, element: id => elements.get(id),
+    requests, document, storage, downloads, revoked, images, element: id => elements.get(id),
     hidden: id => elements.get(id).classList.contains('hidden'),
     cards: () => elements.get('games-container').children,
     start: () => document.emit('DOMContentLoaded'),
@@ -783,5 +790,85 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     assert.match(ui.element('library-backup-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
     ui.click('export-confirm');
     assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 2);
+  });
+}
+
+
+async function coverEditor() {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games.map(game => ({ ...game, hasCover: true }))));
+  await settle();
+  const canvas = ui.element('cover-editor-canvas');
+  canvas.getContext = () => ({ fillRect() {}, save() {}, translate() {}, rotate() {}, scale() {}, drawImage() {}, restore() {} });
+  canvas.toBlob = callback => callback({ size: 123 });
+  ui.openCover = id => {
+    ui.cards().find(card => card.dataset.id === id).children[0].children[1].children[1].emit('click');
+    ui.click('edit-game-cover');
+    ui.images.at(-1).onload();
+  };
+  ui.openCover('alpha');
+  return ui;
+}
+
+for (const next of ['cancel', 'same game', 'another game']) {
+  test(`cover save delay cannot dismiss a new session after ${next}`, async () => {
+    const ui = await coverEditor();
+    const pending = ui.click('cover-editor-save');
+    await settle();
+    ui.requests.find(request => request.url === '/api/covers/alpha').resolve(response({}));
+    await pending;
+    assert.equal(ui.element('cover-editor-dialog').open, true);
+    assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), true);
+    ui.click('cover-editor-cancel');
+    assert.equal(ui.element('game-details-dialog').open, true);
+    if (next !== 'cancel') {
+      if (next === 'same game') {
+        ui.click('edit-game-cover');
+        ui.images.at(-1).onload();
+      } else {
+        ui.click('game-details-close');
+        ui.openCover('beta');
+      }
+    }
+    ui.tick(850);
+    assert.equal(ui.element('cover-editor-dialog').open, next !== 'cancel');
+    if (next === 'cancel') assert.equal(ui.element('game-details-dialog').open, true);
+    else {
+      assert.equal(ui.element('cover-editor-title').textContent, `Cover Art: ${next === 'same game' ? 'Alpha' : 'Beta'}`);
+      assert.equal(ui.element('cover-editor-save').disabled, false);
+    }
+  });
+}
+
+test('cover save keeps confirmation visible until its normal delayed close', async () => {
+  const ui = await coverEditor();
+  const pending = ui.click('cover-editor-save');
+  await settle();
+  ui.requests.find(request => request.url === '/api/covers/alpha').resolve(response({}));
+  await pending;
+  assert.equal(ui.element('cover-editor-dialog').open, true);
+  assert.equal(ui.element('cover-editor-status').textContent, 'Cover saved.');
+  assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), true);
+  ui.tick(850);
+  assert.equal(ui.element('cover-editor-dialog').open, false);
+});
+
+for (const status of [200, 500]) {
+  test(`late cover upload response (${status}) cannot change a reopened editor`, async () => {
+    const ui = await coverEditor();
+    const pending = ui.click('cover-editor-save');
+    await settle();
+    const upload = ui.requests.find(request => request.url === '/api/covers/alpha');
+    ui.click('cover-editor-cancel');
+    ui.click('game-details-close');
+    ui.openCover('beta');
+    upload.resolve(response({}, status));
+    await pending;
+    assert.equal(ui.element('cover-editor-status').textContent, '');
+    assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), false);
+    assert.equal(ui.element('cover-editor-save').disabled, false);
+    ui.tick(850);
+    assert.equal(ui.element('cover-editor-dialog').open, true);
   });
 }
