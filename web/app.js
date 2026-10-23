@@ -29,6 +29,7 @@ let slowAnimations = localStorage.getItem('gameshelf:slow-animations') === 'true
 let showHoverText = localStorage.getItem('gameshelf:show-hover-text') !== 'false';
 let showGameTitles = localStorage.getItem('gameshelf:show-game-titles') === 'true';
 let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-images') === 'true';
+let showListImages = localStorage.getItem('gameshelf:show-list-images') !== 'false';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 let detailsGameId = null;
 let fileListController = null;
@@ -68,9 +69,8 @@ function openModal(dialog) {
 
 function showNotification(message) {
   const banner = document.getElementById('notification-banner');
-  const detailsDialog = document.getElementById('game-details-dialog');
-  if (detailsDialog.open) detailsDialog.appendChild(banner);
-  else document.body.appendChild(banner);
+  const visibleDialog = [...openDialogs].filter(dialog => dialog.open).at(-1);
+  (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;
   clearTimeout(notificationTimer);
   banner.hidden = false;
@@ -157,8 +157,9 @@ async function exportLibraryData() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    status.textContent = 'Library backup download started.';
+    status.textContent = '';
     dialog.close();
+    showNotification('Library backup download started.');
   } catch (err) {
     console.error('Library backup failed', err);
     status.textContent = 'Library backup failed. No backup was downloaded. Check the container logs and try again.';
@@ -194,9 +195,12 @@ async function saveFavorite() {
     cardMap.set(game.id, newCard);
     document.getElementById('game-details-favorite').textContent = game.favorite ? '★' : '☆';
     document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
+    document.getElementById('game-details-favorite').classList.toggle('is-favorite', game.favorite);
+    document.getElementById('game-details-favorite-mobile').classList.toggle('is-favorite', game.favorite);
     applySort();
     applySearchFilter();
     document.getElementById('favorite-dialog').close();
+    showNotification(game.favorite ? 'Added to favorites.' : 'Removed from favorites.');
   } catch { document.getElementById('favorite-status').textContent = 'Could not save favorite. Try again.'; }
   finally { button.disabled = false; }
 }
@@ -257,7 +261,7 @@ const sortIconPaths = {
 function updateSortIcon(sort) {
   const button = document.getElementById('sort-button');
   const symbol = sortIconPaths[sort] || sortIconPaths.all;
-  button.innerHTML = `<svg class="${sort === 'all' ? '' : 'gs-sort-symbol'}" viewBox="0 0 24 24" aria-hidden="true">${symbol}</svg>`;
+  button.innerHTML = `<svg class="${sort === 'all' || sort === 'favorites' ? '' : 'gs-sort-symbol'}" viewBox="0 0 24 24" aria-hidden="true">${symbol}</svg>`;
   animateControl(button);
 }
 
@@ -377,6 +381,13 @@ function createGameCard(game) {
   const body = document.createElement('div');
   body.className = 'gs-card-body';
 
+  const listImage = document.createElement('img');
+  listImage.className = 'gs-list-image';
+  listImage.src = game.hasCover === false ? '/placeholder.png' : img.src;
+  listImage.alt = '';
+  listImage.loading = 'lazy';
+  body.appendChild(listImage);
+
   const content = document.createElement('div');
   content.className = 'gs-card-content';
 
@@ -418,6 +429,8 @@ function openGameDetails(game, trigger, card) {
   const favorite = document.getElementById('game-details-favorite');
   favorite.textContent = game.favorite ? '★' : '☆';
   document.getElementById('game-details-favorite-mobile').textContent = favorite.textContent;
+  favorite.classList.toggle('is-favorite', game.favorite);
+  document.getElementById('game-details-favorite-mobile').classList.toggle('is-favorite', game.favorite);
   favorite.setAttribute('aria-label', game.favorite ? 'Remove from favorites' : 'Add to favorites');
   openModal(dialog);
   document.getElementById('game-details-close').focus();
@@ -655,7 +668,7 @@ function bindCoverEditor() {
     const openVersion = editorOpenVersion;
     const isCurrentSession = () => dialog.open && editorOpenVersion === openVersion;
     save.disabled = true;
-    status.textContent = 'Saving cover…';
+    status.textContent = '';
     try {
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('Could not render cover');
@@ -673,9 +686,15 @@ function bindCoverEditor() {
       cardMap.set(game.id, newCard);
       applySearchFilter();
       if (!isCurrentSession()) return;
-      status.textContent = 'Cover saved.';
+      status.textContent = '';
       showSaveFeedback(save);
-      setTimeout(() => { if (isCurrentSession()) dialog.close(); }, 850);
+      setTimeout(() => {
+        if (!isCurrentSession()) return;
+        dialog.close();
+        const card = cardMap.get(game.id);
+        openGameDetails(game, card?.querySelector('.gs-card-info') || document.getElementById('spotlight-info'), card);
+        showNotification('Cover art saved.');
+      }, 850);
     } catch (error) {
       if (!isCurrentSession()) return;
       status.textContent = 'Could not save cover. Please try again.';
@@ -968,6 +987,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
   document.body.classList.toggle('gs-show-game-titles', showGameTitles);
   document.body.classList.toggle('gs-show-placeholders', showPlaceholderImages);
+  document.body.classList.toggle('gs-show-list-images', showListImages);
   loadVersion();
   loadServerSettings();
   loadGames();
@@ -1092,10 +1112,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const hoverTextInput = document.getElementById('show-hover-text');
   const gameTitlesInput = document.getElementById('show-game-titles');
   const placeholderInput = document.getElementById('show-placeholder-images');
+  const listImagesInput = document.getElementById('show-list-images');
   slowAnimationsInput.checked = slowAnimations;
   hoverTextInput.checked = showHoverText;
   gameTitlesInput.checked = showGameTitles;
   placeholderInput.checked = showPlaceholderImages;
+  listImagesInput.checked = showListImages;
   randomButton.classList.toggle('gs-slow-animations', slowAnimations);
   document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
 
@@ -1184,8 +1206,10 @@ document.addEventListener('DOMContentLoaded', () => {
     button.disabled = true;
     try {
       const result = await saveServerSettings(next);
-      document.getElementById('server-settings-status').textContent = result.restartRequired ? 'Saved. Restart the container to apply path or interval changes.' : 'Saved.';
-      document.getElementById('settings-save-status').textContent = document.getElementById('server-settings-status').textContent;
+      document.getElementById('server-settings-status').textContent = '';
+      document.getElementById('settings-save-status').textContent = '';
+      serverDialog.close();
+      showNotification(result.restartRequired ? 'Library settings saved. Restart the container to apply changes.' : 'Library settings saved.');
     } catch (error) { document.getElementById('server-settings-status').textContent = `Could not save settings: ${error.message}`; }
     finally { button.disabled = false; }
   });
@@ -1196,6 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await saveServerSettings({ ...serverSettings, verbose: input.checked });
       document.getElementById('settings-save-status').textContent = '';
+      showNotification('Logging preference saved.');
     } catch { input.checked = !input.checked; document.getElementById('settings-save-status').textContent = 'Could not save logging preference.'; }
     finally { input.disabled = false; }
   });
@@ -1248,6 +1273,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('game-details-art').classList.toggle('gs-no-cover', !game.hasCover);
       document.getElementById('game-details-favorite').textContent = game.favorite ? '★' : '☆';
       document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
+      document.getElementById('game-details-favorite').classList.toggle('is-favorite', game.favorite);
+      document.getElementById('game-details-favorite-mobile').classList.toggle('is-favorite', game.favorite);
       applySort(); applySearchFilter();
       resetConfirm.close();
       showNotification('Metadata reset successfully.');
@@ -1284,6 +1311,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applySort();
       applySearchFilter();
       showSaveFeedback(titleSave);
+      showNotification('GameShelf title saved.');
     } catch {
       titleInput.setCustomValidity('Could not save this title. Try again.');
       titleInput.reportValidity();
@@ -1320,6 +1348,11 @@ document.addEventListener('DOMContentLoaded', () => {
     showPlaceholderImages = placeholderInput.checked;
     localStorage.setItem('gameshelf:show-placeholder-images', String(showPlaceholderImages));
     document.body.classList.toggle('gs-show-placeholders', showPlaceholderImages);
+  });
+  listImagesInput.addEventListener('change', () => {
+    showListImages = listImagesInput.checked;
+    localStorage.setItem('gameshelf:show-list-images', String(showListImages));
+    document.body.classList.toggle('gs-show-list-images', showListImages);
   });
 
   /* -------- Sort menu -------- */
