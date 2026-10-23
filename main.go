@@ -61,20 +61,15 @@ var (
 )
 
 func main() {
-	rootDir = os.Getenv("GAMESHELF_ROOT")
-	if rootDir == "" {
-		rootDir = "/games"
-	}
-	dataDir = os.Getenv("GAMESHELF_DATA_DIR")
-	if dataDir == "" {
-		dataDir = "/data"
-	}
+	settings := initializeServerSettings()
+	rootDir = settings.RootDir
+	dataDir = settings.DataDir
 
 	if err := refreshGames(); err != nil {
 		log.Fatalf("scan error: %v", err)
 	}
 
-	if interval := refreshInterval(); interval > 0 {
+	if interval := configuredRefreshInterval(settings.RefreshInterval); interval > 0 {
 		log.Printf("Auto-rescanning every %s", interval)
 		go func() {
 			ticker := time.NewTicker(interval)
@@ -102,6 +97,8 @@ func main() {
 	mux.HandleFunc("/api/covers/", handleCoverUpload)
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/api/favorite/", handleFavorite)
+	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
+	mux.HandleFunc("/api/server-settings", handleServerSettings)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -155,6 +152,13 @@ func refreshInterval() time.Duration {
 	}
 
 	return dur
+}
+
+func configuredRefreshInterval(value string) time.Duration {
+	if value == "0" { return 0 }
+	interval, err := time.ParseDuration(value)
+	if err != nil || interval < 0 { return 12 * time.Hour }
+	return interval
 }
 
 // -------- Game indexing --------
@@ -377,6 +381,7 @@ func refreshGames() error {
 		}
 
 		dirName := e.Name()
+		if verboseLogging.Load() { log.Printf("verbose: scanning %q", dirName) }
 		id := ids[dirName]
 		absPath := filepath.Join(rootDir, dirName)
 
@@ -635,13 +640,17 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	var selected map[string]bool
 	includeState := true
+	includeLogs := false
+	includeSettings := false
 	if r.URL.Query().Has("select") {
 		includeState = r.URL.Query().Get("state") == "1"
+		includeLogs = r.URL.Query().Get("logs") == "1"
+		includeSettings = r.URL.Query().Get("settings") == "1"
 		selected = make(map[string]bool)
 		for _, id := range r.URL.Query()["cover"] { selected[id] = true }
-		if !includeState && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
+		if !includeState && !includeLogs && !includeSettings && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
 	}
-	file, size, err := prepareLibraryBackupSelection(includeState, selected)
+	file, size, err := prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings, selected)
 	if err != nil {
 		log.Printf("library backup unavailable: %v", err)
 		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
@@ -668,6 +677,10 @@ func prepareLibraryBackup() (*os.File, int64, error) {
 }
 
 func prepareLibraryBackupSelection(includeState bool, selected map[string]bool) (*os.File, int64, error) {
+	return prepareLibraryBackupSelectionExtra(includeState, false, false, selected)
+}
+
+func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings bool, selected map[string]bool) (*os.File, int64, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
@@ -686,7 +699,7 @@ func prepareLibraryBackupSelection(includeState bool, selected map[string]bool) 
 			os.Remove(file.Name())
 		}
 	}()
-	if err := writeLibraryBackupSelection(file, includeState, selected); err != nil {
+	if err := writeLibraryBackupSelectionExtra(file, includeState, includeLogs, includeSettings, selected); err != nil {
 		return nil, 0, err
 	}
 	info, err := file.Stat()
@@ -738,19 +751,34 @@ func writeLibraryBackup(dst io.Writer) error {
 }
 
 func writeLibraryBackupSelection(dst io.Writer, includeState bool, selected map[string]bool) error {
-	state, err := readLibraryMetadata()
-	if err != nil {
-		return err
-	}
-	contents, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
+	return writeLibraryBackupSelectionExtra(dst, includeState, false, false, selected)
+}
+
+func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool) error {
 	archive := zip.NewWriter(dst)
+	var err error
 	if includeState {
+		state, readErr := readLibraryMetadata()
+		if readErr != nil { return readErr }
+		contents, marshalErr := json.MarshalIndent(state, "", "  ")
+		if marshalErr != nil { return marshalErr }
 		stateFile, createErr := archive.Create("library-state.json")
 		err = createErr
 		if err == nil { _, err = stateFile.Write(append(contents, '\n')) }
+	}
+	if err == nil && includeSettings {
+		settingsMu.RLock()
+		settings := configuredSettings
+		settingsMu.RUnlock()
+		contents, marshalErr := json.MarshalIndent(settings, "", "  ")
+		if marshalErr != nil { err = marshalErr } else {
+			member, createErr := archive.Create("server-settings.json")
+			if createErr != nil { err = createErr } else { _, err = member.Write(append(contents, '\n')) }
+		}
+	}
+	if err == nil && includeLogs {
+		member, createErr := archive.Create("logs.txt")
+		if createErr != nil { err = createErr } else { _, err = member.Write(applicationLogs.Snapshot()) }
 	}
 	gamesMu.RLock()
 	covers := make([]gameEntry, 0)

@@ -72,7 +72,15 @@ function app(
 ) {
   const elements = new Map();
   for (const match of html.matchAll(/<[^>]+\bid="([^"]+)"[^>]*>/g)) {
-    elements.set(match[1], new Element(match[0].match(/class="([^"]*)"/)?.[1]));
+    const element = new Element(match[0].match(/class="([^"]*)"/)?.[1]);
+    element.id = match[1];
+    elements.set(match[1], element);
+  }
+  for (const match of html.matchAll(/<button data-sort="([^"]+)">([^<]+)<\/button>/g)) {
+    const button = new Element();
+    button.dataset.sort = match[1];
+    button.textContent = match[2];
+    elements.get('sort-menu').appendChild(button);
   }
   const document = new Element();
   document.body = new Element();
@@ -88,8 +96,15 @@ function app(
     return element;
   };
   document.createTextNode = text => { const node = new Element(); node.textContent = text; return node; };
-  document.querySelectorAll = selector => selector === '#export-options input:checked'
-    ? elements.get('export-options').querySelectorAll('input').filter(input => input.checked) : [];
+  document.querySelectorAll = selector => {
+    if (selector === '.gs-sort-menu button') return elements.get('sort-menu').children;
+    if (selector === '#export-options input:checked') return elements.get('export-options').querySelectorAll('input').filter(input => input.checked);
+    if (selector === '#reset-metadata-options input' || selector === '#reset-metadata-options input:checked') {
+      const options = elements.get('reset-metadata-options').querySelectorAll('input');
+      return selector.endsWith(':checked') ? options.filter(input => input.checked) : options;
+    }
+    return [];
+  };
   const requests = [];
   const timers = new Map();
   let timerId = 0;
@@ -110,6 +125,9 @@ function app(
     fetch(url, options) {
       if (url === '/api/version') {
         return Promise.resolve(versionInfo ? response(versionInfo) : response({}, 503));
+      }
+      if (url === '/api/server-settings' && !options?.method) {
+        return Promise.resolve(response({ rootDir: '/games', dataDir: '/data', refreshInterval: '12h', verbose: false }));
       }
       return new Promise((resolve, reject) => {
         requests.push({ url, resolve, reject });
@@ -211,9 +229,9 @@ test('game information lists only the selected game files on request', async () 
   const alpha = ui.cards().find(card => card.dataset.id === 'alpha');
   alpha.children[0].children[1].children[1].emit('click');
   assert.equal(ui.requests.length, 1);
-  ui.click('toggle-game-files');
+  ui.click('game-details-download-summary');
   assert.equal(ui.requests[1].url, '/api/game-files/alpha');
-  assert.equal(ui.element('toggle-game-files').attributes['aria-expanded'], 'true');
+  assert.equal(ui.element('game-files-dialog').open, true);
   ui.requests[1].resolve(response({ files: [
     { path: 'data/level.dat', sizeBytes: 2048 },
     { path: 'cover.png', sizeBytes: 1024 }
@@ -223,8 +241,8 @@ test('game information lists only the selected game files on request', async () 
     ['data/level.dat', 'cover.png']);
   assert.equal(ui.element('game-files-list').children[0].children[2].href,
     '/api/game-file/alpha?path=data%2Flevel.dat');
-  ui.click('toggle-game-files');
-  assert.equal(ui.hidden('game-files-panel'), true);
+  ui.click('game-files-close');
+  assert.equal(ui.element('game-files-dialog').open, false);
   ui.click('game-details-close');
   assert.equal(ui.element('game-details-dialog').open, false);
 });
@@ -573,6 +591,62 @@ test('favorite confirmation persists selection and Favorites filters cards', asy
   assert.equal(ui.cards().find(card => card.dataset.id === 'alpha').dataset.favorite, 'true');
 });
 
+test('card stars default off with favorited-only checked, and All clears filtering', async () => {
+  const storage = new Map();
+  const ui = app(undefined, storage);
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  assert.equal(ui.element('show-favorite-stars').checked, false);
+  assert.equal(ui.element('favorite-stars-only').checked, true);
+  assert.equal(ui.element('favorite-stars-only').disabled, true);
+  assert.equal(ui.document.body.classList.contains('gs-hide-favorite-stars'), true);
+  ui.element('show-favorite-stars').checked = true;
+  ui.element('show-favorite-stars').emit('change');
+  assert.equal(ui.element('favorite-stars-only').disabled, false);
+  assert.equal(ui.document.body.classList.contains('gs-favorite-stars-only'), true);
+  ui.click('sort-button');
+  ui.element('sort-menu').children.find(button => button.dataset.sort === 'favorites').emit('click');
+  assert.equal(ui.hidden('sort-heading'), false);
+  ui.click('sort-button');
+  ui.element('sort-menu').children.find(button => button.dataset.sort === 'all').emit('click');
+  assert.equal(ui.hidden('sort-heading'), true);
+  ui.element('search-input').value = 'alpha';
+  ui.element('search-input').emit('input');
+  ui.click('view-toggle');
+  ui.click('gs-home-trigger');
+  assert.equal(ui.element('games-container').classList.contains('list-view'), false);
+  assert.equal(ui.element('search-input').value, '');
+  assert.equal(ui.hidden('sort-heading'), true);
+});
+
+test('metadata reset reviews selected fields and refreshes the card after saving', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response([{ ...games[1], name: 'Custom Alpha', fileCount: 1, favorite: true, hasCover: true }]));
+  await settle();
+  const card = ui.cards()[0];
+  card.children[0].children[1].children[1].emit('click');
+  const label = ui.document.createElement('label');
+  const input = ui.document.createElement('input');
+  input.value = 'title';
+  label.appendChild(input);
+  ui.element('reset-metadata-options').appendChild(label);
+  ui.click('reset-game-metadata');
+  input.checked = true;
+  ui.click('reset-metadata-next');
+  assert.equal(ui.element('reset-confirm-dialog').open, true);
+  assert.match(ui.element('reset-confirm-question').textContent, /Custom Alpha.*title/i);
+  const pending = ui.click('reset-confirm-save');
+  const request = ui.requests.find(item => item.url === '/api/metadata-reset/alpha');
+  assert.ok(request);
+  request.resolve(response({ name: 'Alpha', favorite: true, hasCover: true }));
+  await pending;
+  assert.equal(ui.element('reset-confirm-dialog').open, false);
+  assert.equal(ui.element('game-details-title').textContent, 'Alpha');
+  assert.equal(ui.cards()[0].dataset.name, 'alpha');
+});
+
 
 
 test('backup export waits for the complete response, prevents duplicate requests and releases its URL', async () => {
@@ -583,9 +657,9 @@ test('backup export waits for the complete response, prevents duplicate requests
   assert.equal(ui.element('export-confirm').disabled, true);
   assert.match(ui.element('library-backup-status').textContent, /Preparing/);
   ui.click('export-confirm');
-  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1').length, 1);
+  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 1);
   let finish;
-  ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1').resolve({
+  ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').resolve({
     ok: true,
     headers: { get: name => name === 'Content-Type' ? 'application/zip' : '123' },
     blob: () => new Promise(resolve => { finish = resolve; })
@@ -612,7 +686,7 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     ui.start();
     ui.click('export-library-data');
     const pending = ui.click('export-confirm');
-    const request = ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1');
+    const request = ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1');
     if (failure === 'network') request.reject(new Error('offline'));
     else request.resolve({
       ok: failure !== 'http', status: 503,
@@ -624,6 +698,6 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     assert.equal(ui.element('export-confirm').disabled, false);
     assert.match(ui.element('library-backup-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
     ui.click('export-confirm');
-    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1').length, 2);
+    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 2);
   });
 }

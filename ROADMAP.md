@@ -25,6 +25,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Add a slow-motion setting for dice and card-shuffle animations
 
 * [x] Add settings for button hints, game title banners, and placeholder artwork
+* [x] Add separate card-star visibility and favorited-only display options in grid and list views
+* [x] Add an All option to clear sort/filter selection and a logo shortcut back to the default grid
 * [x] Respect the device's reduced-motion preference
 * [ ] Add a dark/light mode toggle
 * [x] Integrate download button into card main body
@@ -52,6 +54,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add client-side filtering (genre, developer, year)
 * [x] Add a “Recently Added” filter with a configurable date range
 * [x] Save favorites locally and filter the library to favorite games
+* [x] Restore selected title, cover, and favorite metadata to their detected defaults with confirmation
 * [x] Add functional search bar
 * [x] Add a dice icon and randomize logic from parsed folder names to suggest a game download
 * [ ] Add ability to group games together by adding tags (requires lightweight database integration)
@@ -63,15 +66,17 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* ZIP download streaming
 * [x] *(Planned)* Display calculated download size in game information
 
-* [x] Show a read-only list of the selected game's files in its information panel
+* [x] Open a read-only file list from the file count below Download Game
 * [x] Download individual files directly from the file list
 * [x] Select metadata and individual game cover folders when exporting library data
+* [x] Include optional server settings and recent application logs in the export
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
   - Env to include, optional 
 * [ ] Add support for multiple directories
 * [ ] Explore a first-launch setup page for library paths, multiple directories, and clearly explained download/ZIP streaming options; define where settings persist and preserve read-only library access
+* [x] Let users save mounted library and data paths and the refresh interval from Settings, applying path and interval changes after restart
 * [x] Keep cover reads and ZIP contents within the selected game directory, including symlinks and files changed during a request; preserve uploaded covers under application data
 * [x] Handle unreadable files and interrupted ZIP downloads cleanly; close each file after streaming and abort partial archives
 
@@ -84,6 +89,6 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add multi-arch builds (amd64 + arm64)
 * [x] *(Planned)* Environment variable configuration
 * [x] Add a responsible distribution use/disclaimer statement tp README
-* [ ] Additional logging outputs
+* [x] Add a verbose logging option and an exportable bounded log snapshot
 > [!NOTE]
 > For substantial features that are beyond the minimal design approach, separate versions should be created (eg. "gameshelf:plus-gog", "gameshelf:plus-auto-search", etc.)

@@ -144,6 +144,51 @@ func TestFavoritePersistsAcrossScan(t *testing.T) {
 	if w.Code != http.StatusOK || getGameEntryByID("alpha").Game.Favorite { t.Fatal("favorite not removed") }
 }
 
+func TestMetadataResetRestoresFolderTitleCoverAndFavorite(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "cover.jpg"), []byte("folder artwork"), 0644); err != nil { t.Fatal(err) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	firstSeen := getGameEntryByID("alpha").Game.AddedAt
+	state, err := readLibraryMetadata()
+	if err != nil { t.Fatal(err) }
+	gamePath := filepath.Join(rootDir, "Alpha")
+	state.Titles[gamePath] = "Custom Alpha"
+	state.Favorites[gamePath] = true
+	if err := writeLibraryMetadata(state); err != nil { t.Fatal(err) }
+	cover := customCoverPath("Alpha")
+	if err := os.MkdirAll(filepath.Dir(cover), 0700); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(cover, []byte("uploaded artwork"), 0600); err != nil { t.Fatal(err) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	w := httptest.NewRecorder()
+	handleMetadataReset(w, httptest.NewRequest(http.MethodPut, "/api/metadata-reset/alpha", strings.NewReader(`{"title":true,"cover":true,"favorite":true}`)))
+	if w.Code != http.StatusOK { t.Fatalf("reset status = %d: %s", w.Code, w.Body.String()) }
+	game := getGameEntryByID("alpha").Game
+	if game.Name != "Alpha" || game.Favorite || game.CoverSource != "folder" || game.AddedAt != firstSeen { t.Fatalf("reset game = %#v", game) }
+	if _, err := os.Stat(cover); !os.IsNotExist(err) { t.Fatalf("uploaded cover still exists: %v", err) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	if got := getGameEntryByID("alpha").Game; got.Name != "Alpha" || got.Favorite || got.CoverSource != "folder" { t.Fatalf("scan lost reset: %#v", got) }
+}
+
+func TestBackupCanSelectLogsAndServerSettings(t *testing.T) {
+	setupLibrary(t)
+	previous := configuredSettings
+	t.Cleanup(func() { configuredSettings = previous })
+	configuredSettings = serverSettings{RootDir: rootDir, DataDir: dataDir, RefreshInterval: "1h", Verbose: true}
+	applicationLogs.Write([]byte("backup log marker\n"))
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup?select=1&logs=1&settings=1", nil))
+	if w.Code != http.StatusOK { t.Fatalf("backup status = %d: %s", w.Code, w.Body.String()) }
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil { t.Fatal(err) }
+	if len(archive.File) != 2 || archive.File[0].Name != "server-settings.json" || archive.File[1].Name != "logs.txt" { t.Fatalf("backup entries = %#v", archive.File) }
+	reader, err := archive.File[1].Open()
+	if err != nil { t.Fatal(err) }
+	contents, err := io.ReadAll(reader)
+	reader.Close()
+	if err != nil || !bytes.Contains(contents, []byte("backup log marker")) { t.Fatalf("log export: %v", err) }
+}
+
 func TestSelectedBackupOmitsUnselectedItems(t *testing.T) {
 	setupLibrary(t)
 	writeGame(t, "Alpha")
