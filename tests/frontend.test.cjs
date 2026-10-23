@@ -615,6 +615,22 @@ test('favorite confirmation persists selection and Favorites filters cards', asy
   assert.equal(ui.element('notification-text').textContent, 'Added to favorites.');
 });
 
+test('favorites-first defaults on and groups favorites within every sort', async () => {
+  const storage = new Map();
+  const ui = app(undefined, storage);
+  ui.start();
+  ui.requests[0].resolve(response([{ ...games[0], favorite: true }, { ...games[1], favorite: false }]));
+  await settle();
+  assert.equal(ui.element('favorites-first').checked, true);
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['beta', 'alpha']);
+  ui.element('sort-menu').children.find(button => button.dataset.sort === 'size-asc').emit('click');
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['beta', 'alpha']);
+  ui.element('favorites-first').checked = false;
+  ui.element('favorites-first').emit('change');
+  assert.equal(storage.get('gameshelf:favorites-first'), 'false');
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['alpha', 'beta']);
+});
+
 test('saving library paths returns to settings and confirms in the banner', async () => {
   const ui = app();
   ui.start();
@@ -756,6 +772,35 @@ test('export groups GameShelf data separately from cover images', async () => {
   assert.equal(groups[1].children[0].textContent, 'Cover image archive');
   assert.equal(groups[0].querySelectorAll('input').length, 3);
   assert.equal(groups[1].querySelectorAll('input').length, 1);
+});
+
+test('restore previews a backup and requires acknowledgment before applying', async () => {
+  const ui = app();
+  ui.start();
+  ui.click('build-info');
+  ui.click('open-library-restore');
+  assert.equal(ui.element('restore-dialog').open, true);
+  ui.element('restore-file').files = [{ size: 100 }];
+  const previewing = ui.element('restore-file').emit('change');
+  const previewRequest = ui.requests.find(item => item.url === '/api/library-restore');
+  assert.ok(previewRequest);
+  previewRequest.resolve(response({ sha256: 'abc', state: true, settings: false, covers: 2, folderCoversSkipped: 1, logsSkipped: true }));
+  await previewing;
+  assert.equal(ui.element('restore-preview').hidden, false);
+  assert.equal(ui.element('restore-state').checked, true);
+  assert.equal(ui.element('restore-settings').disabled, true);
+  assert.equal(ui.element('restore-apply').disabled, true);
+  ui.element('restore-ack').checked = true;
+  ui.element('restore-ack').emit('change');
+  assert.equal(ui.element('restore-apply').disabled, false);
+  const applying = ui.click('restore-apply');
+  const applyRequest = ui.requests.find(item => item.url === '/api/library-restore?apply=1&state=1&covers=1');
+  assert.ok(applyRequest);
+  applyRequest.resolve(response({ restored: true, restartRequired: false }));
+  await applying;
+  assert.equal(ui.element('restore-dialog').open, false);
+  assert.equal(ui.element('settings-dialog').open, true);
+  assert.equal(ui.element('notification-text').textContent, 'Library data restored.');
 });
 
 test('refresh feedback returns to the brand when the pointer has left', async () => {

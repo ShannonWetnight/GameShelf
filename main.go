@@ -96,6 +96,7 @@ func main() {
 	mux.HandleFunc("/api/game-file/", handleGameFileDownload)
 	mux.HandleFunc("/api/version", handleVersion)
 	mux.HandleFunc("/api/library-backup", handleLibraryBackup)
+	mux.HandleFunc("/api/library-restore", handleLibraryRestore)
 	mux.HandleFunc("/api/covers/", handleCoverUpload)
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/api/favorite/", handleFavorite)
@@ -183,6 +184,10 @@ func readLibraryMetadata() (libraryState, error) {
 	if err != nil {
 		return libraryState{}, err
 	}
+	return parseLibraryMetadata(contents)
+}
+
+func parseLibraryMetadata(contents []byte) (libraryState, error) {
 	var state libraryState
 	if err := json.Unmarshal(contents, &state); err != nil {
 		return libraryState{}, err

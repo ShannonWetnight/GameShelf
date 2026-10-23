@@ -18,6 +18,7 @@ localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
 let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
+let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') !== 'false';
 let favoritePending = null;
 let serverSettings = null;
 let currentSearch = '';
@@ -728,6 +729,7 @@ function applySort() {
   const cards = Array.from(cardMap.values());
 
   cards.sort((a, b) => {
+    if (favoritesFirst && a.dataset.favorite !== b.dataset.favorite) return a.dataset.favorite === 'true' ? -1 : 1;
     const nameA = a.dataset.name;
     const nameB = b.dataset.name;
     const sizeA = Number(a.dataset.size);
@@ -1174,6 +1176,73 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('export-confirm').addEventListener('click', exportLibraryData);
   for (const id of ['export-close', 'export-cancel']) document.getElementById(id).addEventListener('click', () => exportDialog.close());
   closeOnBackdropClick(exportDialog);
+  const restoreDialog = document.getElementById('restore-dialog');
+  const restoreFile = document.getElementById('restore-file');
+  const restoreApply = document.getElementById('restore-apply');
+  const restoreStatus = document.getElementById('restore-status');
+  const restorePreviewPanel = document.getElementById('restore-preview');
+  const restoreChoices = ['restore-state', 'restore-covers', 'restore-settings'].map(id => document.getElementById(id));
+  let restorePreview = null;
+  let restoreVersion = 0;
+  const updateRestoreButton = () => {
+    restoreApply.disabled = !restorePreview || !document.getElementById('restore-ack').checked || !restoreChoices.some(input => input.checked);
+  };
+  document.getElementById('open-library-restore').addEventListener('click', () => {
+    restoreVersion++;
+    restorePreview = null;
+    restoreFile.value = '';
+    restorePreviewPanel.hidden = true;
+    restoreStatus.textContent = '';
+    document.getElementById('restore-ack').checked = false;
+    updateRestoreButton();
+    openModal(restoreDialog);
+  });
+  for (const id of ['restore-close', 'restore-cancel']) document.getElementById(id).addEventListener('click', () => restoreDialog.close());
+  closeOnBackdropClick(restoreDialog);
+  restoreDialog.addEventListener('close', () => { restoreVersion++; restorePreview = null; });
+  for (const input of [...restoreChoices, document.getElementById('restore-ack')]) input.addEventListener('change', updateRestoreButton);
+  restoreFile.addEventListener('change', async () => {
+    const file = restoreFile.files?.[0];
+    const version = ++restoreVersion;
+    restorePreview = null;
+    restorePreviewPanel.hidden = true;
+    restoreStatus.textContent = '';
+    updateRestoreButton();
+    if (!file) return;
+    if (file.size > 64 * 1024 * 1024) { restoreStatus.textContent = 'Choose a backup ZIP smaller than 64 MiB.'; return; }
+    restoreStatus.textContent = 'Validating backup…';
+    try {
+      const response = await fetch('/api/library-restore', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
+      if (!response.ok) throw new Error((await response.text()).trim());
+      const preview = await response.json();
+      if (version !== restoreVersion || !restoreDialog.open) return;
+      restorePreview = preview;
+      const available = [preview.state, preview.covers > 0, preview.settings];
+      restoreChoices.forEach((input, index) => { input.checked = available[index]; input.disabled = !available[index]; });
+      document.getElementById('restore-cover-count').textContent = `${preview.covers} uploaded cover${preview.covers === 1 ? '' : 's'} will be replaced or added.`;
+      document.getElementById('restore-skipped').textContent = `${preview.folderCoversSkipped} game-folder cover copies and ${preview.logsSkipped ? 'the log snapshot' : 'no log snapshot'} will be skipped; mounted game folders are never changed.`;
+      document.getElementById('restore-ack').checked = false;
+      restorePreviewPanel.hidden = false;
+      restoreStatus.textContent = 'Review the selection, then confirm the restore.';
+      updateRestoreButton();
+    } catch (error) { if (version === restoreVersion) restoreStatus.textContent = `Could not preview backup: ${error.message}`; }
+  });
+  restoreApply.addEventListener('click', async () => {
+    if (restoreApply.disabled || !restorePreview || !restoreFile.files?.[0]) return;
+    restoreApply.disabled = true;
+    restoreStatus.textContent = 'Restoring selected data…';
+    const selected = new URLSearchParams({ apply: '1' });
+    for (const [index, key] of ['state', 'covers', 'settings'].entries()) if (restoreChoices[index].checked) selected.set(key, '1');
+    try {
+      const response = await fetch(`/api/library-restore?${selected}`, { method: 'POST', headers: { 'Content-Type': 'application/zip', 'X-Preview-SHA256': restorePreview.sha256 }, body: restoreFile.files[0] });
+      if (!response.ok) throw new Error((await response.text()).trim());
+      const result = await response.json();
+      restoreDialog.close();
+      showNotification(result.restartRequired ? 'Library data restored. Restart the container to apply server settings.' : 'Library data restored.');
+      loadServerSettings();
+      loadGames(true);
+    } catch (error) { restoreStatus.textContent = `Could not restore backup: ${error.message}`; updateRestoreButton(); }
+  });
   const favoriteDialog = document.getElementById('favorite-dialog');
   document.getElementById('game-details-favorite').addEventListener('click', () => { const game = gamesCache.find(item => item.id === detailsGameId); if (game) openFavoriteConfirm(game); });
   document.getElementById('game-details-favorite-mobile').addEventListener('click', () => { const game = gamesCache.find(item => item.id === detailsGameId); if (game) openFavoriteConfirm(game); });
@@ -1181,6 +1250,13 @@ document.addEventListener('DOMContentLoaded', () => {
   for (const id of ['favorite-close', 'favorite-cancel']) document.getElementById(id).addEventListener('click', () => favoriteDialog.close());
   closeOnBackdropClick(favoriteDialog);
   const starsInput = document.getElementById('show-favorite-stars');
+  const favoritesFirstInput = document.getElementById('favorites-first');
+  favoritesFirstInput.checked = favoritesFirst;
+  favoritesFirstInput.addEventListener('change', () => {
+    favoritesFirst = favoritesFirstInput.checked;
+    localStorage.setItem('gameshelf:favorites-first', String(favoritesFirst));
+    applySort();
+  });
   const starsOnlyInput = document.getElementById('favorite-stars-only');
   function syncStarSettings() {
     starsInput.checked = showFavoriteStars;

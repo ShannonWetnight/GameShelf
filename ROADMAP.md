@@ -5,7 +5,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 ---
 
 ### Recommended Next
-* [ ] Add a validated restore flow for exported library backups. Show a preview and resolve conflicts before writing to `/data`; keep the mounted game library read-only. Export already captures the state and artwork needed for a backup, but restoring currently requires manual file extraction.
+* [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
+* [ ] Add an optional download queue for selecting several games and creating one ZIP, with clear size estimates and cancellation before packaging.
 
 ### Core UX & Stability
 * [x] *(Planned)* Responsive UI layout
@@ -58,6 +59,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [ ] Add client-side filtering (genre, developer, year)
 * [x] Add a “Recently Added” filter with a configurable date range
 * [x] Save favorites locally and filter the library to favorite games
+* [x] Offer a default-on setting that places favorites first within every sort and filter
 * [x] Restore selected title, cover, and favorite metadata to their detected defaults with confirmation
 * [x] Add functional search bar
 * [x] Add a dice icon and randomize logic from parsed folder names to suggest a game download

@@ -1,14 +1,6 @@
 # Build stage
-FROM golang:1.27.2-alpine3.24 AS build
+FROM golang:1.27.3-alpine3.24 AS build
 RUN apk upgrade --no-cache
-# The 1.27.3 official image is pending; install the patched Go release with
-# the SHA256 published at https://go.dev/dl/ for the amd64 build target.
-RUN wget -q -O /tmp/go.tar.gz https://go.dev/dl/go1.27.3.linux-amd64.tar.gz \
-    && echo '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40  /tmp/go.tar.gz' | sha256sum -c - \
-    && rm -rf /usr/local/go \
-    && tar -C /usr/local -xzf /tmp/go.tar.gz \
-    && rm /tmp/go.tar.gz \
-    && go version
 
 WORKDIR /app
 
@@ -16,17 +8,17 @@ WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 
-COPY main.go .
+COPY main.go restore.go ./
 COPY web/ ./web/
 
 ARG GAMESHELF_BUILD_VERSION=Development
 ARG GAMESHELF_BUILD_CHANNEL=development
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags "-X main.buildVersion=${GAMESHELF_BUILD_VERSION} -X main.buildChannel=${GAMESHELF_BUILD_CHANNEL}" \
-    -o gameshelf main.go
+    -o gameshelf .
 
 # Runtime stage
-FROM alpine:3.24.2
+FROM alpine:3.24.3
 # Apply security fixes published since the base image was built.
 RUN apk upgrade --no-cache
 WORKDIR /app
