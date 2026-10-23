@@ -63,10 +63,10 @@
           <button
             id="view-toggle"
             class="gs-view-toggle gs-has-tooltip"
-            aria-label="Toggle list view"
-            data-tooltip="Toggle list view">
+            aria-label="Switch to list view"
+            data-tooltip="Switch to list view">
             <svg viewBox="0 0 24 24">
-              <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
+              <path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/>
             </svg>
           </button>
 
@@ -83,6 +83,8 @@
             <button data-sort="za">Z to A</button>
             <button data-sort="size-desc">Size: High to Low</button>
             <button data-sort="size-asc">Size: Low to High</button>
+            <button data-sort="favorites">Favorites</button>
+            <button data-sort="recent">Recently Added</button>
           </div>
         </div>
       </div>
@@ -100,6 +102,7 @@
     </section>
 
     <div id="library-stage" class="gs-library-stage">
+      <p id="sort-heading" class="gs-sort-heading">Sorted by: A to Z</p>
       <section id="games-container" class="gs-grid">
         <!-- Cards inserted by app.js -->
       </section>
@@ -161,10 +164,12 @@
         <small>Use the GameShelf image for games without cover art.</small>
       </span>
     </label>
+    <label class="gs-settings-option"><input id="show-favorite-stars" type="checkbox" checked><span><strong>Show favorite stars on cards</strong><small>Keep the favorite control visible on game covers.</small></span></label>
+    <label class="gs-settings-option"><span><strong>Recently Added range</strong><small>How many days count as recently added.</small></span><input id="recent-days" type="number" min="1" max="3650" value="30" aria-label="Recently Added range in days"></label>
     <div class="gs-settings-backup">
       <span>
         <strong>Library Data Backup</strong>
-        <small>Download saved dates, titles, and uploaded covers.</small>
+        <small>Choose saved library data and cover images to download.</small>
       </span>
       <button id="export-library-data" type="button"><span class="gs-control-label">Export Data</span></button>
     </div>
@@ -175,12 +180,13 @@
   <dialog id="game-details-dialog" class="gs-settings-dialog gs-details-dialog" aria-labelledby="game-details-title">
     <div class="gs-details-layout">
       <div id="game-details-art" class="gs-details-art">
-        <div class="gs-details-art-frame"><img id="game-details-image" alt=""><span id="game-details-image-title"></span></div>
-        <div class="gs-details-art-footer"><a id="game-details-download" class="gs-detail-action gs-details-download" href="#">Download Game</a><span id="game-details-download-summary"></span></div>
+        <div class="gs-details-art-frame"><img id="game-details-image" alt=""><span id="game-details-image-title"></span><button id="game-details-favorite" class="gs-favorite-star" type="button" aria-label="Add to favorites">☆</button></div>
+        <div class="gs-details-art-footer"><span id="game-details-download-summary"></span><a id="game-details-download" class="gs-detail-action gs-details-download" href="#">Download Game</a></div>
       </div>
       <div class="gs-details-content">
         <div class="gs-settings-header">
           <h2 id="game-details-title"></h2>
+          <button id="game-details-favorite-mobile" class="gs-favorite-star" type="button" aria-label="Toggle favorite">☆</button>
           <button id="game-details-close" class="gs-settings-close" type="button" aria-label="Close game information">×</button>
         </div>
         <dl class="gs-details-list">
@@ -191,7 +197,6 @@
           <div><dt>Date Added</dt><dd id="game-details-added"></dd></div>
         </dl>
         <div class="gs-files-section">
-          <div class="gs-files-count"><span>Files</span><span id="game-details-files"></span></div>
           <button id="toggle-game-files" class="gs-files-toggle" type="button"
                   aria-expanded="false" aria-controls="game-files-panel"><span id="game-files-toggle-label" class="gs-control-label">Show Files</span></button>
         </div>
@@ -221,8 +226,10 @@
       <label>Tilt <input id="cover-tilt" type="range" min="-20" max="20" step="1" value="0"><output id="cover-tilt-value" for="cover-tilt">0°</output></label>
     </div>
     <p id="cover-editor-status" role="status"></p>
-    <div class="gs-cover-save-row"><button id="cover-editor-reset" class="gs-detail-action" type="button"><span class="gs-control-label">Reset</span></button><div class="gs-cover-save-actions"><button id="cover-editor-cancel" class="gs-cover-cancel" type="button">Cancel</button><button id="cover-editor-save" class="gs-button" type="button" disabled>Save</button></div></div>
+    <div class="gs-cover-save-row"><button id="cover-editor-reset" class="gs-detail-action" type="button"><span class="gs-control-label">Reset</span></button><div class="gs-cover-save-actions"><button id="cover-editor-cancel" class="gs-cover-cancel" type="button">Cancel</button><button id="cover-editor-save" class="gs-detail-action gs-title-save" type="button" aria-label="Save cover" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h13l3 3v15H4zM7 3v7h9V3M7 21v-8h10v8"/></svg></button></div></div>
   </dialog>
+  <dialog id="export-dialog" class="gs-settings-dialog gs-export-dialog" aria-labelledby="export-title"><div class="gs-settings-header"><h2 id="export-title">Export Data</h2><button id="export-close" class="gs-settings-close" type="button" aria-label="Close export options">×</button></div><label class="gs-settings-option"><input id="export-all" type="checkbox" checked><span><strong>Select all</strong></span></label><div id="export-options" class="gs-export-options"></div><p id="export-status" role="status"></p><div class="gs-export-actions"><button id="export-cancel" class="gs-detail-action" type="button">Cancel</button><button id="export-confirm" class="gs-button" type="button">Export</button></div></dialog>
+  <dialog id="favorite-dialog" class="gs-settings-dialog gs-confirm-dialog" aria-labelledby="favorite-title"><div class="gs-settings-header"><h2 id="favorite-title">Favorites</h2><button id="favorite-close" class="gs-settings-close" type="button" aria-label="Close favorite confirmation">×</button></div><p id="favorite-question"></p><p id="favorite-status" role="status"></p><div class="gs-export-actions"><button id="favorite-cancel" class="gs-detail-action" type="button">Cancel</button><button id="favorite-confirm" class="gs-button" type="button">Confirm</button></div></dialog>
 
   <script src="/app.js"></script>
 </body>

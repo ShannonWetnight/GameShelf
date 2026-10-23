@@ -37,6 +37,7 @@ type Game struct {
 	Path        string `json:"path"`
 	FileCount   int    `json:"fileCount"`
 	AddedAt     string `json:"addedAt"`
+	Favorite    bool   `json:"favorite"`
 }
 
 type gameEntry struct {
@@ -100,6 +101,7 @@ func main() {
 	mux.HandleFunc("/api/library-backup", handleLibraryBackup)
 	mux.HandleFunc("/api/covers/", handleCoverUpload)
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
+	mux.HandleFunc("/api/favorite/", handleFavorite)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/covers/", handleCover)
 
@@ -163,13 +165,14 @@ type libraryState struct {
 	Version   int               `json:"version"`
 	FirstSeen map[string]string `json:"firstSeen"`
 	Titles    map[string]string `json:"titles,omitempty"`
+	Favorites map[string]bool   `json:"favorites,omitempty"`
 	IDs       map[string]string `json:"ids,omitempty"` // exact directory name -> stable ID
 }
 
 func readLibraryMetadata() (libraryState, error) {
 	contents, err := os.ReadFile(filepath.Join(dataDir, "library-state.json"))
 	if os.IsNotExist(err) {
-		return libraryState{Version: 1, FirstSeen: make(map[string]string), Titles: make(map[string]string)}, nil
+		return libraryState{Version: 1, FirstSeen: make(map[string]string), Titles: make(map[string]string), Favorites: make(map[string]bool)}, nil
 	}
 	if err != nil {
 		return libraryState{}, err
@@ -192,11 +195,13 @@ func readLibraryMetadata() (libraryState, error) {
 	if state.Titles == nil {
 		state.Titles = make(map[string]string)
 	}
+	if state.Favorites == nil { state.Favorites = make(map[string]bool) }
 	for path, title := range state.Titles {
 		if path == "" || !validGameTitle(title) {
 			return libraryState{}, fmt.Errorf("invalid title for %q", path)
 		}
 	}
+	for folder := range state.Favorites { if folder == "" { return libraryState{}, fmt.Errorf("invalid favorite folder") } }
 	owners := make(map[string]string)
 	for name, id := range state.IDs {
 		if name == "" || id == "" || id != strings.TrimSpace(id) || strings.ContainsAny(id, "/\\") {
@@ -422,6 +427,7 @@ func refreshGames() error {
 				Path:        absPath,
 				FileCount:   fileCount,
 				AddedAt:     addedAt,
+				Favorite:    state.Favorites[absPath],
 			},
 			DirName:   dirName,
 			CoverPath: cover,
@@ -627,7 +633,15 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	file, size, err := prepareLibraryBackup()
+	var selected map[string]bool
+	includeState := true
+	if r.URL.Query().Has("select") {
+		includeState = r.URL.Query().Get("state") == "1"
+		selected = make(map[string]bool)
+		for _, id := range r.URL.Query()["cover"] { selected[id] = true }
+		if !includeState && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
+	}
+	file, size, err := prepareLibraryBackupSelection(includeState, selected)
 	if err != nil {
 		log.Printf("library backup unavailable: %v", err)
 		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
@@ -650,6 +664,10 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 // Stage a complete ZIP on disk, keeping memory usage independent of artwork size.
 // Serialize with scans, title edits and uploads only until the snapshot is ready.
 func prepareLibraryBackup() (*os.File, int64, error) {
+	return prepareLibraryBackupSelection(true, nil)
+}
+
+func prepareLibraryBackupSelection(includeState bool, selected map[string]bool) (*os.File, int64, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
@@ -668,7 +686,7 @@ func prepareLibraryBackup() (*os.File, int64, error) {
 			os.Remove(file.Name())
 		}
 	}()
-	if err := writeLibraryBackup(file); err != nil {
+	if err := writeLibraryBackupSelection(file, includeState, selected); err != nil {
 		return nil, 0, err
 	}
 	info, err := file.Stat()
@@ -716,6 +734,10 @@ func openFolderCoverForBackup(entry gameEntry) (*os.File, error) {
 
 // The caller serializes metadata and artwork changes with refreshMu.
 func writeLibraryBackup(dst io.Writer) error {
+	return writeLibraryBackupSelection(dst, true, nil)
+}
+
+func writeLibraryBackupSelection(dst io.Writer, includeState bool, selected map[string]bool) error {
 	state, err := readLibraryMetadata()
 	if err != nil {
 		return err
@@ -725,14 +747,15 @@ func writeLibraryBackup(dst io.Writer) error {
 		return err
 	}
 	archive := zip.NewWriter(dst)
-	stateFile, err := archive.Create("library-state.json")
-	if err == nil {
-		_, err = stateFile.Write(append(contents, '\n'))
+	if includeState {
+		stateFile, createErr := archive.Create("library-state.json")
+		err = createErr
+		if err == nil { _, err = stateFile.Write(append(contents, '\n')) }
 	}
 	gamesMu.RLock()
 	covers := make([]gameEntry, 0)
-	for _, entry := range gamesMap {
-		if entry.Game.HasCover && entry.CoverPath != "" && entry.Game.CoverSource != "placeholder" {
+	for id, entry := range gamesMap {
+		if entry.Game.HasCover && entry.CoverPath != "" && entry.Game.CoverSource != "placeholder" && (selected == nil || selected[id]) {
 			covers = append(covers, *entry)
 		}
 	}
@@ -827,6 +850,31 @@ func handleGameTitle(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(struct {
 		Name string `json:"name"`
 	}{name})
+}
+
+func handleFavorite(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	id := strings.TrimPrefix(r.URL.Path, "/api/favorite/")
+	if id == "" { http.NotFound(w, r); return }
+	var payload struct { Favorite bool `json:"favorite"` }
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil { http.Error(w, "invalid favorite", http.StatusBadRequest); return }
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	entry := getGameEntryByID(id)
+	if entry == nil { http.NotFound(w, r); return }
+	state, err := readLibraryMetadata()
+	if err != nil { http.Error(w, "library state unavailable", http.StatusServiceUnavailable); return }
+	if payload.Favorite { state.Favorites[entry.Game.Path] = true } else { delete(state.Favorites, entry.Game.Path) }
+	if err := writeLibraryMetadata(state); err != nil { http.Error(w, "could not save favorite", http.StatusServiceUnavailable); return }
+	gamesMu.Lock()
+	if current := gamesMap[id]; current != nil && current.DirName == entry.DirName {
+		updated := *current
+		updated.Game.Favorite = payload.Favorite
+		gamesMap[id] = &updated
+	}
+	gamesMu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(payload)
 }
 
 func handleCoverUpload(w http.ResponseWriter, r *http.Request) {

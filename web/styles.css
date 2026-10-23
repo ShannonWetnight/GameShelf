@@ -1498,7 +1498,31 @@ body {
   filter: none;
 }
 #cover-editor-save:disabled { cursor: not-allowed; }
+.gs-settings-header h2 { min-width: 0; overflow-wrap: anywhere; }
+.gs-details-content { overflow-x: hidden; }
+.gs-details-content { display: flex; flex-direction: column; }
+.gs-details-list, .gs-files-panel { flex: none; }
+.gs-files-section { margin-top: auto; }
+.gs-files-toggle { min-height: 38px; padding: 0 0.85rem; }
+.gs-cover-save-row > button, .gs-cover-save-actions > button { height: 36px; min-height: 36px; }
+.gs-cover-save-actions > #cover-editor-save { min-width: 36px; width: 36px; padding: 0; }
+.gs-view-morph svg { animation: gs-view-morph 170ms ease-out; transform-origin: center; }
+@keyframes gs-view-morph { from { opacity: 0.45; transform: scale(0.78); } to { opacity: 1; transform: scale(1); } }
+.gs-sort-open #sort-button::after { display: none !important; }
+.gs-sort-heading { margin: 0 0 0.75rem; color: var(--text-muted); font-size: 0.84rem; }
+.gs-details-art-footer { justify-content: flex-end; padding-bottom: 20px; }
+.gs-spotlight-stage .gs-sort-heading { display: none; }
+.gs-favorite-star { position: absolute; z-index: 2; top: 0.75rem; left: 0.75rem; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(174,190,219,.42); border-radius: 50%; background: rgba(5,9,16,.75); color: var(--accent); font-size: 1.35rem; line-height: 1; cursor: pointer; }
+.gs-favorite-star:hover, .gs-favorite-star:focus-visible { background: rgba(249,178,52,.75); color: #1a1304; border-color: var(--accent); }
+#game-details-favorite-mobile { display: none; }
+.gs-hide-favorite-stars .gs-card .gs-favorite-star, .gs-grid.list-view .gs-favorite-star { display: none; }
+.gs-export-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
+.gs-export-options { display: grid; gap: 0.5rem; max-height: min(45vh, 360px); overflow-y: auto; margin-top: 0.5rem; }
+.gs-export-options .gs-settings-option { margin: 0; overflow-wrap: anywhere; }
+.gs-export-actions { display: flex; justify-content: flex-end; gap: 0.7rem; margin-top: 1rem; }
+.gs-export-actions > button { min-height: 36px; min-width: 68px; }
 @media (max-width: 700px) {
+  #game-details-favorite-mobile { display: grid; position: static; flex: none; }
   .gs-details-dialog { width: min(420px, calc(100vw - 32px)); overflow: auto; }
   .gs-details-layout { display: block; height: auto; max-height: none; }
   .gs-details-art { display: none; }

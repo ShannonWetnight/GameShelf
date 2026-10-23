@@ -41,7 +41,15 @@ class Element {
   appendChild(child) {
     this.children = this.children.filter(item => item !== child);
     this.children.push(child);
+    child.parentElement = this;
   }
+  replaceWith(next) {
+    const index = this.parentElement?.children.indexOf(this) ?? -1;
+    if (index >= 0) { this.parentElement.children[index] = next; next.parentElement = this.parentElement; }
+  }
+  append(...children) { children.forEach(child => this.appendChild(child)); }
+  replaceChildren(...children) { this.children = []; this.append(...children); }
+  querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => child.children.filter(item => item.tagName === 'INPUT')) : []; }
   set innerHTML(value) { this.children = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
@@ -72,20 +80,23 @@ function app(
     assert.ok(elements.has(id), `Missing HTML element: ${id}`);
     return elements.get(id);
   };
-  document.createElement = () => {
+  document.createElement = tag => {
     const element = new Element();
+    element.tagName = tag.toUpperCase();
     element.click = () => { element.clicked = true; };
     element.remove = () => { element.removed = true; };
     return element;
   };
-  document.querySelectorAll = () => [];
+  document.createTextNode = text => { const node = new Element(); node.textContent = text; return node; };
+  document.querySelectorAll = selector => selector === '#export-options input:checked'
+    ? elements.get('export-options').querySelectorAll('input').filter(input => input.checked) : [];
   const requests = [];
   const timers = new Map();
   let timerId = 0;
   const downloads = [];
   const revoked = [];
   const context = vm.createContext({
-    URL: { createObjectURL: blob => { downloads.push(blob); return "blob:backup"; }, revokeObjectURL: url => revoked.push(url) },
+    URL: { createObjectURL: blob => { downloads.push(blob); return "blob:backup"; }, revokeObjectURL: url => revoked.push(url) }, URLSearchParams,
     document, matchMedia: () => ({ matches: reducedMotion }), localStorage: {
       getItem: key => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, value)
@@ -182,7 +193,6 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(ui.element('game-details-dialog').open, true);
   assert.equal(ui.element('game-details-path').textContent, '/GameShelf/Alpha');
   assert.equal(ui.element('game-details-size').textContent, '1.0 KB');
-  assert.equal(ui.element('game-details-files').textContent, '2');
   assert.equal(ui.element('game-details-download').href, '/download/alpha');
   assert.match(ui.element('game-details-download-summary').textContent, /2 files/);
   assert.equal(ui.element('game-details-cover').textContent, 'Available');
@@ -546,18 +556,36 @@ test('successful refresh to an empty library removes stale cards and shows setup
   assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
 });
 
+test('favorite confirmation persists selection and Favorites filters cards', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  const alpha = ui.cards().find(card => card.dataset.id === 'alpha');
+  alpha.children[0].children[2].emit('click');
+  assert.equal(ui.element('favorite-dialog').open, true);
+  const pending = ui.click('favorite-confirm');
+  const request = ui.requests.find(item => item.url === '/api/favorite/alpha');
+  assert.equal(request !== undefined, true);
+  request.resolve(response({ favorite: true }));
+  await pending;
+  assert.equal(ui.element('favorite-dialog').open, false);
+  assert.equal(ui.cards().find(card => card.dataset.id === 'alpha').dataset.favorite, 'true');
+});
+
 
 
 test('backup export waits for the complete response, prevents duplicate requests and releases its URL', async () => {
   const ui = app();
   ui.start();
-  const pending = ui.click('export-library-data');
-  assert.equal(ui.element('export-library-data').disabled, true);
-  assert.match(ui.element('library-backup-status').textContent, /Preparing/);
   ui.click('export-library-data');
-  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup').length, 1);
+  const pending = ui.click('export-confirm');
+  assert.equal(ui.element('export-confirm').disabled, true);
+  assert.match(ui.element('library-backup-status').textContent, /Preparing/);
+  ui.click('export-confirm');
+  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1').length, 1);
   let finish;
-  ui.requests.find(request => request.url === '/api/library-backup').resolve({
+  ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1').resolve({
     ok: true,
     headers: { get: name => name === 'Content-Type' ? 'application/zip' : '123' },
     blob: () => new Promise(resolve => { finish = resolve; })
@@ -568,7 +596,7 @@ test('backup export waits for the complete response, prevents duplicate requests
   finish(blob);
   await pending;
   assert.deepEqual(ui.downloads, [blob]);
-  assert.equal(ui.element('export-library-data').disabled, false);
+  assert.equal(ui.element('export-confirm').disabled, false);
   assert.match(ui.element('library-backup-status').textContent, /download started/);
   const link = ui.document.body.children.at(-1);
   assert.equal(link.download, 'gameshelf-library-backup.zip');
@@ -582,8 +610,9 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
   test(`backup ${failure} failure shows a retryable error without downloading`, async () => {
     const ui = app();
     ui.start();
-    const pending = ui.click('export-library-data');
-    const request = ui.requests.find(request => request.url === '/api/library-backup');
+    ui.click('export-library-data');
+    const pending = ui.click('export-confirm');
+    const request = ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1');
     if (failure === 'network') request.reject(new Error('offline'));
     else request.resolve({
       ok: failure !== 'http', status: 503,
@@ -592,9 +621,9 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     });
     await pending;
     assert.equal(ui.downloads.length, 0);
-    assert.equal(ui.element('export-library-data').disabled, false);
+    assert.equal(ui.element('export-confirm').disabled, false);
     assert.match(ui.element('library-backup-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
-    ui.click('export-library-data');
-    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup').length, 2);
+    ui.click('export-confirm');
+    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1').length, 2);
   });
 }

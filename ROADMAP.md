@@ -50,7 +50,8 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Save GameShelf-only title edits alongside first-seen dates without changing game folders
 * [x] Export saved first-seen dates, title edits, and artwork from Settings for backup
 * [ ] Add client-side filtering (genre, developer, year)
-* [ ] Add “Recently Added” section
+* [x] Add a “Recently Added” filter with a configurable date range
+* [x] Save favorites locally and filter the library to favorite games
 * [x] Add functional search bar
 * [x] Add a dice icon and randomize logic from parsed folder names to suggest a game download
 * [ ] Add ability to group games together by adding tags (requires lightweight database integration)
@@ -64,6 +65,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 * [x] Show a read-only list of the selected game's files in its information panel
 * [x] Download individual files directly from the file list
+* [x] Select metadata and individual game cover folders when exporting library data
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)

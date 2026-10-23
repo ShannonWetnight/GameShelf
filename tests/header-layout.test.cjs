@@ -147,6 +147,9 @@ test('settings and game information keep button and file text vertically centere
       document.querySelector('#game-files-list').innerHTML =
         '<li><span>Extras/patch-notes.txt</span><span>57 B</span><a href="#">↓</a></li>'.repeat(8);
       document.querySelector('#game-details-dialog').showModal();
+      const downloadBox = document.querySelector('#game-details-download').getBoundingClientRect();
+      const showBox = document.querySelector('#toggle-game-files').getBoundingClientRect();
+      const alignedDetailActions = Math.abs((downloadBox.top + downloadBox.bottom - showBox.top - showBox.bottom) / 2);
       const imageFrame = document.querySelector('.gs-details-art-frame');
       const frameBefore = imageFrame.getBoundingClientRect();
       document.querySelector('#game-files-panel').classList.remove('hidden');
@@ -160,6 +163,7 @@ test('settings and game information keep button and file text vertically centere
       result.stableArt = Math.abs(frameBefore.width - frameAfter.width) <= 1 &&
         Math.abs(frameBefore.height - frameAfter.height) <= 1;
       result.artFooterVisible = document.querySelector('.gs-details-art-footer').getBoundingClientRect().height >= 72;
+      result.alignedDetailActions = alignedDetailActions;
       result.detailsBounded = document.querySelector('.gs-details-layout').getBoundingClientRect().height <= 480.5;
       result.detailsScrollable = document.querySelector('.gs-details-content').scrollHeight >
         document.querySelector('.gs-details-content').clientHeight;
@@ -196,6 +200,7 @@ test('settings and game information keep button and file text vertically centere
     assert.ok(result.attachedArtGap <= 1, 'cover should attach to the information panel');
     assert.equal(result.stableArt, true, 'file list must not resize the cover');
     assert.equal(result.artFooterVisible, true, 'desktop artwork footer must fill remaining panel space');
+    assert.ok(result.alignedDetailActions <= 2, `Show Files and Download Game differ by ${result.alignedDetailActions}px`);
     assert.equal(result.detailsBounded, true, 'expanded files should not grow the artwork panel indefinitely');
     assert.equal(result.detailsScrollable, true, 'expanded files should scroll inside the details panel');
     assert.equal(result.titleInputCentered, true, 'title input text should use the centered input line');
@@ -204,6 +209,7 @@ test('settings and game information keep button and file text vertically centere
     delete result.attachedArtGap;
     delete result.stableArt;
     delete result.artFooterVisible;
+    delete result.alignedDetailActions;
     delete result.detailsBounded;
     delete result.detailsScrollable;
     delete result.titleInputCentered;

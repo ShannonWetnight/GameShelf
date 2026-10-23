@@ -130,6 +130,35 @@ func TestHandleStatsSummarizesSuccessfulScan(t *testing.T) {
 	}
 }
 
+func TestFavoritePersistsAcrossScan(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	w := httptest.NewRecorder()
+	handleFavorite(w, httptest.NewRequest(http.MethodPut, "/api/favorite/alpha", strings.NewReader(`{"favorite":true}`)))
+	if w.Code != http.StatusOK { t.Fatalf("favorite status = %d: %s", w.Code, w.Body.String()) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	if !getGameEntryByID("alpha").Game.Favorite { t.Fatal("favorite lost after scan") }
+	w = httptest.NewRecorder()
+	handleFavorite(w, httptest.NewRequest(http.MethodPut, "/api/favorite/alpha", strings.NewReader(`{"favorite":false}`)))
+	if w.Code != http.StatusOK || getGameEntryByID("alpha").Game.Favorite { t.Fatal("favorite not removed") }
+}
+
+func TestSelectedBackupOmitsUnselectedItems(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	writeGame(t, "Beta")
+	if err := os.WriteFile(filepath.Join(rootDir, "Alpha", "cover.png"), []byte("alpha cover"), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(rootDir, "Beta", "cover.png"), []byte("beta cover"), 0644); err != nil { t.Fatal(err) }
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	w := httptest.NewRecorder()
+	handleLibraryBackup(w, httptest.NewRequest(http.MethodGet, "/api/library-backup?select=1&cover=alpha", nil))
+	if w.Code != http.StatusOK { t.Fatalf("selected backup status = %d: %s", w.Code, w.Body.String()) }
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil { t.Fatal(err) }
+	if len(archive.File) != 1 || archive.File[0].Name != "folder-covers/Alpha/cover.png" { t.Fatalf("selected files = %#v", archive.File) }
+}
+
 func TestLibraryBackupExportsSavedDates(t *testing.T) {
 	setupLibrary(t)
 	writeGame(t, "Alpha")
