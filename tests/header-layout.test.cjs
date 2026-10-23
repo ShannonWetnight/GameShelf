@@ -351,3 +351,37 @@ test('no-cover list controls have no background block and reset actions share a 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('very long titles stay within fixed card footers and two detail lines', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-title-clamp-'));
+  try {
+    const probe = `<script>
+      document.body.classList.add('gs-show-game-titles');
+      const grid = document.querySelector('#games-container');
+      grid.style.gridTemplateColumns = '260px 260px';
+      const long = 'Moonlit Valley - Copy (4)' + 'd'.repeat(140);
+      grid.innerHTML = ['Short', long].map(name => '<article class="gs-card"><div class="gs-card-cover"></div><div class="gs-card-body"><div class="gs-card-content"><h3 class="gs-card-title">' + name + '</h3></div></div></article>').join('');
+      const cards = [...grid.querySelectorAll('.gs-card')];
+      const footer = cards[1].querySelector('.gs-card-body').getBoundingClientRect();
+      const title = cards[1].querySelector('.gs-card-title').getBoundingClientRect();
+      document.querySelector('#game-details-title').textContent = long;
+      document.querySelector('#game-details-dialog').showModal();
+      const detailTitle = document.querySelector('#game-details-title');
+      const heading = detailTitle.getBoundingClientRect();
+      const lineHeight = parseFloat(getComputedStyle(detailTitle).lineHeight);
+      const close = document.querySelector('#game-details-close').getBoundingClientRect();
+      const report = document.createElement('pre'); report.id = 'title-clamp-report';
+      report.textContent = JSON.stringify({shortHeight:cards[0].getBoundingClientRect().height,longHeight:cards[1].getBoundingClientRect().height,footerHeight:footer.height,titleBottom:title.bottom,footerBottom:footer.bottom,detailLines:heading.height/lineHeight,closeRight:close.right,dialogRight:document.querySelector('#game-details-dialog').getBoundingClientRect().right});
+      document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'title-clamp.html');
+    fs.writeFileSync(file, source);
+    const result = readLayoutProbe(file, 1280, 'title-clamp-report');
+    assert.equal(result.shortHeight, result.longHeight);
+    assert.equal(result.footerHeight, 54);
+    assert.ok(result.titleBottom <= result.footerBottom - 4, JSON.stringify(result));
+    assert.ok(result.detailLines <= 2.05, JSON.stringify(result));
+    assert.ok(result.closeRight <= result.dialogRight, JSON.stringify(result));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+

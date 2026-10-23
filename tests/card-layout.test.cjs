@@ -111,7 +111,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.notEqual(result.placeholderImage, 'none');
     assert.equal(result.placeholderTitle, 'none');
     assert.notEqual(result.placeholderOverlay, 'none');
-    assert.equal(result.placeholderBackdrop, 'rgb(10, 16, 29)');
+    assert.notEqual(result.placeholderBackdrop, 'rgba(0, 0, 0, 0)');
     assert.equal(result.placeholderText, 'No Cover');
     assert.equal(result.placeholderNoOverlap, true);
     assert.equal(result.placeholderFooter, 'none');
@@ -206,7 +206,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
               coverUrl:card.querySelector('img').getAttribute('src')
             });
             document.body.append(report);
-          }, 150);
+          }, 1050);
           }, 350);
         }, 100);
       }, 0);

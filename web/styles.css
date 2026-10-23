@@ -1,6 +1,12 @@
 :root {
   --bg: #050910;
   --bg-elevated: #0b121f;
+  --page-background: radial-gradient(ellipse at 50% 0%, #111c33 0%, #050910 62%, #020309 100%);
+  --card-background: linear-gradient(135deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+  --card-footer: #0a101d;
+  --input-background: #0a1324;
+  --icon-background: rgba(10,18,32,.94);
+  --section-background: rgba(8,16,30,.45);
   --border-subtle: #182235;
   --accent: #f9b234;
   --accent-soft: rgba(249, 178, 52, 0.16);
@@ -24,9 +30,12 @@ html, body {
   padding: 0;
   height: 100%;
 }
+html { scrollbar-gutter: stable; }
 
 body {
-  background: radial-gradient(circle at top, #111c33 0, #050910 55%, #020309 100%);
+  background: var(--page-background);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-sans);
   display: flex;
@@ -1620,3 +1629,126 @@ body {
 .gs-reset-dialog .gs-export-actions > button { height: 40px; min-height: 40px; }
 .gs-reset-dialog p { overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { .gs-home-enter, .gs-control-feedback svg { animation: none; } .gs-scroll-to-top { transition: none; } }
+
+/* A modal owns scrolling until the last open dialog closes. */
+html.gs-modal-open, body.gs-modal-open { overflow: hidden; }
+html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow: hidden; }
+#sort-menu { max-height: calc(100vh - 80px); overflow-y: auto; }
+
+/* Card titles keep a fixed footer and clamp even for unbroken names. */
+.gs-show-game-titles .gs-card-body { flex: 0 0 54px; height: 54px; min-height: 54px; max-height: 54px; padding: .55rem .8rem; overflow: hidden; }
+.gs-card-content { min-width: 0; width: 100%; }
+.gs-card-title { line-height: 1.25; max-height: 2.5em; overflow-wrap: anywhere; word-break: normal; }
+.gs-grid.list-view .gs-card-body { flex: 1 1 auto; height: auto; min-height: 0; max-height: none; padding: 0; }
+.gs-grid.list-view .gs-card-title { display: block; max-height: 1.25em; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.gs-placeholder-title > span { width: 100%; line-height: 1.15; max-height: 2.3em; overflow-wrap: anywhere; }
+#game-details-title { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; line-height: 1.25; }
+
+/* The selected card retains its border on hover; regular cards gain it briefly. */
+.gs-grid .gs-card:not(.gs-hover-suppressed):hover,
+.gs-grid .gs-card:not(.gs-hover-suppressed):focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(249,178,52,.65), var(--shadow-soft); }
+.gs-grid .gs-card.gs-random-selected,
+.gs-grid .gs-card.gs-random-selected:hover,
+.gs-grid .gs-card.gs-random-selected:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(249,178,52,.65), var(--shadow-soft); }
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover { transform: translateY(-1px); }
+.gs-grid.gs-spotlight .gs-card.gs-random-selected:hover { transform: none; }
+
+/* Brief save and reset feedback. */
+.gs-title-save { position: relative; }
+.gs-title-save svg { position: absolute; transition: opacity .18s ease, transform .18s ease; }
+.gs-title-save .gs-save-check { opacity: 0; transform: scale(.5); }
+.gs-title-save.is-saved .gs-save-icon { opacity: 0; transform: scale(.55); }
+.gs-title-save.is-saved .gs-save-check { opacity: 1; transform: scale(1); }
+.gs-notification-banner { position: fixed; z-index: 2000; top: 1rem; left: 50%; transform: translate(-50%, -12px); display: flex; align-items: center; gap: .7rem; max-width: min(520px, calc(100vw - 2rem)); padding: .8rem 1rem; border: 1px solid #5cae7b; border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text); box-shadow: var(--shadow-soft); opacity: 0; pointer-events: none; }
+.gs-notification-banner[hidden] { display: none; }
+.gs-notification-banner:popover-open { margin: 0; right: auto; bottom: auto; }
+.gs-notification-banner.gs-notification-visible { animation: gs-notification-in .25s ease-out forwards; }
+.gs-notification-check { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; background: #5cae7b; color: #081710; font-weight: 800; }
+@keyframes gs-notification-in { to { opacity: 1; transform: translate(-50%, 0); } }
+.gs-refreshing { opacity: .3; transition: opacity .15s ease; }
+
+/* Destructive outline also identifies every Cancel action. */
+.gs-cancel-action.gs-detail-action { min-height: 38px; padding: 0 .8rem; border: 1px solid #ca5964; background: transparent; color: var(--text); font: 600 .85rem var(--font-sans); }
+.gs-cancel-action.gs-detail-action:hover, .gs-cancel-action.gs-detail-action:focus-visible { background: rgba(202,89,100,.12); border-color: #ee7682; color: var(--text); }
+
+/* Settings and export share the same category rhythm. */
+.gs-theme-option { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; }
+.gs-theme-option > span { display: grid; gap: .2rem; min-width: 0; }
+.gs-theme-option small, .gs-export-select-all small { color: var(--text-muted); font-size: .8rem; }
+.gs-theme-option select { flex: none; max-width: 48%; min-height: 38px; padding: 0 .5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--input-background); color: var(--text); font: inherit; cursor: pointer; }
+.gs-theme-option select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#export-dialog .gs-export-select-all { align-items: center; margin: 0 0 .75rem; }
+#export-dialog .gs-export-select-all > span { display: grid; gap: .2rem; }
+.gs-export-options { display: block; max-height: min(48vh, 420px); margin-top: 0; }
+.gs-export-section { margin: 0 0 .75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--section-background); overflow: hidden; }
+.gs-export-section h3 { margin: 0; padding: .8rem 1rem .5rem; color: var(--accent); font-size: .77rem; text-transform: uppercase; letter-spacing: .08em; }
+.gs-export-section .gs-settings-option { margin: 0; padding: .75rem 1rem; border: 0; border-radius: 0; min-height: 42px; align-items: center; }
+.gs-export-section .gs-settings-option + .gs-settings-option { border-top: 1px solid var(--border-subtle); }
+.gs-export-empty { margin: 0; padding: .5rem 1rem 1rem; color: var(--text-muted); font-size: .85rem; }
+@media (max-width: 520px) { .gs-theme-option { align-items: flex-start; flex-direction: column; } .gs-theme-option select { max-width: 100%; width: 100%; } }
+
+/* System follows the device; Classic keeps the original navy and gold palette. */
+:root { color-scheme: dark; }
+:root[data-theme="dark"] {
+  --bg: #0c0d10;
+  --bg-elevated: #191b20;
+  --page-background: radial-gradient(ellipse at 50% 0%, #242830 0%, #111318 62%, #090b0e 100%);
+  --card-background: linear-gradient(135deg, #1c2026, #15181d);
+  --card-footer: #12151a;
+  --input-background: #111419;
+  --icon-background: rgba(22,25,30,.94);
+  --section-background: #15181d;
+  --border-subtle: #343a43;
+  --accent: #e9ab43;
+  --accent-soft: rgba(233,171,67,.22);
+  --text: #f1f2f5;
+  --text-muted: #aeb6c2;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f1f4f8;
+  --bg-elevated: #ffffff;
+  --page-background: radial-gradient(ellipse at 50% 0%, #e4ebf6 0%, #f2f5f9 62%, #e9eef5 100%);
+  --card-background: #ffffff;
+  --card-footer: #f5f7fb;
+  --input-background: #f7f9fc;
+  --icon-background: rgba(255,255,255,.95);
+  --section-background: #f8fafd;
+  --border-subtle: #cbd5e3;
+  --accent: #a9650b;
+  --accent-soft: rgba(169,101,11,.25);
+  --text: #19263b;
+  --text-muted: #58677e;
+  --shadow-soft: 0 16px 38px rgba(25,43,73,.13);
+}
+.gs-card { background: var(--card-background); }
+.gs-card-body, .gs-placeholder-title, .gs-details-art-footer { background: var(--card-footer); }
+.gs-show-placeholders:not(.gs-show-game-titles) .gs-no-cover .gs-placeholder-title { background: var(--card-footer); }
+.gs-settings-section { background: var(--section-background); }
+.gs-detail-action, .gs-title-detail input, .gs-settings-number-option input[type="number"], .gs-server-field input { background: var(--input-background); }
+.gs-icon-button, .gs-card-info, .gs-favorite-star, .gs-scroll-to-top { background: var(--icon-background); color: var(--text); }
+.gs-scroll-to-top:hover, .gs-scroll-to-top:focus-visible,
+.gs-favorite-star:hover, .gs-favorite-star:focus-visible,
+.gs-icon-button:hover, .gs-icon-button:focus-visible,
+.gs-card-info:hover, .gs-card-info:focus-visible { background: rgba(249,178,52,.75); color: #1a1304; }
+:root[data-theme="light"] .gs-search { background: #fff; }
+:root[data-theme="light"] .gs-search:focus, :root[data-theme="light"] .gs-search.is-filtering { background: #fff; }
+:root[data-theme="light"] .gs-sort-menu button:hover,
+:root[data-theme="light"] .gs-view-toggle:hover,
+:root[data-theme="light"] .gs-sort-button:hover,
+:root[data-theme="light"] .gs-settings-close:hover { background: rgba(25,43,73,.07); }
+:root[data-theme="light"] .gs-refresh:hover .gs-logo-text,
+:root[data-theme="light"] .gs-logo-text.refreshing { color: var(--text); text-shadow: 0 0 5px rgba(169,101,11,.4); }
+:root[data-theme="light"] .gs-logo-icon { filter: saturate(.9) contrast(1.08) drop-shadow(0 2px 2px rgba(25,43,73,.2)); }
+:root[data-theme="dark"] .gs-logo-icon { filter: saturate(.75) brightness(1.15); }
+:root[data-theme="light"] .gs-no-cover .gs-card-cover,
+:root[data-theme="light"] .gs-details-art.gs-no-cover { background: radial-gradient(circle at 50% 35%, #d8e3f3, #edf2f8 75%); }
+:root[data-theme="light"] .gs-show-placeholders .gs-no-cover .gs-card-cover { background: #e8edf4; }
+:root[data-theme="light"] .gs-card-cover { background: radial-gradient(circle at top, #d7e1ef, #eff3f8); }
+:root[data-theme="light"] .gs-details-art-footer { color: var(--text); }
+:root[data-theme="light"] .gs-button { background: linear-gradient(135deg, #d99421, #edb950); color: #271705; }
+:root[data-theme="light"] .gs-card:not(.gs-hover-suppressed):hover { box-shadow: 0 0 0 2px rgba(169,101,11,.45), var(--shadow-soft); }
+:root[data-theme="light"] .gs-grid .gs-card.gs-random-selected,
+:root[data-theme="light"] .gs-grid .gs-card.gs-random-selected:hover { box-shadow: 0 0 0 2px rgba(169,101,11,.45), var(--shadow-soft); }
+#recent-days { appearance: textfield; }
+#recent-days::-webkit-inner-spin-button, #recent-days::-webkit-outer-spin-button { appearance: none; margin: 0; }

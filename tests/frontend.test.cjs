@@ -49,13 +49,14 @@ class Element {
   }
   append(...children) { children.forEach(child => this.appendChild(child)); }
   replaceChildren(...children) { this.children = []; this.append(...children); }
-  querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => child.children.filter(item => item.tagName === 'INPUT')) : []; }
+  querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => [child, ...child.querySelectorAll('input')]).filter(item => item.tagName === 'INPUT') : []; }
   set innerHTML(value) { this.children = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
-  addEventListener(event, callback) { this.listeners[event] = callback; }
+  addEventListener(event, callback) { (this.listeners[event] ||= []).push(callback); }
   emit(event, payload = {}) {
-    return this.listeners[event]?.({ target: this, currentTarget: this, stopPropagation() {}, preventDefault() {}, ...payload });
+    const result = { target: this, currentTarget: this, stopPropagation() {}, preventDefault() {}, ...payload };
+    return this.listeners[event]?.map(callback => callback(result)).at(-1);
   }
   blur() { this.focused = false; }
   contains(other) { return this === other || this.children.some(child => child.contains(other)); }
@@ -664,6 +665,70 @@ test('metadata reset reviews selected fields and refreshes the card after saving
   assert.equal(ui.element('reset-confirm-dialog').open, false);
   assert.equal(ui.element('game-details-title').textContent, 'Alpha');
   assert.equal(ui.cards()[0].dataset.name, 'alpha');
+  assert.equal(ui.element('notification-banner').hidden, false);
+  assert.equal(ui.element('notification-text').textContent, 'Metadata reset successfully.');
+});
+
+test('theme and recent range persist, including migration of the old 3650-day setting', () => {
+  const storage = new Map([['gameshelf:recent-days', '3650']]);
+  const ui = app(undefined, storage);
+  ui.start();
+  assert.equal(ui.element('recent-days').value, '7');
+  assert.equal(storage.get('gameshelf:recent-days'), '7');
+  assert.equal(ui.element('theme-select').value, 'system');
+  assert.equal(ui.document.body.dataset.theme, 'light');
+  ui.element('theme-select').value = 'dark';
+  ui.element('theme-select').emit('change');
+  assert.equal(storage.get('gameshelf:theme'), 'dark');
+  assert.equal(ui.document.body.dataset.theme, 'dark');
+  ui.element('recent-days').value = '3650';
+  ui.element('recent-days').emit('change');
+  const next = app(undefined, storage);
+  next.start();
+  assert.equal(next.element('recent-days').value, '3650');
+  assert.equal(next.element('theme-select').value, 'dark');
+});
+
+test('open dialogs lock page scrolling until the final menu closes', () => {
+  const ui = app();
+  ui.start();
+  ui.click('build-info');
+  assert.equal(ui.document.body.classList.contains('gs-modal-open'), true);
+  ui.click('export-library-data');
+  ui.click('export-close');
+  assert.equal(ui.document.body.classList.contains('gs-modal-open'), true);
+  ui.click('settings-close');
+  assert.equal(ui.document.body.classList.contains('gs-modal-open'), false);
+});
+
+test('export groups GameShelf data separately from cover images', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response([{ ...games[0], hasCover: true }]));
+  await settle();
+  ui.click('export-library-data');
+  const groups = ui.element('export-options').children;
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].children[0].textContent, 'GameShelf data');
+  assert.equal(groups[1].children[0].textContent, 'Cover image archive');
+  assert.equal(groups[0].querySelectorAll('input').length, 3);
+  assert.equal(groups[1].querySelectorAll('input').length, 1);
+});
+
+test('refresh feedback returns to the brand when the pointer has left', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.element('gs-refresh-trigger').emit('mouseenter');
+  ui.click('gs-refresh-trigger');
+  ui.element('gs-refresh-trigger').emit('mouseleave');
+  ui.requests[1].resolve(response(games));
+  await settle();
+  assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
+  assert.equal(ui.element('library-stage').classList.contains('gs-home-enter'), true);
+  ui.tick(1000);
+  assert.equal(ui.element('gs-logo-text').textContent, 'GAMESHELF');
 });
 
 
