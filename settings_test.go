@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -24,7 +25,8 @@ func TestServerSettingsStayInsideConfiguredMounts(t *testing.T) {
 	contents, err := os.ReadFile(filepath.Join(data, "server-settings.json"))
 	if err != nil { t.Fatal(err) }
 	var saved serverSettings
-	if err := json.Unmarshal(contents, &saved); err != nil || saved != value { t.Fatalf("saved settings = %#v: %v", saved, err) }
+	value.LogOptions = defaultLogOptions()
+	if err := json.Unmarshal(contents, &saved); err != nil || !reflect.DeepEqual(saved, value) { t.Fatalf("saved settings = %#v: %v", saved, err) }
 	response := httptest.NewRecorder()
 	handleServerSettings(response, httptest.NewRequest(http.MethodGet, "/api/server-settings", nil))
 	if response.Code != http.StatusOK { t.Fatalf("GET status %d", response.Code) }
