@@ -620,6 +620,25 @@ test('card stars default off with favorited-only checked, and All clears filteri
   assert.equal(ui.hidden('sort-heading'), true);
 });
 
+test('empty Favorites view explains the filter and refresh text responds to hover', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response(games));
+  await settle();
+  ui.click('sort-button');
+  ui.element('sort-menu').children.find(button => button.dataset.sort === 'favorites').emit('click');
+  assert.equal(ui.element('empty-title').textContent, 'No favorites yet');
+  assert.equal(ui.hidden('filter-hint'), false);
+  assert.equal(ui.hidden('search-hint'), true);
+  ui.search('absent');
+  assert.equal(ui.element('empty-title').textContent, 'No matching games!');
+  assert.equal(ui.hidden('search-hint'), false);
+  ui.element('gs-refresh-trigger').emit('mouseenter');
+  assert.equal(ui.element('gs-logo-text').textContent, 'REFRESH');
+  ui.element('gs-refresh-trigger').emit('mouseleave');
+  assert.equal(ui.element('gs-logo-text').textContent, 'GAMESHELF');
+});
+
 test('metadata reset reviews selected fields and refreshes the card after saving', async () => {
   const ui = app();
   ui.start();

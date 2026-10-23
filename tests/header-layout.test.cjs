@@ -319,3 +319,35 @@ test('recent-days input has usable dimensions and list star actions align', () =
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('no-cover list controls have no background block and reset actions share a height', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-list-reset-'));
+  try {
+    const probe = `<script>
+      const grid = document.querySelector('#games-container');
+      grid.classList.add('list-view');
+      grid.innerHTML = '<article class="gs-card gs-no-cover"><div class="gs-card-cover"><div class="gs-card-actions"><a class="gs-icon-button gs-card-download">↓</a><button class="gs-card-info">i</button></div></div><div class="gs-card-body"><h3>No Cover</h3></div></article>';
+      const cover = document.querySelector('.gs-card-cover');
+      const background = getComputedStyle(cover).backgroundImage;
+      const info = document.querySelector('.gs-card-info').getBoundingClientRect();
+      const download = document.querySelector('.gs-card-download').getBoundingClientRect();
+      document.querySelector('#reset-metadata-dialog').showModal();
+      const resetHeight = document.querySelector('#reset-metadata-next').getBoundingClientRect().height;
+      document.querySelector('#reset-metadata-dialog').close();
+      document.querySelector('#reset-confirm-dialog').showModal();
+      const confirmHeight = document.querySelector('#reset-confirm-save').getBoundingClientRect().height;
+      const report = document.createElement('pre'); report.id = 'list-reset-report';
+      report.textContent = JSON.stringify({ background, infoHeight: info.height, downloadHeight: download.height, resetHeight, confirmHeight });
+      document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'list-reset.html');
+    fs.writeFileSync(file, source);
+    const result = readLayoutProbe(file, 1280, 'list-reset-report');
+    assert.equal(result.background, 'none');
+    assert.equal(result.infoHeight, 42);
+    assert.equal(result.downloadHeight, 42);
+    assert.equal(result.resetHeight, 40);
+    assert.equal(result.confirmHeight, 40);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
