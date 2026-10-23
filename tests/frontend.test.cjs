@@ -205,8 +205,9 @@ test('cover actions download the game and open read-only details', async () => {
   const body = card.children[1];
   const action = card.children[0].children[1].children[0];
   const details = card.children[0].children[1].children[1];
-  assert.equal(body.children[0].children[0].textContent, 'Alpha');
-  assert.equal(body.children.length, 1);
+  assert.equal(body.children[0].tagName, 'IMG');
+  assert.equal(body.children[1].children[0].textContent, 'Alpha');
+  assert.equal(body.children.length, 2);
   assert.equal(action.href, '/download/alpha');
   assert.equal(action.attributes['aria-label'], 'Download Alpha');
   action.focus();
@@ -280,10 +281,12 @@ test('display preferences default to hints on and persist changes', () => {
   assert.equal(ui.element('show-hover-text').checked, true);
   assert.equal(ui.element('show-game-titles').checked, false);
   assert.equal(ui.element('show-placeholder-images').checked, false);
+  assert.equal(ui.element('show-list-images').checked, true);
   for (const [id, key, bodyClass, checked] of [
     ['show-hover-text', 'gameshelf:show-hover-text', 'gs-hide-tooltips', false],
     ['show-game-titles', 'gameshelf:show-game-titles', 'gs-show-game-titles', true],
-    ['show-placeholder-images', 'gameshelf:show-placeholder-images', 'gs-show-placeholders', true]
+    ['show-placeholder-images', 'gameshelf:show-placeholder-images', 'gs-show-placeholders', true],
+    ['show-list-images', 'gameshelf:show-list-images', 'gs-show-list-images', true]
   ]) {
     const input = ui.element(id);
     input.checked = checked;
@@ -296,6 +299,11 @@ test('display preferences default to hints on and persist changes', () => {
   assert.equal(revisit.element('show-hover-text').checked, false);
   assert.equal(revisit.element('show-game-titles').checked, true);
   assert.equal(revisit.element('show-placeholder-images').checked, true);
+  assert.equal(revisit.element('show-list-images').checked, true);
+  revisit.element('show-list-images').checked = false;
+  revisit.element('show-list-images').emit('change');
+  assert.equal(storage.get('gameshelf:show-list-images'), 'false');
+  assert.equal(revisit.document.body.classList.contains('gs-show-list-images'), false);
 });
 
 test('populated library, search miss, clear search, sort and view still work', async () => {
@@ -597,6 +605,27 @@ test('favorite confirmation persists selection and Favorites filters cards', asy
   await pending;
   assert.equal(ui.element('favorite-dialog').open, false);
   assert.equal(ui.cards().find(card => card.dataset.id === 'alpha').dataset.favorite, 'true');
+  assert.equal(ui.element('notification-text').textContent, 'Added to favorites.');
+});
+
+test('saving library paths returns to settings and confirms in the banner', async () => {
+  const ui = app();
+  ui.start();
+  await settle();
+  ui.click('build-info');
+  ui.click('open-server-settings');
+  assert.equal(ui.element('server-settings-dialog').open, true);
+  const pending = ui.click('server-settings-save');
+  const request = ui.requests.find(item => item.url === '/api/server-settings');
+  assert.ok(request);
+  request.resolve(response({ restartRequired: true }));
+  await pending;
+  assert.equal(ui.element('server-settings-dialog').open, false);
+  assert.equal(ui.element('settings-dialog').open, true);
+  assert.equal(ui.element('server-settings-status').textContent, '');
+  assert.equal(ui.element('settings-save-status').textContent, '');
+  assert.match(ui.element('notification-text').textContent, /Restart the container/);
+  assert.equal(ui.element('notification-banner').parentElement, ui.element('settings-dialog'));
 });
 
 test('card stars default off with favorited-only checked, and All clears filtering', async () => {
@@ -762,8 +791,9 @@ test('backup export waits for the complete response, prevents duplicate requests
   await pending;
   assert.deepEqual(ui.downloads, [blob]);
   assert.equal(ui.element('export-confirm').disabled, false);
-  assert.match(ui.element('library-backup-status').textContent, /download started/);
-  const link = ui.document.body.children.at(-1);
+  assert.equal(ui.element('library-backup-status').textContent, '');
+  assert.equal(ui.element('notification-text').textContent, 'Library backup download started.');
+  const link = ui.document.body.children.find(child => child.download === 'gameshelf-library-backup.zip');
   assert.equal(link.download, 'gameshelf-library-backup.zip');
   assert.equal(link.clicked, true);
   assert.equal(link.removed, true);
@@ -848,10 +878,12 @@ test('cover save keeps confirmation visible until its normal delayed close', asy
   ui.requests.find(request => request.url === '/api/covers/alpha').resolve(response({}));
   await pending;
   assert.equal(ui.element('cover-editor-dialog').open, true);
-  assert.equal(ui.element('cover-editor-status').textContent, 'Cover saved.');
+  assert.equal(ui.element('cover-editor-status').textContent, '');
   assert.equal(ui.element('cover-editor-save').classList.contains('is-saved'), true);
   ui.tick(850);
   assert.equal(ui.element('cover-editor-dialog').open, false);
+  assert.equal(ui.element('game-details-dialog').open, true);
+  assert.equal(ui.element('notification-text').textContent, 'Cover art saved.');
 });
 
 for (const status of [200, 500]) {

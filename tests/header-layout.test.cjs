@@ -175,6 +175,7 @@ test('settings and game information keep button and file text vertically centere
       };
       result.titleSaveIcon = centerDifference('#save-game-title svg', '#save-game-title');
       const art = document.querySelector('.gs-details-art').getBoundingClientRect();
+      result.footerFlush = Math.abs(document.querySelector('.gs-details-art-footer').getBoundingClientRect().bottom - art.bottom) <= 1;
       const content = document.querySelector('.gs-details-content').getBoundingClientRect();
       result.attachedArtGap = Math.abs(content.left - art.right);
       result.artVisible = art.width > 200;
@@ -199,6 +200,7 @@ test('settings and game information keep button and file text vertically centere
     assert.ok(result.attachedArtGap <= 1, 'cover should attach to the information panel');
     assert.equal(result.stableArt, true, 'file list must not resize the cover');
     assert.equal(result.artFooterVisible, true, 'desktop artwork footer must fill remaining panel space');
+    assert.equal(result.footerFlush, true, 'no extra strip should show below the artwork footer');
     assert.equal(result.summaryBelowDownload, true, 'file count should follow Download Game');
     assert.equal(result.detailsBounded, true, 'files dialog should not grow the artwork panel');
     assert.equal(result.titleInputCentered, true, 'title input text should use the centered input line');
@@ -207,6 +209,7 @@ test('settings and game information keep button and file text vertically centere
     delete result.attachedArtGap;
     delete result.stableArt;
     delete result.artFooterVisible;
+    delete result.footerFlush;
     delete result.summaryBelowDownload;
     delete result.detailsBounded;
     delete result.titleInputCentered;
@@ -348,6 +351,48 @@ test('no-cover list controls have no background block and reset actions share a 
     assert.equal(result.downloadHeight, 42);
     assert.equal(result.resetHeight, 40);
     assert.equal(result.confirmHeight, 40);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('light list rows have transparent action carriers and optional cover thumbnails', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-light-list-'));
+  try {
+    const probe = `<script>
+      document.documentElement.dataset.theme = 'light';
+      const grid = document.querySelector('#games-container');
+      grid.innerHTML = '<article class="gs-card" data-favorite="true"><div class="gs-card-cover"><img><div class="gs-card-actions"><a class="gs-icon-button gs-card-download">↓</a><button class="gs-card-info">i</button></div><button class="gs-favorite-star">★</button></div><div class="gs-card-body"><img class="gs-list-image"><div class="gs-card-content"><h3 class="gs-card-title">Game</h3></div></div></article>';
+      const card = grid.querySelector('.gs-card');
+      const star = card.querySelector('.gs-favorite-star');
+      const info = card.querySelector('.gs-card-info');
+      const cover = card.querySelector('.gs-card-cover');
+      const image = card.querySelector('.gs-list-image');
+      const gridInfo = info.getBoundingClientRect(), gridStar = star.getBoundingClientRect(), gridCard = card.getBoundingClientRect();
+      grid.classList.add('list-view');
+      const hiddenImage = getComputedStyle(image).display;
+      document.body.classList.add('gs-show-list-images');
+      const shownImage = image.getBoundingClientRect();
+      const result = {
+        carrier: getComputedStyle(cover).backgroundImage,
+        starColor: getComputedStyle(star).color,
+        hiddenImage, shownDisplay: getComputedStyle(image).display,
+        shownWidth: shownImage.width, shownHeight: shownImage.height,
+        gridInfoSize: [gridInfo.width, gridInfo.height], gridStarSize: [gridStar.width, gridStar.height],
+        gridOffsets: [gridInfo.top-gridCard.top, gridCard.right-gridInfo.right, gridStar.top-gridCard.top, gridStar.left-gridCard.left]
+      };
+      const report = document.createElement('pre'); report.id='light-list-report'; report.textContent=JSON.stringify(result); document.body.append(report);
+    </script>`;
+    const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
+    const file = path.join(dir, 'light-list.html');
+    fs.writeFileSync(file, source);
+    const result = readLayoutProbe(file, 1280, 'light-list-report');
+    assert.equal(result.carrier, 'none');
+    assert.equal(result.starColor, 'rgb(249, 178, 52)');
+    assert.equal(result.hiddenImage, 'none');
+    assert.equal(result.shownDisplay, 'block');
+    assert.equal(result.shownWidth, 34);
+    assert.equal(result.shownHeight, 48);
+    assert.deepEqual(result.gridInfoSize, result.gridStarSize);
+    assert.ok(Math.max(...result.gridOffsets) - Math.min(...result.gridOffsets) <= 2, JSON.stringify(result.gridOffsets));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -202,6 +202,8 @@ test('cover editor crops artwork and updates the card after upload', () => {
               uploaded:window.coverUpload,
               saveDisabled:document.querySelector('#cover-editor-save').disabled,
               status:document.querySelector('#cover-editor-status').textContent,
+              returnedAfterSave:document.querySelector('#game-details-dialog').open,
+              notification:document.querySelector('#notification-text').textContent,
               hasCover:!card.classList.contains('gs-no-cover'),
               coverUrl:card.querySelector('img').getAttribute('src')
             });
@@ -237,6 +239,9 @@ test('cover editor crops artwork and updates the card after upload', () => {
     assert.equal(result.uploaded.type, 'image/png');
     assert.ok(result.uploaded.size > 0);
     assert.equal(result.hasCover, true);
+    assert.equal(result.returnedAfterSave, true);
+    assert.equal(result.status, '');
+    assert.equal(result.notification, 'Cover art saved.');
     assert.match(result.coverUrl, /^\/covers\/missing\?v=/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

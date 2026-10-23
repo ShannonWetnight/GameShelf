@@ -1538,7 +1538,7 @@ body {
 .gs-settings-unit { flex: none; color: var(--text-muted); font-size: .8rem; }
 .gs-file-summary { border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: .78rem; cursor: pointer; min-height: 28px; }
 .gs-file-summary:hover, .gs-file-summary:focus-visible { color: var(--accent); text-decoration: underline; }
-.gs-details-art-footer { flex: none; min-height: 96px; justify-content: center; gap: .25rem; padding: .7rem 1rem; }
+.gs-details-art-footer { flex: 1 1 auto; min-height: 96px; justify-content: center; gap: .25rem; padding: .7rem 1rem; }
 .gs-details-content { position: relative; scrollbar-gutter: stable; }
 .gs-metadata-reset { margin-top: auto; align-self: flex-end; min-height: 38px; }
 .gs-mobile-files { display: none; }
@@ -1556,7 +1556,7 @@ body {
 .gs-grid.list-view .gs-card-cover > .gs-favorite-star { order: 0; }
 .gs-grid.list-view .gs-card-actions { order: 1; }
 .gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover .gs-favorite-star,
-.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):focus-within .gs-favorite-star { opacity: .65; }
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):focus-within .gs-favorite-star { opacity: 1; }
 .gs-export-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
 .gs-export-options { display: grid; gap: 0.5rem; max-height: min(45vh, 360px); overflow-y: auto; margin-top: 0.5rem; }
 .gs-export-options .gs-settings-option { margin: 0; overflow-wrap: anywhere; }
@@ -1638,6 +1638,10 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 /* Card titles keep a fixed footer and clamp even for unbroken names. */
 .gs-show-game-titles .gs-card-body { flex: 0 0 54px; height: 54px; min-height: 54px; max-height: 54px; padding: .55rem .8rem; overflow: hidden; }
 .gs-card-content { min-width: 0; width: 100%; }
+.gs-list-image { display: none; }
+.gs-show-list-images .gs-grid.list-view .gs-list-image { display: block; flex: 0 0 34px; width: 34px; height: 48px; object-fit: cover; border: 1px solid var(--border-subtle); border-radius: 5px; background: var(--card-footer); }
+.gs-show-list-images .gs-grid.list-view .gs-card-body { gap: .75rem; }
+.gs-show-list-images:not(.gs-show-placeholders) .gs-grid.list-view .gs-no-cover .gs-list-image { display: none; }
 .gs-card-title { line-height: 1.25; max-height: 2.5em; overflow-wrap: anywhere; word-break: normal; }
 .gs-grid.list-view .gs-card-body { flex: 1 1 auto; height: auto; min-height: 0; max-height: none; padding: 0; }
 .gs-grid.list-view .gs-card-title { display: block; max-height: 1.25em; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
@@ -1727,6 +1731,11 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-settings-section { background: var(--section-background); }
 .gs-detail-action, .gs-title-detail input, .gs-settings-number-option input[type="number"], .gs-server-field input { background: var(--input-background); }
 .gs-icon-button, .gs-card-info, .gs-favorite-star, .gs-scroll-to-top { background: var(--icon-background); color: var(--text); }
+.gs-card[data-favorite="true"] .gs-favorite-star, .gs-favorite-star.is-favorite,
+.gs-card[data-favorite="true"] .gs-favorite-star:hover, .gs-card[data-favorite="true"] .gs-favorite-star:focus-visible,
+.gs-favorite-star.is-favorite:hover, .gs-favorite-star.is-favorite:focus-visible { color: #f9b234; }
+:root[data-theme="light"] .gs-card[data-favorite="true"] .gs-favorite-star,
+:root[data-theme="light"] .gs-favorite-star.is-favorite { background: #19263b; }
 .gs-scroll-to-top:hover, .gs-scroll-to-top:focus-visible,
 .gs-favorite-star:hover, .gs-favorite-star:focus-visible,
 .gs-icon-button:hover, .gs-icon-button:focus-visible,
@@ -1745,6 +1754,10 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 :root[data-theme="light"] .gs-details-art.gs-no-cover { background: radial-gradient(circle at 50% 35%, #d8e3f3, #edf2f8 75%); }
 :root[data-theme="light"] .gs-show-placeholders .gs-no-cover .gs-card-cover { background: #e8edf4; }
 :root[data-theme="light"] .gs-card-cover { background: radial-gradient(circle at top, #d7e1ef, #eff3f8); }
+:root[data-theme="light"] .gs-grid.list-view .gs-card-cover,
+.gs-grid.list-view .gs-card-cover { background: transparent; box-shadow: none; }
+:root[data-theme="light"] .gs-grid.list-view .gs-card-cover img:not(.gs-list-image) { display: none; }
+.gs-grid:not(.list-view) .gs-card .gs-card-info { top: .75rem; right: .75rem; width: 36px; height: 36px; border-width: 1px; font-size: 1rem; }
 :root[data-theme="light"] .gs-details-art-footer { color: var(--text); }
 :root[data-theme="light"] .gs-button { background: linear-gradient(135deg, #d99421, #edb950); color: #271705; }
 :root[data-theme="light"] .gs-card:not(.gs-hover-suppressed):hover { box-shadow: 0 0 0 2px rgba(169,101,11,.45), var(--shadow-soft); }
