@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image/png"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -1321,3 +1323,225 @@ func sanitizeFilename(name string) string {
 	return s
 }
 
+type serverSettings struct {
+	RootDir string `json:"rootDir"`
+	DataDir string `json:"dataDir"`
+	RefreshInterval string `json:"refreshInterval"`
+	Verbose bool `json:"verbose"`
+}
+
+var (
+	settingsMu sync.RWMutex
+	configuredSettings serverSettings
+	settingsHome string
+	allowedLibraryRoot string
+	verboseLogging atomic.Bool
+	applicationLogs boundedLog
+)
+
+// Keep a bounded log snapshot so exports do not depend on Docker log access.
+type boundedLog struct {
+	mu sync.Mutex
+	data []byte
+}
+
+func (b *boundedLog) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.data = append(b.data, p...)
+	const limit = 1 << 20
+	if len(b.data) > limit {
+		b.data = bytes.Clone(b.data[len(b.data)-limit:])
+	}
+	return len(p), nil
+}
+
+func (b *boundedLog) Snapshot() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return bytes.Clone(b.data)
+}
+
+func defaultServerSettings() serverSettings {
+	root := os.Getenv("GAMESHELF_ROOT")
+	if root == "" { root = "/games" }
+	data := os.Getenv("GAMESHELF_DATA_DIR")
+	if data == "" { data = "/data" }
+	interval := os.Getenv("GAMESHELF_REFRESH_INTERVAL")
+	if interval == "" { interval = "12h" }
+	return serverSettings{RootDir: root, DataDir: data, RefreshInterval: interval}
+}
+
+func settingsFile() string { return filepath.Join(settingsHome, "server-settings.json") }
+
+func pathInside(base, candidate string) bool {
+	baseAbs, err := filepath.EvalSymlinks(base)
+	if err != nil { return false }
+	candidateAbs, err := filepath.EvalSymlinks(candidate)
+	if err != nil { return false }
+	rel, err := filepath.Rel(baseAbs, candidateAbs)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
+func validRefreshInterval(value string) bool {
+	if value == "0" { return true }
+	duration, err := time.ParseDuration(value)
+	return err == nil && duration > 0
+}
+
+func validateServerSettings(value serverSettings) error {
+	if !filepath.IsAbs(value.RootDir) || !filepath.IsAbs(value.DataDir) || !filepath.IsLocal(filepath.Base(value.RootDir)) || !filepath.IsLocal(filepath.Base(value.DataDir)) {
+		return errors.New("paths must be absolute container paths")
+	}
+	if !pathInside(allowedLibraryRoot, value.RootDir) || !pathInside(settingsHome, value.DataDir) {
+		return errors.New("paths must stay within the configured library and data mounts")
+	}
+	if !validRefreshInterval(value.RefreshInterval) { return errors.New("refresh interval must be a positive duration or 0") }
+	for _, directory := range []string{value.RootDir, value.DataDir} {
+		info, err := os.Stat(directory)
+		if err != nil || !info.IsDir() { return fmt.Errorf("directory is unavailable: %s", directory) }
+	}
+	return nil
+}
+
+func initializeServerSettings() serverSettings {
+	defaults := defaultServerSettings()
+	settingsHome = defaults.DataDir
+	allowedLibraryRoot = defaults.RootDir
+	log.SetOutput(io.MultiWriter(os.Stdout, &applicationLogs))
+	value := defaults
+	contents, err := os.ReadFile(settingsFile())
+	if err == nil {
+		if jsonErr := json.Unmarshal(contents, &value); jsonErr != nil || validateServerSettings(value) != nil {
+			log.Printf("invalid saved server settings; using container defaults")
+			value = defaults
+		}
+	} else if !os.IsNotExist(err) {
+		log.Printf("server settings unavailable: %v", err)
+	}
+	settingsMu.Lock()
+	configuredSettings = value
+	settingsMu.Unlock()
+	verboseLogging.Store(value.Verbose)
+	return value
+}
+
+func saveServerSettings(value serverSettings) error {
+	if err := validateServerSettings(value); err != nil { return err }
+	contents, err := json.MarshalIndent(value, "", "  ")
+	if err != nil { return err }
+	file, err := os.CreateTemp(settingsHome, ".server-settings-*.tmp")
+	if err != nil { return err }
+	defer os.Remove(file.Name())
+	if err = file.Chmod(0600); err == nil { _, err = file.Write(append(contents, '\n')) }
+	if err == nil { err = file.Sync() }
+	if closeErr := file.Close(); err == nil { err = closeErr }
+	if err != nil { return err }
+	if err := os.Rename(file.Name(), settingsFile()); err != nil { return err }
+	settingsMu.Lock()
+	configuredSettings = value
+	settingsMu.Unlock()
+	verboseLogging.Store(value.Verbose)
+	return nil
+}
+
+func handleServerSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		settingsMu.RLock()
+		value := configuredSettings
+		settingsMu.RUnlock()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(value)
+	case http.MethodPut:
+		var value serverSettings
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&value); err != nil { http.Error(w, "invalid settings", http.StatusBadRequest); return }
+		settingsMu.RLock()
+		old := configuredSettings
+		settingsMu.RUnlock()
+		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{old.RootDir != value.RootDir || old.DataDir != value.DataDir || old.RefreshInterval != value.RefreshInterval})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+type metadataResetRequest struct {
+	Title bool `json:"title"`
+	Cover bool `json:"cover"`
+	Favorite bool `json:"favorite"`
+}
+
+type stagedCover struct { original, staged string }
+
+func stageUploadedCovers(dirName string) ([]stagedCover, error) {
+	var moved []stagedCover
+	for _, original := range []string{customCoverPath(dirName), legacyCustomCoverPath(dirName)} {
+		info, err := os.Lstat(original)
+		if os.IsNotExist(err) { continue }
+		if err != nil || !info.Mode().IsRegular() { restoreStagedCovers(moved); return nil, fmt.Errorf("uploaded cover is unavailable") }
+		tmp, err := os.CreateTemp(filepath.Dir(original), ".cover-reset-*.tmp")
+		if err != nil { restoreStagedCovers(moved); return nil, err }
+		staged := tmp.Name()
+		tmp.Close()
+		os.Remove(staged)
+		if err := os.Rename(original, staged); err != nil { restoreStagedCovers(moved); return nil, err }
+		moved = append(moved, stagedCover{original, staged})
+	}
+	return moved, nil
+}
+
+func restoreStagedCovers(covers []stagedCover) {
+	for _, cover := range covers {
+		if err := os.Rename(cover.staged, cover.original); err != nil { log.Printf("restore cover after reset failure: %v", err) }
+	}
+}
+
+func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	id := strings.TrimPrefix(r.URL.Path, "/api/metadata-reset/")
+	if id == "" { http.NotFound(w, r); return }
+	var request metadataResetRequest
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || (!request.Title && !request.Cover && !request.Favorite) {
+		http.Error(w, "select metadata to reset", http.StatusBadRequest)
+		return
+	}
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	entry := getGameEntryByID(id)
+	if entry == nil { http.NotFound(w, r); return }
+	state, err := readLibraryMetadata()
+	if err != nil { http.Error(w, "library state unavailable", http.StatusServiceUnavailable); return }
+	var staged []stagedCover
+	if request.Cover {
+		staged, err = stageUploadedCovers(entry.DirName)
+		if err != nil { http.Error(w, "could not reset cover", http.StatusServiceUnavailable); return }
+	}
+	if request.Title { delete(state.Titles, entry.Game.Path) }
+	if request.Favorite { delete(state.Favorites, entry.Game.Path) }
+	if err := writeLibraryMetadata(state); err != nil {
+		restoreStagedCovers(staged)
+		http.Error(w, "could not save metadata reset", http.StatusServiceUnavailable)
+		return
+	}
+	for _, cover := range staged { if err := os.Remove(cover.staged); err != nil { log.Printf("remove reset cover: %v", err) } }
+	updated := *entry
+	if request.Title { updated.Game.Name = entry.DirName }
+	if request.Favorite { updated.Game.Favorite = false }
+	if request.Cover {
+		updated.CoverPath = findCover(filepath.Join(rootDir, entry.DirName))
+		updated.Game.HasCover = updated.CoverPath != ""
+		updated.Game.CoverSource = "folder"
+		if !updated.Game.HasCover { updated.Game.CoverSource = "placeholder" }
+	}
+	gamesMu.Lock()
+	if current := gamesMap[id]; current != nil && current.DirName == entry.DirName { gamesMap[id] = &updated }
+	gamesMu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updated.Game)
+}
