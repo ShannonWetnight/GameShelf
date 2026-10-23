@@ -87,6 +87,10 @@ function showSaveFeedback(button) {
   saveFeedbackTimers.set(button, setTimeout(() => button.classList.remove('is-saved'), 1100));
 }
 
+function showDownloadStarted() {
+  showNotification('Download started.');
+}
+
 /* =============================
    Data Fetching
    ============================= */
@@ -363,6 +367,7 @@ function createGameCard(game) {
     </svg>
   `;
   dl.addEventListener('click', () => {
+    showDownloadStarted();
     dl.blur();
     card.classList.add('gs-hover-suppressed');
   });
@@ -476,6 +481,7 @@ async function toggleGameFiles() {
       download.download = file.path.split('/').pop();
       download.setAttribute('aria-label', `Download ${file.path}`);
       download.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11m0 0 4-4m-4 4-4-4M5 17.5v2h14v-2"/></svg>';
+      download.addEventListener('click', showDownloadStarted);
       item.appendChild(name);
       item.appendChild(size);
       item.appendChild(download);
@@ -1096,8 +1102,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('spotlight-download').addEventListener('click', event => {
     if (!suggestedGameId) event.preventDefault();
+    else showDownloadStarted();
     event.currentTarget.blur();
   });
+  document.getElementById('game-details-download').addEventListener('click', showDownloadStarted);
   document.getElementById('spotlight-info').addEventListener('click', event => {
     const game = gamesCache.find(candidate => candidate.id === suggestedGameId);
     const card = cardMap.get(suggestedGameId);

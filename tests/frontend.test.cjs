@@ -212,6 +212,7 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(action.attributes['aria-label'], 'Download Alpha');
   action.focus();
   action.emit('click');
+  assert.equal(ui.element('notification-text').textContent, 'Download started.');
   assert.equal(action.focused, false);
   assert.equal(card.classList.contains('gs-hover-suppressed'), true);
   card.emit('pointerleave');
@@ -221,6 +222,8 @@ test('cover actions download the game and open read-only details', async () => {
   assert.equal(ui.element('game-details-path').textContent, '/GameShelf/Alpha');
   assert.equal(ui.element('game-details-size').textContent, '1.0 KB');
   assert.equal(ui.element('game-details-download').href, '/download/alpha');
+  ui.click('game-details-download');
+  assert.equal(ui.element('notification-text').textContent, 'Download started.');
   assert.match(ui.element('game-details-download-summary').textContent, /2 files/);
   assert.equal(ui.element('game-details-cover').textContent, 'Available');
   assert.match(ui.element('game-details-added').textContent, /2026/);
@@ -250,6 +253,8 @@ test('game information lists only the selected game files on request', async () 
     ['data/level.dat', 'cover.png']);
   assert.equal(ui.element('game-files-list').children[0].children[2].href,
     '/api/game-file/alpha?path=data%2Flevel.dat');
+  ui.element('game-files-list').children[0].children[2].emit('click');
+  assert.equal(ui.element('notification-text').textContent, 'Download started.');
   ui.click('game-files-close');
   assert.equal(ui.element('game-files-dialog').open, false);
   ui.click('game-details-close');
@@ -371,6 +376,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   const firstId = selected()[0].dataset.id;
   assert.equal(selected()[0].focused, undefined);
   assert.equal(ui.element('spotlight-download').href, `/download/${firstId}`);
+  ui.click('spotlight-download');
+  assert.equal(ui.element('notification-text').textContent, 'Download started.');
   ui.click('spotlight-info');
   assert.equal(ui.element('game-details-dialog').open, true);
   assert.equal(ui.element('game-details-title').textContent, games.find(game => game.id === firstId).name);

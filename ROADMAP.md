@@ -4,6 +4,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ---
 
+### Recommended Next
+* [ ] Add a validated restore flow for exported library backups. Show a preview and resolve conflicts before writing to `/data`; keep the mounted game library read-only. Export already captures the state and artwork needed for a backup, but restoring currently requires manual file extraction.
+
 ### Core UX & Stability
 * [x] *(Planned)* Responsive UI layout
 * [x] *(Planned)* Web frontend embedded using `embed.FS`
@@ -16,10 +19,10 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Manual refresh button
 * [x] Integrate refresh button into GAMESHELF header text and remove button
 * [x] Make the header refresh control keyboard-accessible
-* [ ] Add theme support (drop-in CSS files)
+* [x] Add System, GameShelf Classic, Light, and Dark themes in Appearance settings
 * [x] *(Planned)* Add micro-animations for hover and card transitions
 * [x] Add a game-card information button that opens a read-only details panel; show the app version in Settings
-* [x] *(Planned)* Add grid/list view toggle (due to image size restrictions, list view would need to be a "without cover art" mode)
+* [x] *(Planned)* Add grid/list view toggle with optional cover thumbnails in list view
 * [ ] Add a toggle UI effects option
 
 * [x] Add a slow-motion setting for dice and card-shuffle animations
@@ -28,7 +31,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Add separate card-star visibility and favorited-only display options in grid and list views
 * [x] Add an All option to clear sort/filter selection and a logo shortcut back to the default grid
 * [x] Respect the device's reduced-motion preference
-* [ ] Add a dark/light mode toggle
+* [x] Add a light/dark mode selector that can follow the device preference
 * [x] Integrate download button into card main body
 * [x] Add graceful fallback UI when `/api/games` fails
   - Show an error with retry; keep the last loaded cards when refresh fails
@@ -42,6 +45,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
   - [ ] If enabled, cache fetched artwork locally and skip the remote fetch when a cached copy exists
 * [x] Add ability to upload and edit cover images from the UI while keeping game folders read-only
 * [x] Export uploaded and available game-folder covers with library data; exclude placeholder artwork
+* [x] Show compact game covers in list view by default, with a setting to hide them
 
 ### Metadata & Sorting
 * [ ] Parse `.json`, `.info`, or GOG manifest metadata offline
@@ -68,8 +72,10 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 * [x] Open a read-only file list from the file count below Download Game
 * [x] Download individual files directly from the file list
+* [x] Show a brief download-started notification for game ZIPs and individual files
 * [x] Select metadata and individual game cover folders when exporting library data
 * [x] Include optional server settings and recent application logs in the export
+* [x] Confirm successful title, cover, favorite, settings, metadata-reset, and export actions with a notification banner
 * [x] *(Planned)* Folder autodiscovery
 * [ ] Add multi-select mode for downloading multiple folders ("bulk download" option)
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)

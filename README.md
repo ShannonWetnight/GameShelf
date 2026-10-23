@@ -47,11 +47,13 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Zero-config outside of the indexing directory
 - Go backend and static web UI (Go 1.24 or later for source builds)
 - Easy deployment with Docker or Compose
-- Local search and sort functions
+- Local fuzzy search and sorting by name or size, plus Favorites and Recently Added filters
   - Search keyboard shortcuts (`/` to search, `Esc` to clear)
-- Grid and list views, a random game picker, and card details with individual file downloads
-- Optional game title banners, placeholder art, button hints, and slower picker animations in Settings
+- Grid and list views with optional list thumbnails, a random game picker, and card details with individual file downloads
+- System, GameShelf Classic, light, and dark themes; optional game title banners, placeholder art, button hints, card stars, and slower picker animations in Settings
 - Editable GameShelf titles and uploaded cover art with crop, rotation, and tilt controls
+- Saved favorites, configurable Recently Added range, selective metadata reset, and success notifications for downloads and changes
+- Selective library backup export of state, server settings, logs, and available covers
 - Read-only `/api/stats` summary for local integrations
 
 ## Prerequisites
@@ -274,10 +276,10 @@ GameDrive
 ## Usage
 1. Upload folders to the GameShelf directory (your mounted storage).
 2. Open GameShelf to search or sort the library, switch between grid and list views, or use the dice button to pick a random game. **All** clears the active sort/filter. Favorites and Recently Added are available in the sort/filter menu; Settings controls the Recently Added range and whether favorite stars appear on cards. Card stars are off by default; when enabled, the default suboption shows them only on favorited cards. The GameShelf icon returns to the unfiltered grid; the GameShelf text refreshes the library. Return to the library or reroll from the selected card.
-3. Hover over a game card or list row for its download and information controls. Download retrieves that game's folder as a ZIP. The information panel shows its title, location, size, cover status, date added, and file count; on desktop, the cover panel also offers a full-game download. Expand **Show Files** to download individual files directly.
+3. Hover over a game card or list row for its download and information controls. Download retrieves that game's folder as a ZIP and shows a brief download-started notification. The information panel shows its title, location, size, cover status, date added, and file count; on desktop, the cover panel also offers a full-game download. Open the file count to download individual files directly. List cover thumbnails are on by default and can be hidden in Settings.
 4. Edit a GameShelf title or upload and adjust cover art from the information panel. The file count below **Download Game** opens a separate file list with individual downloads. **Reset Metadata** can restore the folder title, folder cover (or placeholder), and unfavorited state after review and confirmation. The original first-seen date is preserved. These changes live in `/data`; they do not modify your mounted game folders. Settings includes an export of saved titles, dates, and real cover images.
 
-Settings also offers **Library Paths and Refresh** and **Verbose logging**. The paths and scan interval start with the container's `GAMESHELF_ROOT`, `GAMESHELF_DATA_DIR`, and `GAMESHELF_REFRESH_INTERVAL` values. Saved path and interval changes take effect after a container restart; verbose logging changes take effect immediately. Paths must already exist inside the container and remain within the library and data mounts originally configured by Docker. Changing the data path does not move saved metadata or artwork, so copy them to the new location before restarting. Settings are kept in `server-settings.json` under the original data mount, and can be included in Export Data.
+Settings also offers appearance themes (**System**, **GameShelf Classic**, **Light**, and **Dark**), card and list display preferences, **Library Paths and Refresh**, and **Verbose logging**. System follows the device's light or dark preference; a dark system uses GameShelf Classic. The paths and scan interval start with the container's `GAMESHELF_ROOT`, `GAMESHELF_DATA_DIR`, and `GAMESHELF_REFRESH_INTERVAL` values. Saved path and interval changes take effect after a container restart; verbose logging changes take effect immediately. Paths must already exist inside the container and remain within the library and data mounts originally configured by Docker. Changing the data path does not move saved metadata or artwork, so copy them to the new location before restarting. Settings are kept in `server-settings.json` under the original data mount, and can be included in Export Data. Saves and exports show a temporary confirmation banner; errors remain visible where the action was started.
 
 For local dashboards, `GET /api/stats` returns JSON fields `gameCount`, `fileCount`, `totalSizeBytes`, `coveredGameCount`, and `lastIndexedAt` (UTC RFC 3339). Counts reflect the current indexed game state: library file counts and sizes update on a successful scan, while cover availability also updates after an upload. `fileCount` and `totalSizeBytes` include regular files in indexed game folders, including folder cover files; uploaded covers in `/data` are not counted. `lastIndexedAt` marks the last successful scan and is empty until one succeeds. This endpoint does not expose host filesystem paths.
 
