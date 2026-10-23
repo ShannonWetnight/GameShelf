@@ -190,8 +190,10 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 	if err == nil && selection.Settings && len(archive.settings) > 0 {
 		var settings serverSettings
 		json.Unmarshal(archive.settings, &settings)
+		settings.LogOptions = normalizeLogOptions(settings.LogOptions)
 		settingsMu.Lock(); configuredSettings = settings; settingsMu.Unlock()
 		verboseLogging.Store(settings.Verbose)
+		applicationLogs.Configure(settings.LogOptions)
 	}
 	refreshMu.Unlock()
 	if err != nil { log.Printf("library restore failed: %v", err); http.Error(w, "Restore failed; existing data was retained.", http.StatusServiceUnavailable); return }
