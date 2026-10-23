@@ -1541,7 +1541,7 @@ body {
 .gs-control-feedback svg { animation: gs-view-morph 170ms ease-out; transform-origin: center; }
 .gs-grid.list-view .gs-card-cover { display: flex; align-items: center; gap: .5rem; }
 .gs-grid.list-view .gs-favorite-star { position: static; flex: none; width: 42px; height: 42px; border-radius: 50%; }
-.gs-grid.list-view .gs-card-actions { order: 2; gap: .5rem; }
+.gs-grid.list-view .gs-card-actions { order: 2; gap: .5rem; align-items: center; padding: 0; }
 .gs-grid.list-view .gs-card-info { order: 0; }
 .gs-grid.list-view .gs-card-download { order: 1; }
 .gs-grid.list-view .gs-card-cover > .gs-favorite-star { order: 0; }
