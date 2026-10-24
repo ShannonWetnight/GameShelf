@@ -15,6 +15,7 @@ import (
 var (
     setupRequired atomic.Bool
     setupMu sync.Mutex
+    libraryRuntimeMu sync.RWMutex
     mountedLibraryRoots []string // immutable after startup
     refreshSchedule = make(chan struct{}, 1)
 )
@@ -90,12 +91,15 @@ func runAutoRefresh() {
 
 func setupGate(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        if setupRequired.Load() {
-            if r.URL.Path == "/api/games" {
-                w.Header().Set("Content-Type", "application/json"); w.Write([]byte("[]\n")); return
-            }
-            allowed := r.URL.Path == "/api/setup" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
-            if !allowed && (strings.HasPrefix(r.URL.Path,"/api/") || strings.HasPrefix(r.URL.Path,"/download") || strings.HasPrefix(r.URL.Path,"/covers/")) {
+        configuration := r.URL.Path == "/api/setup" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
+        libraryRoute := !configuration && (strings.HasPrefix(r.URL.Path,"/api/") || strings.HasPrefix(r.URL.Path,"/download") || strings.HasPrefix(r.URL.Path,"/covers/"))
+        if libraryRoute {
+            // Finish any active library responses before setup replaces runtime paths.
+            libraryRuntimeMu.RLock(); defer libraryRuntimeMu.RUnlock()
+            if setupRequired.Load() {
+                if r.URL.Path == "/api/games" && r.Method == http.MethodGet {
+                    w.Header().Set("Content-Type", "application/json"); w.Write([]byte("[]\n")); return
+                }
                 http.Error(w, "Complete GameShelf setup to use your library.", http.StatusConflict); return
             }
         }
@@ -126,6 +130,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
         if err := saveServerSettings(value); err != nil { logEvent("errors","first-time setup save: %v",err); http.Error(w,"Could not save setup. Check that the data folder is writable by GameShelf.",http.StatusServiceUnavailable); return }
         // Library endpoints are gated until these initial runtime paths and the
         // first complete index are ready. Later path edits retain restart semantics.
+        libraryRuntimeMu.Lock(); defer libraryRuntimeMu.Unlock()
         refreshMu.Lock(); rootDir, rootDirs, dataDir = value.RootDir, libraryRoots(value), value.DataDir; refreshMu.Unlock()
         if err := refreshGames(); err != nil { http.Error(w,"Could not read your library. Check the folder mapping and permissions, then try again.",http.StatusBadRequest); return }
         setupRequired.Store(false); notifyRefreshSchedule()

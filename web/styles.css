@@ -2171,3 +2171,5 @@ body.gs-card-depth .gs-grid .gs-card { box-shadow:inset 0 1px 0 color-mix(in srg
 .gs-source-folder:last-child { border-bottom:0; }
 .gs-source-folder:is(:hover,:focus-visible) { color:var(--accent);background:var(--accent-soft); }
 @media(max-width:600px) { .gs-setup-panel{padding:1rem}.gs-setup-page{margin-top:.5rem} }
+
+.gs-needs-setup .gs-header-row { flex-direction:row;align-items:center; }

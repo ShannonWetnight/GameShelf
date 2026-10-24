@@ -70,3 +70,11 @@ func TestExplicitComposeRootSkipsFirstSetup(t *testing.T) {
     t.Setenv("GAMESHELF_ROOT",root);t.Setenv("GAMESHELF_DATA_DIR",data)
     value:=initializeServerSettings();if setupRequired.Load() || value.RootDir!=root{t.Fatal("explicit library was ignored")}
 }
+
+func TestResetWithoutComposeRootReturnsToSetup(t *testing.T) {
+    root,data:=setupFreshServer(t)
+    value:=serverSettings{RootDir:root,DataDir:data,RefreshInterval:"0"};body,_:=json.Marshal(value)
+    w:=httptest.NewRecorder();handleSetup(w,httptest.NewRequest(http.MethodPost,"/api/setup",strings.NewReader(string(body))));if w.Code!=200{t.Fatal(w.Body.String())}
+    w=httptest.NewRecorder();handleResetServerSettings(w,httptest.NewRequest(http.MethodPost,"/api/server-settings/reset",nil))
+    if w.Code!=200 || !setupRequired.Load() || configuredSettings.RootDir!=""{t.Fatalf("reset did not reopen setup: %d %#v",w.Code,configuredSettings)}
+}

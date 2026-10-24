@@ -1700,9 +1700,11 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleResetServerSettings(w http.ResponseWriter, r *http.Request) {
+	setupMu.Lock(); defer setupMu.Unlock()
 	if r.Method != http.MethodPost { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
 	defaults := defaultServerSettings()
 	if err := saveServerSettings(defaults); err != nil { http.Error(w, "could not reset settings", http.StatusServiceUnavailable); return }
+	if len(libraryRoots(defaults)) == 0 { setupRequired.Store(true); notifyRefreshSchedule() }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{true})
 }
