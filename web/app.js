@@ -1390,9 +1390,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   applySettingsLevel();
   for (const level of ['basic', 'advanced']) document.getElementById(`settings-${level}`).addEventListener('click', () => {
+    const before = settingsDialog.getBoundingClientRect?.().height;
     settingsLevel = level;
     localStorage.setItem('gameshelf:settings-level', level);
     applySettingsLevel();
+    const after = settingsDialog.getBoundingClientRect?.().height;
+    if (!disableEffects && before && after && before !== after) settingsDialog.animate?.(
+      [{ height: `${before}px`, overflow: 'hidden' }, { height: `${after}px`, overflow: 'hidden' }],
+      { duration: 240, easing: 'cubic-bezier(.22,.7,.2,1)' }
+    );
   });
   disableEffectsInput.addEventListener('change', () => {
     disableEffects = disableEffectsInput.checked;
