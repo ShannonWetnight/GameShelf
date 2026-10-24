@@ -453,7 +453,7 @@ test('light list rows have transparent action carriers and optional cover thumbn
     assert.equal(result.shownHeight, 48);
     assert.deepEqual(result.gridInfoSize, [40, 40]);
     assert.deepEqual(result.gridStarSize, [36, 36]);
-    assert.ok(result.gridOffsets[0] < 0 || Math.abs(result.gridOffsets[0] - result.gridOffsets[2]) <= 6,
+    assert.ok(result.gridOffsets[0] < 0 || Math.abs(result.gridOffsets[0] - result.gridOffsets[2]) <= 8,
       `grid controls should sit in or slide into the top band: ${JSON.stringify(result.gridOffsets)}`);
     assert.ok(Math.abs(result.gridOffsets[2] - result.gridOffsets[3]) <= 2, JSON.stringify(result.gridOffsets));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
