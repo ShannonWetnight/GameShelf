@@ -43,7 +43,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Local cover art detection
   - User-supplied cover art and placeholders while missing
 - Instant ZIP downloads of game folders
-- An optional download playlist that combines up to 50 chosen games in one ZIP, with a review step and estimated size
+- An optional download Playlist that combines up to 50 chosen games in one ZIP, with a review step and estimated size
 - Manual and scheduled rescan support
 - Zero-config outside of the indexing directory
 - Go backend and static web UI (Go 1.24 or later for source builds)
@@ -119,7 +119,7 @@ In Settings, **Export Data** opens a selection dialog for `library-state.json`, 
 
 **Settings → Application Logs → View Logs** opens the current process's bounded log snapshot. The viewer starts at the newest entries and can filter system, library, error, request, scan, and download entries. Its header controls copy the visible lines or download them as `gameshelf-logs.txt`. **Configure** offers Customize logging: without it, system, library, and error events stay on; with it, each category can be selected independently. Logs remain in memory for this process only. The default retention is 7 days and 10 MB; either limit can be overridden in Configure.
 
-The toolbar playlist button opens a review of selected games and their estimated uncompressed size. Add or remove games from cards, the details panel, or the random game view, then download one `gameshelf-playlist.zip`. Each game is placed in its own folder inside the archive. The playlist holds up to 50 games and remains on this browser until cleared; the ZIP is streamed on demand. Removing a game or clearing the playlist asks for confirmation. The entire playlist can be hidden in Settings.
+The toolbar Playlist button opens a review of selected games and their estimated uncompressed size. Add or remove games from cards, the details panel, or the random game view, then download one `gameshelf-playlist.zip`. Each game is placed in its own folder inside the archive. The Playlist holds up to 50 games and remains on this browser until cleared; the ZIP is streamed on demand. Removing a game or clearing the Playlist asks for confirmation. The entire Playlist can be hidden in Settings.
 
 The cover editor can select PNG, JPEG, GIF, or WebP images already inside a game's folder. The selected image opens in the editor for adjustments; saving creates a PNG in application data. Game folders remain read-only.
 
@@ -325,4 +325,6 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 
 ### Default preferences
 
-New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, playlist downloads, and double-click list image expansion. Slow motion, disabled animations, game titles, and the card-star setting start off; the favorited-only preference starts on. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.
+New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, Playlist downloads, and single-click list image expansion. Slow motion, disabled animations, game titles, and the card-star setting start off; the favorited-only preference starts on. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.
+
+The Advanced **Click to expand image in list view** preference offers **Single-click** (default), **Double-click**, and **Disabled**. Image expansion requires list images to be enabled. Menus use matching opening and closing motion, respecting disabled animations and reduced-motion preferences.

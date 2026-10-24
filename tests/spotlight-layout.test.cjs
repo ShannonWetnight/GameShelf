@@ -132,7 +132,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.listView, true);
     assert.ok(result.gearCenterDifference <= 1, 'settings icon is not centered');
     assert.equal(result.shuffleCount, 1);
-    assert.match(result.shuffleAnimation, /^gs-shuffle-dissolve/);
+    assert.match(result.shuffleAnimation, /^gs-stack-deal/);
     assert.equal(result.diceDisabled, true);
     assert.equal(result.returnHiddenDuringShuffle, true);
     assert.equal(result.selectedCount, 1);
@@ -154,7 +154,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.slowDefault, false);
     assert.equal(result.returnResetOnReroll, true);
     assert.equal(result.slowDiceDuration, '1.2s');
-    assert.equal(result.slowShuffleDuration, '0.48s');
+    assert.equal(result.slowShuffleDuration, '0.64s');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

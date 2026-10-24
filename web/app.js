@@ -18,7 +18,8 @@ localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
 let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
-let expandListImage = localStorage.getItem('gameshelf:expand-list-image') !== 'false';
+const storedImageClick = localStorage.getItem('gameshelf:list-image-click');
+let listImageClick = ['single', 'double', 'disabled'].includes(storedImageClick) ? storedImageClick : localStorage.getItem('gameshelf:expand-list-image') === 'false' ? 'disabled' : 'single';
 let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') !== 'false';
 let favoritePending = null;
 let serverSettings = null;
@@ -68,9 +69,29 @@ function openModal(dialog) {
         document.documentElement?.classList.remove('gs-modal-open');
       }
     });
+    const nativeClose = dialog.close.bind(dialog);
+    let motion;
+    let closing = false;
+    let closeTimer;
+    dialog.close = (value) => {
+      if (!dialog.open || closing) return;
+      motion?.cancel();
+      dialog._openingMotion?.cancel();
+      if (disableEffects || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !dialog.animate) { nativeClose(value); return; }
+      closing = true;
+      dialog.dataset.closing = "true";
+      motion = dialog.animate([{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(10px) scale(.97)' }], { duration: 160, easing: 'ease-in', fill: 'forwards' });
+      closeTimer = setTimeout(() => { nativeClose(value); motion.cancel(); closing = false; delete dialog.dataset.closing; }, 160);
+    };
+    dialog.addEventListener('cancel', event => { event.preventDefault(); dialog.close(); });
+    dialog._cancelMotion = () => { clearTimeout(closeTimer); motion?.cancel(); dialog._openingMotion?.cancel(); closing = false; delete dialog.dataset.closing; };
     observedDialogs.add(dialog);
   }
+  dialog._cancelMotion?.();
   dialog.showModal();
+  if (!disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) dialog._openingMotion = dialog.animate?.(
+    [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }],
+    { duration: 180, easing: 'cubic-bezier(.2,.7,.2,1)' });
   openDialogs.add(dialog);
   document.body.classList.add('gs-modal-open');
   document.documentElement?.classList.add('gs-modal-open');
@@ -78,7 +99,7 @@ function openModal(dialog) {
 
 function showNotification(message) {
   const banner = document.getElementById('notification-banner');
-  const visibleDialog = [...openDialogs].filter(dialog => dialog.open).at(-1);
+  const visibleDialog = [...openDialogs].filter(dialog => dialog.open && !dialog.dataset.closing).at(-1);
   (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;
   clearTimeout(notificationTimer);
@@ -281,18 +302,18 @@ function syncCart() {
     card.querySelector('.gs-card-cart')?.classList.toggle('is-added', added);
     const button = card.querySelector('.gs-card-cart');
     if (button) {
-      button.setAttribute('aria-label', added ? 'Remove from playlist' : 'Add to playlist');
-      button.dataset.tooltip = added ? 'Remove from playlist' : 'Add to playlist';
+      button.setAttribute('aria-label', added ? 'Remove from Playlist' : 'Add to Playlist');
+      button.dataset.tooltip = added ? 'Remove from Playlist' : 'Add to Playlist';
       button.title = button.dataset.tooltip;
     }
   }
   const detailButton = document.getElementById('game-details-cart');
   detailButton.classList.toggle('is-added', cartGameIds.has(detailsGameId));
-  detailButton.setAttribute('aria-label', cartGameIds.has(detailsGameId) ? 'Remove from playlist' : 'Add to playlist');
-  detailButton.dataset.tooltip = cartGameIds.has(detailsGameId) ? 'Remove from playlist' : 'Add to playlist';
+  detailButton.setAttribute('aria-label', cartGameIds.has(detailsGameId) ? 'Remove from Playlist' : 'Add to Playlist');
+  detailButton.dataset.tooltip = cartGameIds.has(detailsGameId) ? 'Remove from Playlist' : 'Add to Playlist';
   const spotlightButton = document.getElementById('spotlight-cart');
   spotlightButton.classList.toggle('is-added', cartGameIds.has(suggestedGameId));
-  spotlightButton.dataset.tooltip = cartGameIds.has(suggestedGameId) ? 'Remove from playlist' : 'Add to playlist';
+  spotlightButton.dataset.tooltip = cartGameIds.has(suggestedGameId) ? 'Remove from Playlist' : 'Add to Playlist';
   renderCart();
 }
 
@@ -302,8 +323,8 @@ function confirmPlaylistChange(action, id = null) {
   playlistPending = { action, id };
   document.getElementById('playlist-confirm-title').textContent = action === 'clear' ? 'Clear Playlist?' : 'Remove from Playlist?';
   document.getElementById('playlist-confirm-question').textContent = action === 'clear'
-    ? 'Remove all games from your download playlist?'
-    : `Remove ${game?.name || 'this game'} from your download playlist?`;
+    ? 'Remove all games from your download Playlist?'
+    : `Remove ${game?.name || 'this game'} from your download Playlist?`;
   document.getElementById('playlist-confirm-accept').textContent = action === 'clear' ? 'Clear Playlist' : 'Remove';
   openModal(document.getElementById('playlist-confirm-dialog'));
 }
@@ -311,10 +332,10 @@ function confirmPlaylistChange(action, id = null) {
 function toggleCart(id) {
   if (!playlistEnabled) return;
   if (cartGameIds.has(id)) { confirmPlaylistChange('remove', id); return; }
-  if (cartGameIds.size >= 50) { showNotification('The playlist can hold up to 50 games.'); return; }
+  if (cartGameIds.size >= 50) { showNotification('The Playlist can hold up to 50 games.'); return; }
   cartGameIds.add(id);
   syncCart();
-  showNotification('Added to playlist.');
+  showNotification('Added to Playlist.');
 }
 
 function renderCart() {
@@ -328,14 +349,14 @@ function renderCart() {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.textContent = 'Remove';
-    remove.setAttribute('aria-label', `Remove ${game.name} from playlist`);
+    remove.setAttribute('aria-label', `Remove ${game.name} from Playlist`);
     remove.addEventListener('click', () => toggleCart(game.id));
     row.append(label, remove);
     list.appendChild(row);
   }
   document.getElementById('cart-total').textContent = selected.length
     ? `${selected.length} game${selected.length === 1 ? '' : 's'} · ${formatSize(selected.reduce((total, game) => total + game.sizeBytes, 0))} estimated before ZIP packaging`
-    : 'Your download playlist is empty.';
+    : 'Your download Playlist is empty.';
   document.getElementById('cart-checkout').disabled = selected.length === 0;
   document.getElementById('cart-clear').disabled = selected.length === 0;
 }
@@ -491,8 +512,8 @@ function createGameCard(game) {
   cart.className = 'gs-card-cart';
   cart.type = 'button';
   cart.textContent = '+';
-  cart.setAttribute('aria-label', `Add ${game.name} to playlist`);
-  cart.title = 'Add to playlist';
+  cart.setAttribute('aria-label', `Add ${game.name} to Playlist`);
+  cart.title = 'Add to Playlist';
   cart.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); animateControl(cart); toggleCart(game.id); cart.blur(); card.classList.add('gs-hover-suppressed'); });
   actions.appendChild(dl);
   actions.appendChild(cart);
@@ -506,14 +527,17 @@ function createGameCard(game) {
   const listImage = document.createElement('img');
   listImage.className = 'gs-list-image';
   listImage.src = game.hasCover === false ? '/placeholder.png' : img.src;
-  listImage.addEventListener('dblclick', event => {
-    if (!expandListImage || !showListImages || !document.getElementById('games-container').classList.contains('list-view')) return;
+  const expandImage = event => {
+    if (event.type !== (listImageClick === 'double' ? 'dblclick' : 'click')) return;
+    if (listImageClick === 'disabled' || !showListImages || !document.getElementById('games-container').classList.contains('list-view')) return;
     event.preventDefault(); event.stopPropagation();
     const expanded = document.getElementById('list-image-expanded');
     expanded.src = listImage.src;
     expanded.alt = `${game.name} cover`;
     openModal(document.getElementById('list-image-dialog'));
-  });
+  };
+  listImage.addEventListener('click', expandImage);
+  listImage.addEventListener('dblclick', expandImage);
   listImage.alt = '';
   listImage.loading = 'lazy';
   body.appendChild(listImage);
@@ -565,7 +589,7 @@ function openGameDetails(game, trigger, card) {
   favorite.setAttribute('aria-label', game.favorite ? 'Remove from favorites' : 'Add to favorites');
   favorite.title = game.favorite ? 'Remove from favorites' : 'Add to favorites';
   document.getElementById('game-details-favorite-mobile').title = favorite.title;
-  document.getElementById('game-details-cart').dataset.tooltip = cartGameIds.has(game.id) ? 'Remove from playlist' : 'Add to playlist';
+  document.getElementById('game-details-cart').dataset.tooltip = cartGameIds.has(game.id) ? 'Remove from Playlist' : 'Add to Playlist';
   openModal(dialog);
   document.getElementById('game-details-close').focus();
   dialog.addEventListener('close', () => {
@@ -1076,7 +1100,7 @@ function suggestRandomGame() {
   diceButton.dataset.tooltip = 'Choosing a game…';
   applyViewMode();
   const frames = Math.min(4, alternatives.length * 2);
-  const frameDelay = slowAnimations ? 480 : 300;
+  const frameDelay = slowAnimations ? 640 : 400;
   let lastId = null;
   for (let step = 0; step < frames; step++) {
     const options = alternatives.filter(candidate => candidate.id !== lastId);
@@ -1095,7 +1119,7 @@ function suggestRandomGame() {
     if (step === 0) showPreview();
     else shuffleTimers.push(setTimeout(showPreview, step * frameDelay));
   }
-  shuffleTimers.push(setTimeout(showFinalGame, frames * frameDelay + (slowAnimations ? 100 : 63)));
+  shuffleTimers.push(setTimeout(showFinalGame, frames * frameDelay));
 }
 
 function clearSearch() {
@@ -1314,7 +1338,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!playlistPending) return;
     if (playlistPending.action === 'clear') cartGameIds.clear();
     else cartGameIds.delete(playlistPending.id);
-    const message = playlistPending.action === 'clear' ? 'Playlist cleared.' : 'Removed from playlist.';
+    const message = playlistPending.action === 'clear' ? 'Playlist cleared.' : 'Removed from Playlist.';
     playlistPending = null;
     playlistConfirm.close();
     syncCart();
@@ -1377,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playlistEnabled = playlistInput.checked;
     localStorage.setItem('gameshelf:playlist-enabled', String(playlistEnabled));
     document.body.classList.toggle('gs-playlist-disabled', !playlistEnabled);
-    showNotification(playlistEnabled ? 'Download playlist enabled.' : 'Download playlist disabled.');
+    showNotification(playlistEnabled ? 'Download Playlist enabled.' : 'Download Playlist disabled.');
   });
   disableEffectsInput.checked = disableEffects;
   animateTilesInput.checked = animateTiles;
@@ -1572,9 +1596,9 @@ document.addEventListener('DOMContentLoaded', () => {
     applySearchFilter(); recentDialog.close(); showNotification('Recently Added range saved.');
   });
   const expandInput = document.getElementById('expand-list-image');
-  expandInput.checked = expandListImage;
-  document.body.classList.toggle('gs-expand-list-image', expandListImage);
-  expandInput.addEventListener('change', () => { expandListImage = expandInput.checked; localStorage.setItem('gameshelf:expand-list-image', String(expandListImage)); document.body.classList.toggle('gs-expand-list-image', expandListImage); });
+  expandInput.value = listImageClick;
+  document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled');
+  expandInput.addEventListener('change', () => { listImageClick = expandInput.value; localStorage.setItem('gameshelf:list-image-click', listImageClick); document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled'); });
   const listImageDialog = document.getElementById('list-image-dialog');
   listImageDialog.addEventListener('click', () => listImageDialog.close());
   const resetSettingsDialog = document.getElementById('reset-settings-dialog');
@@ -1689,6 +1713,7 @@ document.addEventListener('DOMContentLoaded', () => {
     button.disabled = true;
     try {
       await saveServerSettings({ ...serverSettings, verbose:logVerbose.checked, logOptions:options });
+      showSaveFeedback(button);
       logConfigDialog.close();
       showNotification('Log settings saved.');
     } catch { document.getElementById('log-config-status').textContent = 'Could not save log settings.'; }
