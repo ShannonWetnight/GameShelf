@@ -51,8 +51,8 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Local fuzzy search and sorting by name or size, plus Favorites and Recently Added filters
   - Search keyboard shortcuts (`/` to search, `Esc` to clear)
 - Grid and list views with optional list thumbnails, a random game picker, and card details with individual file downloads
-- System, GameShelf Classic, Light, Dark, and Retro Arcade themes; optional game title banners, placeholder art, button hints, card stars, and slower picker animations in Settings
-- Basic and Advanced settings, optional tile fill on refresh, and a switch to disable all animations
+- System, GameShelf Classic, Light, Dark, and Retro Arcade themes; optional game title banners, placeholder art, button hints, card stars, and animation speed in Settings
+- Basic and Advanced settings, optional tile fill on refresh, and an animation speed slider from 0 (off) to 3.0×
 - Editable GameShelf titles and cover art from uploads or supported images already in a game folder, with crop, rotation, and tilt controls
 - Saved favorites with an on-by-default favorites-first setting, configurable Recently Added range, selective metadata reset, and success notifications for downloads and changes
 - Selective library backup export of state, server settings, logs, and available covers
@@ -325,7 +325,7 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 
 ### Default preferences
 
-New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, Playlist downloads, and single-click list image expansion. Slow motion, disabled animations, and game titles start off; favorited game stars stay pinned on cards by default. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.
+New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, Playlist downloads, and single-click list image expansion. Animation speed defaults to 1.10× and game titles start off; favorited game stars stay pinned on cards by default. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.
 
 The Advanced **Click to expand image in list view** preference offers **Single-click** (default), **Double-click**, and **Disabled**. Image expansion requires list images to be enabled. Menus use matching opening and closing motion, respecting disabled animations and reduced-motion preferences.
 
@@ -345,4 +345,12 @@ Choose a theme in **Settings → Appearance**. System, GameShelf Classic, Light,
 | Midnight | Black surfaces and a soft pointer flashlight that reveals the cover through its dark blur. |
 | Lattice | A green-and-ivory geometric theme with moving threads of light around the pointer. |
 
-Expressive themes recolor the GameShelf logo to match. Standard Classic, Light, and Dark keep the existing branding. **Disable all animations** and the device's reduced-motion preference stop ambient motion. Settings that save immediately display a confirmation banner; configuration dialogs confirm after their save icon is pressed.
+Expressive themes recolor the GameShelf logo to match. Standard Classic, Light, and Dark keep the existing branding. Set **Animation speed** to **0 (Off)** to stop motion. The device's reduced-motion preference also stops ambient motion. Settings that save immediately display a confirmation banner; configuration dialogs confirm after their save icon is pressed.
+
+### Rain and library controls
+
+**Rain**, **Midnight Storm**, and **Autumn Rain** add animated weather with matching palettes and logos. Hover a grid cover to see rain inside it; the pointer shelters the area below it and sends drops around the sides. Rain effects stop when the card is no longer active.
+
+**Animation speed** replaces the old Slow motion and Disable all animations switches. It ranges from **0 (Off)** to **3.0×**, defaults to **1.10×**, and keeps the dice and shuffle synchronized. Previously saved slow/off preferences migrate to the slider. **Animate loaded game tiles** remains a separate preference.
+
+In Advanced Library View settings, **List tile opacity** ranges from 0% to 100%, defaulting to **80%**. This changes row backgrounds while keeping text and controls fully visible. **Card depth** adds soft shadows and raised edges in both views and starts enabled. The cover editor stays above the information panel; saving, cancelling or closing returns to that same parent panel.

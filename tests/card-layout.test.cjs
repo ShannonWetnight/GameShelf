@@ -156,6 +156,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
         document.querySelector('.gs-card-info').click();
         document.querySelector('#edit-game-cover').click();
         const editor = document.querySelector('#cover-editor-dialog');
+        const parentStayedOpen = document.querySelector('#game-details-dialog').open;
         const emptyUploadVisible = getComputedStyle(document.querySelector('.gs-cover-preview-upload')).opacity === '1';
         document.querySelector('#cover-editor-file').dispatchEvent(new Event('cancel', {bubbles:true}));
         await new Promise(resolve => setTimeout(resolve, 220));
@@ -198,7 +199,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
             report.id = 'cover-editor-report';
             report.textContent = JSON.stringify({
               editorOpened:editor.open === false,
-              emptyUploadVisible,pickerCancelKeepsEditor,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,
+              emptyUploadVisible,parentStayedOpen,pickerCancelKeepsEditor,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,
               resetZoom,resetTilt,resetSaveDisabled,
               previewIsPNG:preview.startsWith('data:image/png;base64,'),
               uploaded:window.coverUpload,
@@ -230,6 +231,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
     assert.equal(result.editorOpened, true, JSON.stringify(result));
     assert.equal(result.emptyUploadVisible, true);
     assert.equal(result.pickerCancelKeepsEditor, true);
+    assert.equal(result.parentStayedOpen, true);
     assert.equal(result.returnedToDetails, true);
     assert.equal(result.gridDuringEdit, true);
     assert.equal(result.zoomReadout, '125%');
@@ -299,4 +301,35 @@ test('editing a GameShelf title updates the card without changing its folder', (
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('list preview keeps scroll position and the revealed favorite accepts pointer clicks', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gameshelf-list-interaction-'));
+  try {
+    const setup=`<script>localStorage.setItem('gameshelf:view','list');localStorage.setItem('gameshelf:list-image-click','single');window.fetch=async(url,opts)=>({ok:true,json:async()=>url==='/api/version'?{version:'test',channel:'edge'}:url.startsWith('/api/favorite/')?{favorite:true}:Array.from({length:80},(_,i)=>({id:'game'+i,name:'Game '+String(i).padStart(2,'0'),sizeBytes:100,hasCover:false}))});</script>`;
+    const probe=`<script>window.addEventListener('load',()=>setTimeout(async()=>{
+      window.scrollTo({top:1600,behavior:'instant'});const before=scrollY;
+      const cards=[...document.querySelectorAll('.gs-card')];const card=cards.find(c=>{const r=c.getBoundingClientRect();return r.top>100&&r.bottom<innerHeight-30});
+      card.querySelector('.gs-list-image').click();const during=scrollY;document.querySelector('#list-image-dialog').close();
+      await new Promise(r=>setTimeout(r,220));const after=scrollY;
+      card.classList.add('test-hover');card.querySelector('.gs-card-info').focus();await new Promise(r=>setTimeout(r,220));
+      const star=card.querySelector('.gs-favorite-star'),b=star.getBoundingClientRect();const hit=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2)===star;
+      star.click();await new Promise(r=>setTimeout(r,20));
+      const report=document.createElement('pre');report.id='list-scroll-report';report.textContent=JSON.stringify({before,during,after,hit,favorite:card.dataset.favorite});document.body.append(report);
+    },100));</script>`;
+    const source=html.replace('<link rel="stylesheet" href="/styles.css">',`<style>${css.replaceAll(':hover',':is(:hover,.test-hover)')}</style>`).replace('<script src="/app.js"></script>',setup+`<script>${app}</script>`+probe);
+    const file=path.join(dir,'list.html');fs.writeFileSync(file,source);
+    const run=spawnSync(chrome,['--headless','--disable-gpu','--no-sandbox',`--user-data-dir=${path.join(dir,'profile')}`,'--window-size=1280,900','--virtual-time-budget=2500','--dump-dom',pathToFileURL(file).href],{encoding:'utf8',timeout:20000,maxBuffer:12*1024*1024});
+    const match=run.stdout?.match(/<pre id="list-scroll-report">([^<]+)<\/pre>/);assert.ok(match,run.stderr||'No list interaction report');const r=JSON.parse(match[1]);
+    assert.ok(r.before>500);assert.ok(Math.abs(r.during-r.before)<2,JSON.stringify(r));assert.ok(Math.abs(r.after-r.before)<2,JSON.stringify(r));assert.equal(r.hit,true,JSON.stringify(r));assert.equal(r.favorite,'true');
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('rain effect follows the pointer and releases its canvas when stopped', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gameshelf-rain-'));
+  try {
+    const rain=fs.readFileSync(path.join(root,'web/rain.js'),'utf8');
+    const file=path.join(dir,'rain.html');fs.writeFileSync(file,`<div id="host" style="width:240px;height:360px"></div><script>${rain}</script><script>const host=document.getElementById('host');const effect=GameShelfRain.start(host,'storm',()=>1.1);effect.move(120,150);const canvas=host.querySelector('canvas');const before={width:canvas.width,height:canvas.height};effect.stop();const result={before,removed:!host.querySelector('canvas'),stopped:effect.stopped};const pre=document.createElement('pre');pre.id='rain-report';pre.textContent=JSON.stringify(result);document.body.append(pre);</script>`);
+    const run=spawnSync(chrome,['--headless','--disable-gpu','--no-sandbox','--virtual-time-budget=500','--dump-dom',pathToFileURL(file).href],{encoding:'utf8',timeout:15000});const match=run.stdout?.match(/<pre id="rain-report">([^<]+)<\/pre>/);assert.ok(match);const r=JSON.parse(match[1]);assert.ok(r.before.width>=240&&r.before.height>=360);assert.equal(r.removed,true);assert.equal(r.stopped,true);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });

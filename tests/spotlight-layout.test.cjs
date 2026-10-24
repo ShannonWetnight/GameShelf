@@ -98,9 +98,9 @@ test('dice selection shows one centered card and reset restores the library', ()
       'result.resetHidden = getComputedStyle(document.querySelector("#spotlight-actions")).display === "none";' +
       'document.querySelector("#build-info").click();' +
       'result.settingsOpen = document.querySelector("#settings-dialog").open;' +
-      'const slow = document.querySelector("#slow-animations");' +
-      'result.slowDefault = slow.checked;' +
-      'slow.click();' +
+      'const slow = document.querySelector("#animation-speed");' +
+      'result.slowDefault = slow.value;' +
+      'slow.value="0.5";slow.dispatchEvent(new Event("change"));' +
       'document.querySelector("#settings-dialog").close();' +
       'document.querySelector("#random-game").click();' +
       'result.returnResetOnReroll=getComputedStyle(document.querySelector("#spotlight-actions")).visibility==="hidden";' +
@@ -136,7 +136,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.shuffleCount, 1);
     assert.match(result.shuffleAnimation, /^gs-deck-cut/);
     assert.equal(result.normalDiceDuration, result.normalShuffleDuration);
-    assert.equal(result.normalShuffleDuration, '1.2s');
+    assert.equal(result.normalShuffleDuration, '1.091s');
     assert.equal(result.diceDisabled, true);
     assert.equal(result.returnHiddenDuringShuffle, true);
     assert.equal(result.selectedCount, 1);
@@ -155,7 +155,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.restoredCount, 3);
     assert.equal(result.resetHidden, true);
     assert.equal(result.settingsOpen, true);
-    assert.equal(result.slowDefault, false);
+    assert.equal(result.slowDefault, '1.1');
     assert.equal(result.returnResetOnReroll, true);
     assert.equal(result.slowDiceDuration, '2.4s');
     assert.equal(result.slowShuffleDuration, result.slowDiceDuration);

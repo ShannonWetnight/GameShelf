@@ -2054,3 +2054,23 @@ dialog:focus { outline: none; }
 
 .gs-card-cart.is-added::after { content:none; }
 #game-details-cart.is-added::after { content:attr(data-tooltip);display:block;inset:auto 0 calc(100% + 12px) auto;width:max-content;height:auto;font-size:.75rem; }
+/* Two controls share the native select affordances and focus treatment. */
+#expand-list-image { flex-basis:138px;width:138px;cursor:pointer; }
+#expand-list-image:is(:hover,:focus-visible), .gs-theme-option select:hover { border-color:var(--accent); }
+#expand-list-image:focus-visible { outline:2px solid var(--accent);outline-offset:2px; }
+/* The tray is purely visual and must never cover the favorite hit target. */
+.gs-card-actions::before { pointer-events:none; }
+.gs-grid.list-view .gs-card-cover > .gs-favorite-star { position:relative;z-index:4; }
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):is(:hover,:focus-within) .gs-favorite-star { pointer-events:auto; }
+/* Preserve the document's scroll extent while a modal locks scrolling. */
+body.gs-modal-open { overflow:visible; }
+#settings-dialog .gs-settings-range { flex-direction:column;align-items:stretch;gap:.65rem; }
+#settings-dialog .gs-settings-range > .gs-range-control { display:flex;align-items:center;gap:.7rem;width:100%; }
+.gs-range-control input { width:100%;min-width:0;accent-color:var(--accent);cursor:pointer; }
+.gs-range-control output { flex:0 0 54px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-muted);font-size:.8rem; }
+.gs-grid.list-view .gs-card { background:color-mix(in srgb,var(--bg-elevated) var(--list-opacity,80%),transparent); }
+.gs-grid.list-view .gs-card-body { background:transparent; }
+body.gs-card-depth .gs-grid .gs-card { box-shadow:inset 0 1px 0 color-mix(in srgb,var(--text) 9%,transparent),0 2px 3px #0003,0 10px 22px #0004; }
+:root body.gs-card-depth .gs-grid .gs-card:not(.gs-hover-suppressed):is(:hover,:focus-within,.gs-random-selected) { box-shadow:inset 0 1px 0 color-mix(in srgb,var(--text) 14%,transparent),0 0 0 1px var(--accent-soft),0 4px 7px #0004,0 15px 30px #0005; }
+.gs-rain-canvas { position:absolute;inset:0;width:100%;height:100%;pointer-events:none; }
+.gs-grid.list-view .gs-card-cover > .gs-favorite-star { inset:auto;align-self:center; }

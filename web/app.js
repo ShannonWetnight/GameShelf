@@ -28,8 +28,12 @@ let shuffleGameId = null;
 let isShuffling = false;
 let shuffleTimers = [];
 let shuffleDeck = null;
-let slowAnimations = localStorage.getItem('gameshelf:slow-animations') === 'true';
-let disableEffects = localStorage.getItem('gameshelf:disable-effects') === 'true';
+const storedAnimationSpeed = localStorage.getItem('gameshelf:animation-speed');
+let animationSpeed = storedAnimationSpeed !== null && Number.isFinite(Number(storedAnimationSpeed)) && Number(storedAnimationSpeed) >= 0 && Number(storedAnimationSpeed) <= 3 ? Number(storedAnimationSpeed) : localStorage.getItem('gameshelf:disable-effects') === 'true' ? 0 : localStorage.getItem('gameshelf:slow-animations') === 'true' ? .5 : 1.1;
+let disableEffects = animationSpeed === 0;
+const storedListOpacity = localStorage.getItem('gameshelf:list-opacity');
+let listOpacity = storedListOpacity !== null && Number.isFinite(Number(storedListOpacity)) ? Math.max(0, Math.min(100, Number(storedListOpacity))) : 80;
+let cardDepth = localStorage.getItem('gameshelf:card-depth') !== 'false';
 let animateTiles = localStorage.getItem('gameshelf:animate-tiles') !== 'false';
 let settingsLevel = localStorage.getItem('gameshelf:settings-level') === 'advanced' ? 'advanced' : 'basic';
 let playlistEnabled = localStorage.getItem('gameshelf:playlist-enabled') !== 'false';
@@ -42,7 +46,7 @@ let showListImages = localStorage.getItem('gameshelf:show-list-images') !== 'fal
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 let detailsGameId = null;
 let fileListController = null;
-let openingCoverEditor = false;
+
 let editorGame = null;
 let editorImage = null;
 let editorInitialImage = null;
@@ -50,7 +54,6 @@ let editorRotation = 0;
 let editorPan = { x: 0, y: 0 };
 let editorLoadVersion = 0;
 let editorOpenVersion = 0;
-let editorReturnGame = null;
 let editorGridTimer;
 
 const cardMap = new Map(); // game.id -> card element
@@ -60,7 +63,19 @@ const saveFeedbackTimers = new WeakMap();
 let notificationTimer;
 let notificationHideTimer;
 
+let modalScrollPosition = null;
+const motionDuration = duration => Math.round(duration / (animationSpeed || 1));
+function applyMotionSpeed() {
+  document.body.classList.toggle('gs-no-animations', disableEffects);
+  for (const animation of document.getAnimations?.() || []) {
+    // Shuffle and dialog timers use their own matching duration.
+    const target = animation.effect?.target;
+    if (target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
+    animation.updatePlaybackRate?.(animationSpeed || 1);
+  }
+}
 function openModal(dialog) {
+  if (!openDialogs.size) modalScrollPosition = { top: window.scrollY || 0, left: window.scrollX || 0 };
   if (!observedDialogs.has(dialog)) {
     dialog.addEventListener('close', () => {
       openDialogs.delete(dialog);
@@ -70,6 +85,8 @@ function openModal(dialog) {
       if (openDialogs.size === 0) {
         document.body.classList.remove('gs-modal-open');
         document.documentElement?.classList.remove('gs-modal-open');
+        if (modalScrollPosition) window.scrollTo?.({ ...modalScrollPosition, behavior: 'instant' });
+        modalScrollPosition = null;
       }
     });
     const nativeClose = dialog.close.bind(dialog);
@@ -83,8 +100,8 @@ function openModal(dialog) {
       if (disableEffects || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !dialog.animate) { nativeClose(value); return; }
       closing = true;
       dialog.dataset.closing = "true";
-      motion = dialog.animate([{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(10px) scale(.97)' }], { duration: 160, easing: 'ease-in', fill: 'forwards' });
-      closeTimer = setTimeout(() => { nativeClose(value); motion.cancel(); closing = false; delete dialog.dataset.closing; }, 160);
+      motion = dialog.animate([{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(10px) scale(.97)' }], { duration: motionDuration(160), easing: 'ease-in', fill: 'forwards' });
+      closeTimer = setTimeout(() => { nativeClose(value); motion.cancel(); closing = false; delete dialog.dataset.closing; }, motionDuration(160));
     };
     dialog.addEventListener('cancel', event => { if (event.target !== dialog) return; event.preventDefault(); dialog.close(); });
     dialog._cancelMotion = () => { clearTimeout(closeTimer); motion?.cancel(); dialog._openingMotion?.cancel(); closing = false; delete dialog.dataset.closing; };
@@ -96,10 +113,11 @@ function openModal(dialog) {
   dialog.focus?.({ preventScroll: true });
   if (!disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) dialog._openingMotion = dialog.animate?.(
     [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }],
-    { duration: 180, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    { duration: motionDuration(180), easing: 'cubic-bezier(.2,.7,.2,1)' });
   openDialogs.add(dialog);
   document.body.classList.add('gs-modal-open');
   document.documentElement?.classList.add('gs-modal-open');
+  if (modalScrollPosition) window.scrollTo?.({ ...modalScrollPosition, behavior: 'instant' });
 }
 
 function showNotification(message) {
@@ -422,6 +440,7 @@ function fuzzyMatch(haystack, needle) {
 }
 
 function applyViewMode() {
+  window.GameShelfRain?.stopAll();
   const container = document.getElementById('games-container');
   const toggle = document.getElementById('view-toggle');
 
@@ -449,7 +468,9 @@ function createGameCard(game) {
   const card = document.createElement('article');
   card.className = 'gs-card';
   card.classList.toggle('gs-no-cover', game.hasCover === false);
-  card.addEventListener('pointerleave', () => card.classList.remove('gs-hover-suppressed'));
+  let rainEffect = null;
+  let rainTheme = null;
+  card.addEventListener('pointerleave', () => { card.classList.remove('gs-hover-suppressed'); rainEffect?.stop(); rainEffect = null; });
   card.addEventListener('focusout', event => {
     if (!card.contains(event.relatedTarget)) card.classList.remove('gs-hover-suppressed');
   });
@@ -479,6 +500,13 @@ function createGameCard(game) {
 
   card.addEventListener('pointermove', event => {
     const theme = document.body.dataset.theme;
+    if (['rain', 'storm', 'autumn'].includes(theme) && !document.getElementById('games-container').classList.contains('list-view')) {
+      if (rainTheme !== theme || rainEffect?.stopped) { rainEffect?.stop(); rainEffect = null; }
+      rainTheme = theme;
+      rainEffect ||= window.GameShelfRain?.start(ambience, theme, () => animationSpeed);
+      const bounds = cover.getBoundingClientRect();
+      rainEffect?.move(event.clientX - bounds.left, event.clientY - bounds.top);
+    } else { rainEffect?.stop(); rainEffect = null; }
     if (!['rose', 'midnight', 'lattice'].includes(theme) || document.getElementById('games-container').classList.contains('list-view')) return;
     const bounds = cover.getBoundingClientRect();
     cover.style.setProperty?.('--pointer-x', ((event.clientX - bounds.left) / bounds.width * 100) + '%');
@@ -621,7 +649,6 @@ function openGameDetails(game, trigger, card) {
 
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
-    if (openingCoverEditor) { openingCoverEditor = false; return; }
     trigger.blur();
     card.classList.remove('gs-hover-suppressed');
   }, { once: true });
@@ -703,7 +730,6 @@ function openCoverEditor(game) {
   const save = document.getElementById('cover-editor-save');
   clearTimeout(saveFeedbackTimers.get(save));
   save.classList.remove('is-saved');
-  editorReturnGame = game;
   editorGame = game;
   editorImage = null;
   editorInitialImage = null;
@@ -718,8 +744,6 @@ function openCoverEditor(game) {
   updateCoverReadouts();
   document.getElementById('cover-editor-status').textContent = '';
   document.getElementById('cover-editor-save').disabled = true;
-  openingCoverEditor = true;
-  document.getElementById('game-details-dialog').close();
   openModal(document.getElementById('cover-editor-dialog'));
   drawCoverEditor();
   if (game.hasCover) {
@@ -829,14 +853,7 @@ function bindCoverEditor() {
     image.onerror = () => { if (folderDialog.open) { folderStatus.textContent = 'Could not read that image.'; folderSave.disabled = false; } };
     image.src = `/api/cover-source/${encodeURIComponent(gameId)}?path=${encodeURIComponent(selected.value)}`;
   });
-  document.getElementById('cover-editor-cancel').addEventListener('click', () => {
-    const game = editorReturnGame;
-    dialog.close();
-    if (game) {
-      const card = cardMap.get(game.id);
-      openGameDetails(game, card?.querySelector('.gs-card-info') || document.getElementById('spotlight-info'), card);
-    }
-  });
+  document.getElementById('cover-editor-cancel').addEventListener('click', () => dialog.close());
   closeOnBackdropClick(dialog);
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
@@ -946,7 +963,12 @@ function bindCoverEditor() {
         if (!isCurrentSession()) return;
         dialog.close();
         const card = cardMap.get(game.id);
-        openGameDetails(game, card?.querySelector('.gs-card-info') || document.getElementById('spotlight-info'), card);
+        if (document.getElementById('game-details-dialog').open && detailsGameId === game.id) {
+          document.getElementById('game-details-image').src = '/covers/' + encodeURIComponent(game.id) + '?v=' + coverVersions.get(game.id);
+          document.getElementById('game-details-art').classList.remove('gs-no-cover');
+          document.getElementById('game-details-cover').textContent = 'Uploaded';
+          document.getElementById('edit-game-cover').textContent = 'Edit Cover';
+        }
         showNotification('Cover art saved.');
       }, 850);
     } catch (error) {
@@ -1127,7 +1149,7 @@ function suggestRandomGame() {
   shuffleGameId = game.id;
   diceButton.disabled = true;
   diceButton.dataset.tooltip = 'Choosing a game…';
-  const duration = slowAnimations ? 2400 : 1200;
+  const duration = motionDuration(1200);
   diceButton.style.setProperty?.('--dice-roll-duration', duration + 'ms');
   const container = document.getElementById('games-container');
   container.style.setProperty?.('--shuffle-duration', duration + 'ms');
@@ -1242,10 +1264,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const uiWindow = typeof window === 'undefined' ? { scrollY: 0, matchMedia: () => ({ matches: false }), scrollTo: () => {} } : window;
   const themeMedia = uiWindow.matchMedia('(prefers-color-scheme: dark)');
   const themeSelect = document.getElementById('theme-select');
-  if (!['system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice'].includes(themePreference)) themePreference = 'system';
+  if (!['system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice', 'rain', 'storm', 'autumn'].includes(themePreference)) themePreference = 'system';
   function applyTheme() {
     const theme = themePreference === 'system' ? (themeMedia.matches ? 'classic' : 'light') : themePreference;
     if (document.documentElement) document.documentElement.dataset.theme = theme;
+    window.GameShelfRain?.stopAll();
     document.body.dataset.theme = theme;
     themeSelect.value = themePreference;
   }
@@ -1338,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applyViewMode();
       applySearchFilter();
     };
-    if (document.startViewTransition && !uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(resetHome);
+    if (document.startViewTransition && !disableEffects && !uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(resetHome);
     else {
       resetHome();
       const stage = document.getElementById('library-stage');
@@ -1346,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
       void stage.offsetWidth;
       stage.classList.add('gs-home-enter');
     }
-    uiWindow.scrollTo({ top: 0, behavior: uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    uiWindow.scrollTo({ top: 0, behavior: disableEffects || uiWindow.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
   const scrollTopButton = document.getElementById('scroll-to-top');
   const syncScrollTop = () => { scrollTopButton.hidden = uiWindow.scrollY < 420; };
@@ -1412,13 +1435,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsButton = document.getElementById('build-info');
   const settingsDialog = document.getElementById('settings-dialog');
   const detailsDialog = document.getElementById('game-details-dialog');
-  const slowAnimationsInput = document.getElementById('slow-animations');
+  const speedInput = document.getElementById('animation-speed');
   const hoverTextInput = document.getElementById('show-hover-text');
   const gameTitlesInput = document.getElementById('show-game-titles');
   const placeholderInput = document.getElementById('show-placeholder-images');
   const listImagesInput = document.getElementById('show-list-images');
   const instantPreferences = {
-    'theme-select': 'Theme', 'slow-animations': 'Slow motion animations', 'disable-effects': 'Animation preference',
+    'theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
     'animate-tiles': 'Loaded game tile animation', 'show-hover-text': 'Button hints', 'show-game-titles': 'Game titles',
     'show-placeholder-images': 'Placeholder images', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
     'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'
@@ -1428,9 +1451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Promise.resolve().then(() => showNotification(label + ' saved.'));
   });
   const playlistInput = document.getElementById('enable-playlist');
-  const disableEffectsInput = document.getElementById('disable-effects');
   const animateTilesInput = document.getElementById('animate-tiles');
-  slowAnimationsInput.checked = slowAnimations;
   hoverTextInput.checked = showHoverText;
   gameTitlesInput.checked = showGameTitles;
   placeholderInput.checked = showPlaceholderImages;
@@ -1443,7 +1464,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.toggle('gs-playlist-disabled', !playlistEnabled);
 
   });
-  disableEffectsInput.checked = disableEffects;
   animateTilesInput.checked = animateTiles;
   function applySettingsLevel() {
     settingsDialog.dataset.settingsLevel = settingsLevel;
@@ -1459,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (level === 'basic' && !disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       const exits = Array.from(settingsDialog.querySelectorAll('[data-setting-level="advanced"]')).map(node =>
         node.animate?.([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-5px)' }],
-          { duration: 220, easing: 'ease-in', fill: 'forwards' }));
+          { duration: motionDuration(220), easing: 'ease-in', fill: 'forwards' }));
       await Promise.all(exits.map(animation => animation?.finished?.catch(() => {})));
       exits.forEach(animation => animation?.cancel());
     }
@@ -1469,21 +1489,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const after = settingsDialog.getBoundingClientRect?.().height;
     if (!disableEffects && before && after && before !== after) settingsDialog.animate?.(
       [{ height: `${before}px`, overflow: 'hidden' }, { height: `${after}px`, overflow: 'hidden' }],
-      { duration: 240, easing: 'cubic-bezier(.22,.7,.2,1)' }
+      { duration: motionDuration(240), easing: 'cubic-bezier(.22,.7,.2,1)' }
     );
     changingSettingsLevel = false;
   });
-  disableEffectsInput.addEventListener('change', () => {
-    disableEffects = disableEffectsInput.checked;
-    localStorage.setItem('gameshelf:disable-effects', String(disableEffects));
-    document.body.classList.toggle('gs-no-animations', disableEffects);
-  });
+
   animateTilesInput.addEventListener('change', () => {
     animateTiles = animateTilesInput.checked;
     localStorage.setItem('gameshelf:animate-tiles', String(animateTiles));
   });
-  randomButton.classList.toggle('gs-slow-animations', slowAnimations);
-  document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
+
 
   settingsButton.addEventListener('click', () => {
     animateControl(settingsButton);
@@ -1941,12 +1956,34 @@ document.addEventListener('DOMContentLoaded', () => {
     detailsGameId = null;
   });
   settingsDialog.addEventListener('close', () => settingsButton.focus());
-  slowAnimationsInput.addEventListener('change', () => {
-    slowAnimations = slowAnimationsInput.checked;
-    localStorage.setItem('gameshelf:slow-animations', String(slowAnimations));
-    randomButton.classList.toggle('gs-slow-animations', slowAnimations);
-    document.getElementById('games-container').classList.toggle('gs-slow-animations', slowAnimations);
-  });
+  const syncSpeed = () => {
+    const next = Number(speedInput.value);
+    animationSpeed = Number.isFinite(next) ? Math.max(0, Math.min(3, next)) : 1.1;
+    disableEffects = animationSpeed === 0;
+    document.getElementById('animation-speed-value').textContent = animationSpeed === 0 ? 'Off' : animationSpeed.toFixed(2) + '×';
+    localStorage.setItem('gameshelf:animation-speed', String(animationSpeed));
+    applyMotionSpeed();
+    if (isShuffling) clearSuggestion();
+  };
+  speedInput.value = String(animationSpeed); syncSpeed();
+  speedInput.addEventListener('input', syncSpeed);
+  speedInput.addEventListener('change', syncSpeed);
+  document.addEventListener('animationstart', applyMotionSpeed);
+  document.addEventListener('transitionrun', applyMotionSpeed);
+  const opacityInput = document.getElementById('list-opacity');
+  const syncOpacity = () => {
+    listOpacity = Math.max(0, Math.min(100, Number(opacityInput.value) || 0));
+    document.documentElement?.style.setProperty?.('--list-opacity', listOpacity + '%');
+    document.getElementById('list-opacity-value').textContent = listOpacity + '%';
+    localStorage.setItem('gameshelf:list-opacity', String(listOpacity));
+  };
+  opacityInput.value = String(listOpacity); syncOpacity();
+  opacityInput.addEventListener('input', syncOpacity);
+  opacityInput.addEventListener('change', syncOpacity);
+  const depthInput = document.getElementById('card-depth');
+  depthInput.checked = cardDepth;
+  document.body.classList.toggle('gs-card-depth', cardDepth);
+  depthInput.addEventListener('change', () => { cardDepth = depthInput.checked; localStorage.setItem('gameshelf:card-depth', String(cardDepth)); document.body.classList.toggle('gs-card-depth', cardDepth); });
   hoverTextInput.addEventListener('change', () => {
     showHoverText = hoverTextInput.checked;
     localStorage.setItem('gameshelf:show-hover-text', String(showHoverText));
