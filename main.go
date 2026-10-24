@@ -71,25 +71,14 @@ func main() {
 	rootDirs = libraryRoots(settings)
 	dataDir = settings.DataDir
 
-	if err := refreshGames(); err != nil {
-		log.Fatalf("scan error: %v", err)
+	if len(rootDirs) == 0 {
+		setupRequired.Store(true)
+		log.Print("Welcome to GameShelf. Open port 8080 to choose your library folders.")
+	} else if err := refreshGames(); err != nil {
+		setupRequired.Store(true)
+		log.Printf("Library unavailable; open GameShelf to update your folders: %v", err)
 	}
-
-	if interval := configuredRefreshInterval(settings.RefreshInterval); interval > 0 {
-		logEvent("system", "Auto-rescanning every %s", interval)
-		go func() {
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
-
-			for range ticker.C {
-				if err := refreshGames(); err != nil {
-					logEvent("errors", "periodic scan error: %v", err)
-				}
-			}
-		}()
-	} else {
-		log.Print("Auto-rescan disabled")
-	}
+	go runAutoRefresh()
 
 	mux := http.NewServeMux()
 
@@ -106,6 +95,8 @@ func main() {
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/api/favorite/", handleFavorite)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
+	mux.HandleFunc("/api/setup", handleSetup)
+	mux.HandleFunc("/api/library-folders", handleLibraryFolders)
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
 	mux.HandleFunc("/api/server-settings/reset", handleResetServerSettings)
 	mux.HandleFunc("/api/logs", handleLogs)
@@ -124,12 +115,9 @@ func main() {
 	mux.Handle("/", fileServer)
 
 	addr := ":8080"
-	if v := os.Getenv("GAMESHELF_ADDR"); v != "" {
-		addr = v
-	}
 
 	logEvent("system", "GameShelf serving %s on %s", rootDir, addr)
-	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
+	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(mux))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -1473,6 +1461,7 @@ type serverSettings struct {
 
 func libraryRoots(settings serverSettings) []string {
 	if len(settings.RootDirs) > 0 { return settings.RootDirs }
+	if settings.RootDir == "" { return nil }
 	return []string{settings.RootDir}
 }
 
@@ -1583,7 +1572,6 @@ func (b *boundedLog) Snapshot() []byte {
 
 func defaultServerSettings() serverSettings {
 	root := os.Getenv("GAMESHELF_ROOT")
-	if root == "" { root = "/games" }
 	data := os.Getenv("GAMESHELF_DATA_DIR")
 	if data == "" { data = "/data" }
 	interval := os.Getenv("GAMESHELF_REFRESH_INTERVAL")
@@ -1611,8 +1599,8 @@ func validRefreshInterval(value string) bool {
 func validateServerSettings(value serverSettings) error {
 	if options := normalizeLogOptions(value.LogOptions); options.SizeMB < 1 || options.SizeMB > 100 || options.Days < 1 || options.Days > 3650 { return errors.New("log retention must be 1–100 MB and 1–3650 days") }
 	roots := libraryRoots(value)
-	if len(roots) < 1 || len(roots) > 16 || roots[0] != value.RootDir { return errors.New("choose 1–16 library paths with the primary path first") }
-	if !filepath.IsAbs(value.RootDir) || !filepath.IsAbs(value.DataDir) || !filepath.IsLocal(filepath.Base(value.RootDir)) || !filepath.IsLocal(filepath.Base(value.DataDir)) {
+	if len(roots) > 16 || (len(roots) > 0 && roots[0] != value.RootDir) { return errors.New("choose 1–16 library paths with the primary path first") }
+	if !filepath.IsAbs(value.DataDir) || !filepath.IsLocal(filepath.Base(value.DataDir)) {
 		return errors.New("paths must be absolute container paths")
 	}
 	if !pathInside(settingsHome, value.DataDir) {
@@ -1620,7 +1608,9 @@ func validateServerSettings(value serverSettings) error {
 	}
 	if !validRefreshInterval(value.RefreshInterval) { return errors.New("refresh interval must be a positive number of hours or 0") }
 	for i, directory := range roots {
-		if !filepath.IsAbs(directory) || !filepath.IsLocal(filepath.Base(directory)) || !pathInside(allowedLibraryRoot, directory) { return errors.New("library paths must stay within the configured library mount") }
+		if !filepath.IsAbs(directory) || !filepath.IsLocal(filepath.Base(directory)) || !libraryPathAllowed(directory) { return errors.New("choose a folder inside a mounted library directory; add a Docker folder mapping if it is not available") }
+		if pathInside(value.DataDir, directory) || pathInside(directory, value.DataDir) { return errors.New("keep game folders separate from GameShelf saved data") }
+		if _, err := os.ReadDir(directory); err != nil { return fmt.Errorf("GameShelf cannot read the library folder: %s; check its mapping and permissions", directory) }
 		for j := 0; j < i; j++ {
 			// A secondary share can be mounted beneath the primary /games mount.
 			if j == 0 && pathInside(roots[0], directory) && !pathInside(directory, roots[0]) { continue }
@@ -1638,6 +1628,8 @@ func initializeServerSettings() serverSettings {
 	defaults := defaultServerSettings()
 	settingsHome = defaults.DataDir
 	allowedLibraryRoot = defaults.RootDir
+	mountedLibraryRoots = discoverLibraryMounts()
+	setupRequired.Store(false)
 	log.SetOutput(io.MultiWriter(os.Stdout, &applicationLogs))
 	value := defaults
 	contents, err := os.ReadFile(settingsFile())
@@ -1655,6 +1647,7 @@ func initializeServerSettings() serverSettings {
 	settingsMu.Unlock()
 	verboseLogging.Store(value.Verbose)
 	applicationLogs.Configure(value.LogOptions)
+	setupRequired.Store(len(libraryRoots(value)) == 0)
 	return value
 }
 
@@ -1688,6 +1681,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(value)
 	case http.MethodPut:
+		setupMu.Lock(); defer setupMu.Unlock()
 		var value serverSettings
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
 		decoder.DisallowUnknownFields()
@@ -1695,9 +1689,11 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		settingsMu.RLock()
 		old := configuredSettings
 		settingsMu.RUnlock()
+		if len(libraryRoots(value)) == 0 && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
 		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
+		if old.RefreshInterval != value.RefreshInterval { notifyRefreshSchedule() }
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{old.RootDir != value.RootDir || strings.Join(libraryRoots(old), "\x00") != strings.Join(libraryRoots(value), "\x00") || old.DataDir != value.DataDir || old.RefreshInterval != value.RefreshInterval})
+		json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{old.RootDir != value.RootDir || strings.Join(libraryRoots(old), "\x00") != strings.Join(libraryRoots(value), "\x00") || old.DataDir != value.DataDir})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}

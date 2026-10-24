@@ -180,6 +180,7 @@ async function loadServerSettings() {
     const response = await fetch('/api/server-settings', { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     serverSettings = await response.json();
+    window.GameShelfSetup?.initialize(serverSettings);
   } catch {
     document.getElementById('settings-save-status').textContent = 'Could not load server settings.';
   }

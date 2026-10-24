@@ -6,13 +6,9 @@ services:
     restart: unless-stopped
     ports:
       - 8080:8080 # Increment if in-use
-    environment:
-      # Directory containing indexable folders. 
-      - GAMESHELF_ROOT=/games
-      # Optional: Change GameShelf's default (8080) internal bind address
-      #- GAMESHELF_ADDR=:8080
     volumes:
-      - /path/to/games:/games:ro
+      # Optional: share a games folder, then choose /library in the setup page.
+      # - /path/to/your/games:/library:ro
       - gameshelf-data:/data # Docker creates this automatically; no host directory needed.
     security_opt:
       - no-new-privileges:true
