@@ -8,7 +8,7 @@ WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 
-COPY main.go restore.go ./
+COPY main.go restore.go setup.go ./
 COPY web/ ./web/
 
 ARG GAMESHELF_BUILD_VERSION=Development
@@ -36,7 +36,7 @@ USER 10001:10001
 # Docker creates writable state storage when no explicit /data mount is supplied.
 VOLUME ["/data"]
 
-# Default internal port, can be overridden with -p flag or environment variable
+# GameShelf always listens on 8080; Docker can map a different host port.
 EXPOSE 8080
 
 ENTRYPOINT ["/app/gameshelf"]
