@@ -392,8 +392,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(ui.element('games-container').children.filter(child => child.classList.contains('gs-shuffle-deck')).length, 1);
   ui.tick(400);
   assert.equal(ui.cards().find(card => card.style.display !== 'none'), stableCard);
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   assert.equal(selected().length, 1);
   assert.equal(ui.element('random-game').disabled, false);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
@@ -419,8 +419,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
   assert.equal(selected().length, 0);
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   assert.equal(selected().length, 1);
   assert.notEqual(selected()[0].dataset.id, firstId);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -444,8 +444,8 @@ test('spotlight resets through Return to all games or Escape and restores list v
   assert.equal(ui.element('games-container').classList.contains('list-view'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   ui.click('show-all-games');
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   assert.equal(ui.hidden('spotlight-actions'), true);
@@ -453,8 +453,8 @@ test('spotlight resets through Return to all games or Escape and restores list v
 
   ui.click('random-game');
   ui.document.emit('keydown', { key: 'Escape' });
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
 });
@@ -465,16 +465,16 @@ test('sort and view controls leave dice spotlight before acting', async () => {
   ui.requests[0].resolve(response(games));
   await settle();
   ui.click('random-game');
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
   ui.click('sort-button');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.hidden('sort-menu'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   ui.click('random-game');
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   ui.click('view-toggle');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
@@ -488,8 +488,8 @@ test('search cancels a pending shuffle and reduced motion skips it', async () =>
   await settle();
   ui.click('random-game');
   ui.search('Alpha');
-  ui.tick(1200);
-  ui.tick(1200);
+  ui.tick(1091);
+  ui.tick(1091);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.hidden('spotlight-actions'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -505,40 +505,21 @@ test('search cancels a pending shuffle and reduced motion skips it', async () =>
   assert.equal(reduced.element('random-game').disabled, false);
 });
 
-test('settings dialog defaults off and slows dice and card shuffle together', async () => {
-  const storage = new Map();
-  const ui = app(undefined, storage);
-  ui.start();
-  assert.equal(ui.element('slow-animations').checked, false);
-  assert.equal(ui.element('random-game').classList.contains('gs-slow-animations'), false);
-  ui.click('build-info');
-  assert.equal(ui.element('settings-dialog').open, true);
-  assert.equal(ui.element('settings-dialog').focused, true);
-  assert.notEqual(ui.element('settings-close').focused, true);
-  ui.element('slow-animations').checked = true;
-  ui.element('slow-animations').emit('change');
-  assert.equal(storage.get('gameshelf:slow-animations'), 'true');
-  assert.equal(ui.element('random-game').classList.contains('gs-slow-animations'), true);
-  assert.equal(ui.element('games-container').classList.contains('gs-slow-animations'), true);
-  ui.click('settings-close');
-  assert.equal(ui.element('settings-dialog').open, false);
-  assert.equal(ui.element('build-info').focused, true);
-  ui.requests[0].resolve(response(games));
-  await settle();
-  ui.click('random-game');
-  assert.ok(ui.timerDelays().includes(2400));
-  assert.ok(ui.timerDelays().includes(2400));
-  ui.tick(156);
-  assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 0);
-  ui.tick(2400);
-  ui.tick(2400);
-  assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 1);
-
-  const nextVisit = app(undefined, storage);
-  nextVisit.start();
-  assert.equal(nextVisit.element('slow-animations').checked, true);
-  assert.equal(nextVisit.element('random-game').classList.contains('gs-slow-animations'), true);
-  assert.equal(nextVisit.element('games-container').classList.contains('gs-slow-animations'), true);
+test('animation speed defaults to 1.10x, persists and controls the shuffle', async () => {
+  const storage=new Map();const ui=app(undefined,storage);ui.start();
+  assert.equal(ui.element('animation-speed').value,'1.1');
+  assert.equal(ui.element('slow-animations'),undefined);assert.equal(ui.element('disable-effects'),undefined);
+  ui.click('build-info');assert.equal(ui.element('settings-dialog').focused,true);
+  const speed=ui.element('animation-speed');speed.value='0.5';speed.emit('change');
+  assert.equal(storage.get('gameshelf:animation-speed'),'0.5');
+  ui.requests[0].resolve(response(games));await settle();ui.click('random-game');
+  assert.ok(ui.timerDelays().includes(2400));ui.tick(2400);
+  assert.equal(ui.cards().filter(card=>card.classList.contains('gs-random-selected')).length,1);
+  const revisit=app(undefined,storage);revisit.start();assert.equal(revisit.element('animation-speed').value,'0.5');
+  speed.value='0';speed.emit('change');assert.equal(ui.document.body.classList.contains('gs-no-animations'),true);
+  ui.click('random-game');assert.equal(ui.cards().filter(card=>card.classList.contains('gs-random-selected')).length,1);
+  speed.value='3';speed.emit('change');ui.click('random-game');assert.ok(ui.timerDelays().includes(400));ui.tick(400);
+  assert.equal(ui.cards().filter(card=>card.classList.contains('gs-random-selected')).length,1);
 });
 
 for (const failure of ['network', 'http', 'json', 'shape', 'game', 'timeout']) {
@@ -1110,16 +1091,16 @@ test('menu dismissal animates and reopening cancels a pending close', () => {
   const ui = app(); ui.start(); const dialog = ui.element('settings-dialog');
   const motions = [];
   dialog.animate = (frames, options) => { motions.push(options.duration); return {cancel(){}}; };
-  ui.click('build-info'); assert.equal(dialog.open, true); assert.ok(motions.includes(180));
+  ui.click('build-info'); assert.equal(dialog.open, true); assert.ok(motions.includes(164));
   ui.click('settings-close'); assert.equal(dialog.open, true);
-  ui.click('build-info'); ui.tick(160); assert.equal(dialog.open, true);
+  ui.click('build-info'); ui.tick(145); assert.equal(dialog.open, true);
   let prevented = false; dialog.emit('cancel', {preventDefault(){prevented=true;}});
   assert.equal(prevented, true); assert.equal(dialog.open, true);
-  ui.tick(160); assert.equal(dialog.open, false);
+  ui.tick(145); assert.equal(dialog.open, false);
   assert.equal(ui.document.body.classList.contains('gs-modal-open'), false);
 });
 
-for (const theme of ['neon','cartridge','cosmos','ion','rose','midnight','lattice']) test(`theme ${theme} is saved and restored with confirmation`, async () => {
+for (const theme of ['neon','cartridge','cosmos','ion','rose','midnight','lattice','rain','storm','autumn']) test(`theme ${theme} is saved and restored with confirmation`, async () => {
   const storage = new Map(); const ui=app(undefined,storage);ui.start();
   ui.element('theme-select').value=theme;ui.element('theme-select').emit('change');await settle();
   assert.equal(storage.get('gameshelf:theme'),theme);
@@ -1130,8 +1111,20 @@ for (const theme of ['neon','cartridge','cosmos','ion','rose','midnight','lattic
 
 test('each instant preference confirms its saved change', async () => {
   const ui=app();ui.start();
-  for(const id of ['slow-animations','disable-effects','animate-tiles','show-hover-text','show-game-titles','show-placeholder-images','favorites-first','show-list-images','enable-playlist','favorite-stars-only','expand-list-image']){
-    const field=ui.element(id);if(id==='expand-list-image')field.value='double';else field.checked=!field.checked;
+  for(const id of ['animation-speed','list-opacity','card-depth','animate-tiles','show-hover-text','show-game-titles','show-placeholder-images','favorites-first','show-list-images','enable-playlist','favorite-stars-only','expand-list-image']){
+    const field=ui.element(id);if(id==='expand-list-image')field.value='double';else if(id==='animation-speed')field.value='2';else if(id==='list-opacity')field.value='60';else field.checked=!field.checked;
     field.emit('change');await settle();assert.match(ui.element('notification-text').textContent,/saved\.$/,id);
   }
+});
+
+test('new controls migrate old motion preferences and persist opacity endpoints and depth', () => {
+  for(const [storage,expected] of [[new Map([['gameshelf:disable-effects','true']]),'0'],[new Map([['gameshelf:slow-animations','true']]),'0.5'],[new Map([['gameshelf:slow-animations','true'],['gameshelf:animation-speed','3']]),'3']]){
+    const ui=app(undefined,storage);ui.start();assert.equal(ui.element('animation-speed').value,expected);
+  }
+  const storage=new Map(),ui=app(undefined,storage);ui.start();
+  assert.equal(ui.element('list-opacity').value,'80');assert.equal(ui.element('card-depth').checked,true);
+  ui.element('list-opacity').value='0';ui.element('list-opacity').emit('input');assert.equal(storage.get('gameshelf:list-opacity'),'0');
+  ui.element('card-depth').checked=false;ui.element('card-depth').emit('change');
+  const revisit=app(undefined,storage);revisit.start();assert.equal(revisit.element('list-opacity').value,'0');assert.equal(revisit.element('card-depth').checked,false);
+  ui.element('list-opacity').value='100';ui.element('list-opacity').emit('input');assert.equal(storage.get('gameshelf:list-opacity'),'100');
 });
