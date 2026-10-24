@@ -325,6 +325,8 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 
 ### Default preferences
 
-New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, Playlist downloads, and single-click list image expansion. Slow motion, disabled animations, game titles, and the card-star setting start off; the favorited-only preference starts on. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.
+New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, Playlist downloads, and single-click list image expansion. Slow motion, disabled animations, and game titles start off; favorited game stars stay pinned on cards by default. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.
 
 The Advanced **Click to expand image in list view** preference offers **Single-click** (default), **Double-click**, and **Disabled**. Image expansion requires list images to be enabled. Menus use matching opening and closing motion, respecting disabled animations and reduced-motion preferences.
+
+**Show favorited game stars on top** keeps stars visible for favorite games. Turn it off to show stars with the other card controls on hover. Icon buttons highlight their symbols on hover while keeping their original click areas; save controls retain their confirmation styling.

@@ -419,6 +419,7 @@ test('light list rows have transparent action carriers and optional cover thumbn
   try {
     const probe = `<script>
       document.documentElement.dataset.theme = 'light';
+      document.body.classList.add('gs-pin-favorite-stars');
       const grid = document.querySelector('#games-container');
       grid.innerHTML = '<article class="gs-card" data-favorite="true"><div class="gs-card-cover"><img><div class="gs-card-actions"><a class="gs-icon-button gs-card-download">↓</a><button class="gs-card-info">i</button></div><button class="gs-favorite-star">★</button></div><div class="gs-card-body"><img class="gs-list-image"><div class="gs-card-content"><h3 class="gs-card-title">Game</h3></div></div></article>';
       const card = grid.querySelector('.gs-card');
@@ -439,6 +440,16 @@ test('light list rows have transparent action carriers and optional cover thumbn
         gridInfoSize: [gridInfo.width, gridInfo.height], gridStarSize: [gridStar.width, gridStar.height],
         gridOffsets: [gridInfo.top-gridCard.top, gridCard.right-gridInfo.right, gridStar.top-gridCard.top, gridStar.left-gridCard.left]
       };
+      result.icons = ['classic', 'light', 'dark', 'retro'].map(theme => {
+        document.documentElement.dataset.theme = theme;
+        const download = card.querySelector('.gs-card-download'); download.tabIndex = 0;
+        download.style.transition = 'none'; download.blur();
+        const dormant = getComputedStyle(download).color;
+        const before = download.getBoundingClientRect(); const keyboardFocus = document.createElement('input'); document.body.append(keyboardFocus); keyboardFocus.focus(); download.focus(); keyboardFocus.remove();
+        const focused = getComputedStyle(download);
+        const after = download.getBoundingClientRect();
+        return { theme, dormant, focused: focused.color, active: document.activeElement === download, visible: download.matches(':focus-visible'), focusedState: download.matches(':focus'), background: focused.backgroundColor, border: focused.borderColor, sameTarget: before.width === after.width && before.height === after.height, tray: getComputedStyle(card.querySelector('.gs-card-actions'), '::before').backgroundImage };
+      });
       const report = document.createElement('pre'); report.id='light-list-report'; report.textContent=JSON.stringify(result); document.body.append(report);
     </script>`;
     const source = html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js"></script>', probe);
@@ -446,6 +457,13 @@ test('light list rows have transparent action carriers and optional cover thumbn
     fs.writeFileSync(file, source);
     const result = readLayoutProbe(file, 1280, 'light-list-report');
     assert.equal(result.carrier, 'none');
+    for (const icon of result.icons) {
+      assert.equal(icon.background, 'rgba(0, 0, 0, 0)', icon.theme);
+      assert.equal(icon.border, 'rgba(0, 0, 0, 0)', icon.theme);
+      if (icon.focusedState) assert.notEqual(icon.focused, icon.dormant, JSON.stringify(icon));
+      assert.equal(icon.sameTarget, true, icon.theme);
+      assert.notEqual(icon.tray, 'none', icon.theme);
+    }
     assert.equal(result.starColor, 'rgb(249, 178, 52)');
     assert.equal(result.hiddenImage, 'none');
     assert.equal(result.shownDisplay, 'block');

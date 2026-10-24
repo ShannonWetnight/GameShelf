@@ -66,7 +66,7 @@
               </g>
             </svg>
           </button>
-          <button id="open-cart" class="gs-view-toggle gs-cart-toggle gs-has-tooltip" type="button" aria-label="Open download Playlist" data-tooltip="Download Playlist"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h4v15H3zM7 3h5v17H7zM14 5l4-1 3 15-4 1zM4 16h2M8 15h3M16 14l3-.6M3 22h19"/></svg><span id="cart-count" class="gs-cart-count" hidden>0</span></button>
+          <button id="open-cart" class="gs-view-toggle gs-cart-toggle gs-has-tooltip" type="button" aria-label="Open download Playlist" data-tooltip="Download Playlist"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h15M3 10h15M3 15h8M17 13v8m-4-4h8"/></svg><span id="cart-count" class="gs-cart-count" hidden>0</span></button>
 
           <button id="build-info" class="gs-view-toggle gs-build-info gs-has-tooltip" type="button"
                   aria-label="Open settings" aria-haspopup="dialog" aria-controls="settings-dialog"
@@ -174,11 +174,10 @@
     </label>
     </section>
     <section class="gs-settings-section" aria-labelledby="settings-library-title"><h3 id="settings-library-title">Library view</h3>
-    <label class="gs-settings-option"><input id="favorites-first" type="checkbox" checked><span><strong>Show favorites first</strong><small>Keep favorite games ahead of others in every sort and filter.</small></span></label>
-    <label class="gs-settings-option"><input id="show-list-images" type="checkbox" checked><span><strong>Show images in list view</strong><small>Display a small cover beside each game title.</small></span></label>
     <label class="gs-settings-option"><input id="enable-playlist" type="checkbox" checked><span><strong>Enable Playlist downloads</strong><small>Collect games and download them together.</small></span></label>
-    <label class="gs-settings-option"><input id="show-favorite-stars" type="checkbox"><span><strong>Show favorite stars on cards</strong><small>Allow favorites to be changed from grid and list cards.</small></span></label>
-    <label class="gs-settings-option gs-settings-suboption" id="favorite-only-option"><input id="favorite-stars-only" type="checkbox" checked><span><strong>Show only on favorited cards</strong><small>Hide the star on cards that are not favorites.</small></span></label>
+    <label class="gs-settings-option"><input id="show-list-images" type="checkbox" checked><span><strong>Show images in list view</strong><small>Display a small cover beside each game title.</small></span></label>
+    <label class="gs-settings-option"><input id="favorites-first" type="checkbox" checked><span><strong>Show favorites first</strong><small>Keep favorite games ahead of others in every sort and filter.</small></span></label>
+    <label class="gs-settings-option" id="favorite-only-option"><input id="favorite-stars-only" type="checkbox" checked><span><strong>Show favorited game stars on top</strong><small>Keep favorite stars on top of the game cards.</small></span></label>
     <div class="gs-settings-backup" data-setting-level="advanced"><span><strong>Recently Added range</strong><small>Choose how many days count as recently added.</small></span><button id="open-recent-settings" type="button">Configure</button></div>
     <label class="gs-settings-option" data-setting-level="advanced"><select id="expand-list-image" aria-label="Click to expand image in list view"><option value="single">Single-click</option><option value="double">Double-click</option><option value="disabled">Disabled</option></select><span><strong>Click to expand image in list view</strong><small>Open a larger cover preview when list images are shown.</small></span></label>
     </section>
