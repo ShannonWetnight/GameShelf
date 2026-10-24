@@ -1991,3 +1991,25 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 .gs-grid.gs-slow-animations { --shuffle-duration: 480ms; }
 @keyframes gs-shuffle-dissolve { 0% { opacity: .3; } 30%, 75% { opacity: 1; } 100% { opacity: .3; } }
 @media (hover: none) { .gs-grid .gs-card[data-favorite="false"] .gs-favorite-star { opacity: 1; pointer-events: auto; transform: none; } }
+/* Shared menu motion is driven by openModal, including native Escape dismissal. */
+dialog.gs-settings-dialog, dialog.gs-list-image-dialog { animation: none; }
+.gs-sort-menu { opacity: 1; transform: translateY(0) scale(1); transition: opacity .16s ease, transform .16s ease, display .16s allow-discrete; }
+.gs-sort-menu.hidden { opacity: 0; transform: translateY(8px) scale(.97); }
+@starting-style { .gs-sort-menu:not(.hidden) { opacity: 0; transform: translateY(8px) scale(.97); } }
+.gs-log-retention-value input { appearance: textfield; text-align: center; padding: 0; line-height: 36px; }
+.gs-log-retention-value input::-webkit-inner-spin-button, .gs-log-retention-value input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+#expand-list-image { order: 2; flex: 0 0 118px; width: 118px; height: 38px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--input-background); color: var(--text); font: inherit; padding: 0 .4rem; }
+.gs-grid .gs-card .gs-card-actions > * { backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 6px; }
+.gs-grid.list-view .gs-card .gs-card-actions > * { width: 40px; height: 40px; }
+.gs-grid.list-view .gs-card[data-favorite="false"] .gs-favorite-star { transform: none; transition: opacity .22s ease, color .15s ease; }
+.gs-grid.list-view .gs-card-actions::before { --tray-color: color-mix(in srgb, var(--icon-background) 90%, white); background: linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--tray-color) 20%, transparent) 12%, color-mix(in srgb, var(--tray-color) 65%, transparent) 28%, var(--tray-color) 48%); }
+.gs-cover-preview-actions > * { background: var(--input-background); color: var(--text); }
+/* Deal each preview over two offset game cases, then settle the selected case. */
+.gs-grid.gs-spotlight:has(.gs-shuffle-preview) { position: relative; isolation: isolate; perspective: 1000px; }
+.gs-grid.gs-spotlight:has(.gs-shuffle-preview)::before, .gs-grid.gs-spotlight:has(.gs-shuffle-preview)::after { content: ''; position: absolute; z-index: -1; width: min(100%, 320px); height: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--card-background); box-shadow: var(--shadow-soft); transform: translate(10px, 7px) rotate(3deg); }
+.gs-grid.gs-spotlight:has(.gs-shuffle-preview)::after { transform: translate(19px, 13px) rotate(6deg); z-index: -2; }
+.gs-card.gs-shuffle-preview, .gs-card.gs-shuffle-preview.gs-shuffle-reverse { animation: gs-stack-deal var(--shuffle-duration, 400ms) cubic-bezier(.25,.6,.3,1) both; transform-origin: center 75%; }
+.gs-grid.gs-slow-animations { --shuffle-duration: 640ms; }
+@keyframes gs-stack-deal { 0% { opacity: .3; transform: translate(26px, 10px) rotate(6deg) scale(.97); } 30%, 55% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); } 100% { opacity: 0; transform: translate(-105px, -12px) rotate(-12deg) scale(1.02); } }
+.gs-no-animations .gs-sort-menu { transition: none; }
+@media (prefers-reduced-motion: reduce) { .gs-sort-menu { transition: none; } }

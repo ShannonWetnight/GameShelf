@@ -152,12 +152,13 @@ test('cover editor crops artwork and updates the card after upload', () => {
       };
     </script>`;
     const probe = `<script>window.addEventListener('load', function() {
-      setTimeout(function() {
+      setTimeout(async function() {
         document.querySelector('.gs-card-info').click();
         document.querySelector('#edit-game-cover').click();
         const editor = document.querySelector('#cover-editor-dialog');
         const emptyUploadVisible = getComputedStyle(document.querySelector('.gs-cover-preview-upload')).opacity === '1';
         document.querySelector('#cover-editor-cancel').click();
+        await new Promise(resolve => setTimeout(resolve, 220));
         const returnedToDetails = document.querySelector('#game-details-dialog').open && !editor.open;
         document.querySelector('#edit-game-cover').click();
         const bytes = Uint8Array.from(atob('${image}'), character => character.charCodeAt(0));

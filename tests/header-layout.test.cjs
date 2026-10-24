@@ -407,8 +407,8 @@ test('no-cover list controls have no background block and reset actions share a 
     fs.writeFileSync(file, source);
     const result = readLayoutProbe(file, 1280, 'list-reset-report');
     assert.equal(result.background, 'none');
-    assert.equal(result.infoHeight, 42);
-    assert.equal(result.downloadHeight, 42);
+    assert.equal(result.infoHeight, 40);
+    assert.equal(result.downloadHeight, 40);
     assert.equal(result.resetHeight, 40);
     assert.equal(result.confirmHeight, 40);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
