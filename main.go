@@ -378,12 +378,26 @@ func refreshGames() error {
 	if len(scanRoots) == 0 { scanRoots = []string{rootDir} }
 	type sourceFolder struct { source, name, key string }
 	folders := make([]sourceFolder, 0)
-	for _, e := range primaryEntries { if e.IsDir() { folders = append(folders, sourceFolder{rootDir, e.Name(), e.Name()}) } }
+	// A share mounted below /games is a source container, not a game in /games.
+	isSourceContainer := func(source, name string) bool {
+		child := filepath.Join(source, name)
+		for _, other := range scanRoots {
+			if other != source && pathInside(child, other) { return true }
+		}
+		return false
+	}
+	primaryGameEntries := make([]os.DirEntry, 0, len(primaryEntries))
+	for _, e := range primaryEntries {
+		if e.IsDir() && !isSourceContainer(rootDir, e.Name()) {
+			primaryGameEntries = append(primaryGameEntries, e)
+			folders = append(folders, sourceFolder{rootDir, e.Name(), e.Name()})
+		}
+	}
 	for _, source := range scanRoots {
 		if source == rootDir { continue }
 		entries, err := os.ReadDir(source)
 		if err != nil { return fmt.Errorf("reading library source %s: %w", source, err) }
-		for _, e := range entries { if e.IsDir() { folders = append(folders, sourceFolder{source, e.Name(), filepath.Join(source, e.Name())}) } }
+		for _, e := range entries { if e.IsDir() && !isSourceContainer(source, e.Name()) { folders = append(folders, sourceFolder{source, e.Name(), filepath.Join(source, e.Name())}) } }
 	}
 	// A different library/storage pair must not inherit process-local assignments.
 	rootSignature := strings.Join(scanRoots, "\x00")
@@ -410,7 +424,7 @@ func refreshGames() error {
 			usedIDs[id] = true
 		}
 	}
-	ids, _ := assignGameIDs(primaryEntries, savedIDs)
+	ids, _ := assignGameIDs(primaryGameEntries, savedIDs)
 	used := make(map[string]bool)
 	for _, id := range ids { used[id] = true }
 	for _, folder := range folders {
@@ -1607,7 +1621,9 @@ func validateServerSettings(value serverSettings) error {
 	for i, directory := range roots {
 		if !filepath.IsAbs(directory) || !filepath.IsLocal(filepath.Base(directory)) || !pathInside(allowedLibraryRoot, directory) { return errors.New("library paths must stay within the configured library mount") }
 		for j := 0; j < i; j++ {
-			if pathInside(roots[j], directory) || pathInside(directory, roots[j]) { return errors.New("library paths must not overlap") }
+			// A secondary share can be mounted beneath the primary /games mount.
+			if j == 0 && pathInside(roots[0], directory) { continue }
+			if pathInside(roots[j], directory) || pathInside(directory, roots[j]) { return errors.New("library paths must not overlap except for a share beneath the primary path") }
 		}
 	}
 	for _, directory := range append(append([]string(nil), roots...), value.DataDir) {

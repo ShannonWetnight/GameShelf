@@ -49,5 +49,9 @@ func TestServerSettingsAcceptSeparateMountedSources(t *testing.T) {
 	if err := validateServerSettings(settings); err != nil { t.Fatalf("separate sources rejected: %v", err) }
 	settings.RootDirs = []string{root, first}
 	settings.RootDir = root
-	if err := validateServerSettings(settings); err == nil { t.Fatal("overlapping sources accepted") }
+	if err := validateServerSettings(settings); err != nil { t.Fatalf("share under primary mount rejected: %v", err) }
+	nested := filepath.Join(first, "nested")
+	if err := os.Mkdir(nested, 0700); err != nil { t.Fatal(err) }
+	settings.RootDirs = []string{root, first, nested}
+	if err := validateServerSettings(settings); err == nil { t.Fatal("overlapping secondary sources accepted") }
 }

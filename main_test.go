@@ -44,7 +44,8 @@ func setupLibrary(t *testing.T) string {
 func TestMultipleLibrarySourcesKeepSameNamedGamesSeparate(t *testing.T) {
 	primary := setupLibrary(t)
 	writeGame(t, "Alpha")
-	secondary := t.TempDir()
+	secondary := filepath.Join(primary, "NAS")
+	if err := os.Mkdir(secondary, 0755); err != nil { t.Fatal(err) }
 	if err := os.Mkdir(filepath.Join(secondary, "Alpha"), 0755); err != nil { t.Fatal(err) }
 	if err := os.WriteFile(filepath.Join(secondary, "Alpha", "game.txt"), []byte("second source"), 0644); err != nil { t.Fatal(err) }
 	rootDirs = []string{primary, secondary}
