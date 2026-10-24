@@ -30,6 +30,10 @@ class Element {
         return force;
       }
     };
+    Object.defineProperty(this, 'className', {
+      get: () => [...tokens].join(' '),
+      set: value => { tokens.clear(); String(value).split(/\s+/).filter(Boolean).forEach(token => tokens.add(token)); }
+    });
     this.children = [];
     this.dataset = {};
     this.style = {};
@@ -43,6 +47,16 @@ class Element {
     this.children.push(child);
     child.parentElement = this;
   }
+  insertBefore(child, before) {
+    child.parentElement?.children.splice(child.parentElement.children.indexOf(child), 1);
+    const index = before ? this.children.indexOf(before) : this.children.length;
+    this.children.splice(index, 0, child);
+    child.parentElement = this;
+  }
+  get nextSibling() {
+    const siblings = this.parentElement?.children || [];
+    return siblings[siblings.indexOf(this) + 1] || null;
+  }
   replaceWith(next) {
     const index = this.parentElement?.children.indexOf(this) ?? -1;
     if (index >= 0) { this.parentElement.children[index] = next; next.parentElement = this.parentElement; }
@@ -51,6 +65,7 @@ class Element {
   replaceChildren(...children) { this.children = []; this.append(...children); }
   querySelectorAll(selector) { return selector === 'input' ? this.children.flatMap(child => [child, ...child.querySelectorAll('input')]).filter(item => item.tagName === 'INPUT') : []; }
   querySelector(selector) {
+    if (selector === 'input:checked') return this.querySelectorAll('input').find(input => input.checked) || null;
     const name = selector.startsWith('.') ? selector.slice(1) : '';
     return this.children.find(child => child.classList.contains(name)) ||
       this.children.map(child => child.querySelector(selector)).find(Boolean) || null;
@@ -105,7 +120,7 @@ function app(
   };
   document.createTextNode = text => { const node = new Element(); node.textContent = text; return node; };
   document.querySelectorAll = selector => {
-    if (selector === '#logs-filters input') return ['app', 'request', 'scan', 'download'].map(type => elements.get(`logs-filter-${type}`));
+    if (selector === '#logs-filters input') return ['system', 'library', 'errors', 'request', 'scan', 'download'].map(type => elements.get(`logs-filter-${type}`));
     if (selector === '.gs-sort-menu button') return elements.get('sort-menu').children;
     if (selector === '#export-options input:checked') return elements.get('export-options').querySelectorAll('input').filter(input => input.checked);
     if (selector === '#reset-metadata-options input' || selector === '#reset-metadata-options input:checked') {
@@ -122,6 +137,7 @@ function app(
   const revoked = [];
   const copied = [];
   const context = vm.createContext({
+    window: { scrollY: 0, scrollTo() {}, matchMedia: () => ({ matches: reducedMotion }) },
     URL: { createObjectURL: blob => { downloads.push(blob); return "blob:backup"; }, revokeObjectURL: url => revoked.push(url) }, URLSearchParams,
     document, Blob, navigator: { clipboard: { writeText: async value => copied.push(value) } },
     matchMedia: () => ({ matches: reducedMotion }), localStorage: {
@@ -209,7 +225,7 @@ test('cover actions download the game and open read-only details', async () => {
   const card = ui.cards().find(item => item.dataset.id === 'alpha');
   const body = card.children[1];
   const action = card.children[0].children[1].children[0];
-  const details = card.children[0].children[1].children[1];
+  const details = card.children[0].children[1].children[2];
   assert.equal(body.children[0].tagName, 'IMG');
   assert.equal(body.children[1].children[0].textContent, 'Alpha');
   assert.equal(body.children.length, 2);
@@ -244,7 +260,7 @@ test('game information lists only the selected game files on request', async () 
   ui.requests[0].resolve(response(games));
   await settle();
   const alpha = ui.cards().find(card => card.dataset.id === 'alpha');
-  alpha.children[0].children[1].children[1].emit('click');
+  alpha.children[0].children[1].children[2].emit('click');
   assert.equal(ui.requests.length, 1);
   ui.click('game-details-download-summary');
   assert.equal(ui.requests[1].url, '/api/game-files/alpha');
@@ -277,7 +293,7 @@ test('both dialogs close on backdrop clicks, while inside clicks stay open', asy
   assert.equal(settings.open, true);
   settings.emit('click', { target: settings, clientX: 0, clientY: 0 });
   assert.equal(settings.open, false);
-  const info = ui.cards()[0].children[0].children[1].children[1];
+  const info = ui.cards()[0].children[0].children[1].children[2];
   info.emit('click');
   const details = ui.element('game-details-dialog');
   details.emit('click', { target: details, clientX: 0, clientY: 0 });
@@ -602,22 +618,22 @@ test('successful refresh to an empty library removes stale cards and shows setup
   assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
 });
 
-test('favorite confirmation persists selection and Favorites filters cards', async () => {
+test('adding favorites saves directly and removing asks for confirmation', async () => {
   const ui = app();
   ui.start();
   ui.requests[0].resolve(response(games));
   await settle();
   const alpha = ui.cards().find(card => card.dataset.id === 'alpha');
   alpha.children[0].children[2].emit('click');
-  assert.equal(ui.element('favorite-dialog').open, true);
-  const pending = ui.click('favorite-confirm');
+  assert.notEqual(ui.element('favorite-dialog').open, true);
   const request = ui.requests.find(item => item.url === '/api/favorite/alpha');
   assert.equal(request !== undefined, true);
   request.resolve(response({ favorite: true }));
-  await pending;
-  assert.equal(ui.element('favorite-dialog').open, false);
+  await settle();
   assert.equal(ui.cards().find(card => card.dataset.id === 'alpha').dataset.favorite, 'true');
   assert.equal(ui.element('notification-text').textContent, 'Added to favorites.');
+  alpha.children[0].children[2].emit('click');
+  assert.equal(ui.element('favorite-dialog').open, true);
 });
 
 test('favorites-first defaults on and groups favorites within every sort', async () => {
@@ -704,7 +720,7 @@ test('application logs are always available, configurable, filterable, and expor
   assert.equal(ui.element('logs-dialog').open, false);
 });
 
-test('download cart reviews games and starts one combined ZIP', async () => {
+test('download playlist reviews games and starts one combined ZIP', async () => {
   const storage = new Map();
   const ui = app(undefined, storage);
   ui.start();
@@ -720,10 +736,10 @@ test('download cart reviews games and starts one combined ZIP', async () => {
   assert.match(ui.element('cart-total').textContent, /1 game/);
   ui.click('cart-checkout');
   assert.equal(ui.element('cart-dialog').open, false);
-  const link = ui.document.body.children.find(child => child.href?.startsWith('/download-cart?'));
+  const link = ui.document.body.children.find(child => child.href?.startsWith('/download-playlist?'));
   assert.ok(link?.href.includes('game=alpha'));
   assert.equal(link.clicked, true);
-  assert.equal(ui.element('notification-text').textContent, 'Cart download started.');
+  assert.equal(ui.element('notification-text').textContent, 'Playlist download started.');
   assert.equal(storage.get('gameshelf:cart'), '["alpha"]');
 });
 
@@ -789,9 +805,9 @@ test('empty Favorites view explains the filter and refresh text responds to hove
   ui.search('absent');
   assert.equal(ui.element('empty-title').textContent, 'No matching games!');
   assert.equal(ui.hidden('search-hint'), false);
-  ui.element('gs-refresh-trigger').emit('mouseenter');
+  ui.element('gs-refresh-trigger').emit('pointerenter');
   assert.equal(ui.element('gs-logo-text').textContent, 'REFRESH');
-  ui.element('gs-refresh-trigger').emit('mouseleave');
+  ui.element('gs-refresh-trigger').emit('pointerleave');
   assert.equal(ui.element('gs-logo-text').textContent, 'GAMESHELF');
 });
 
@@ -801,7 +817,7 @@ test('metadata reset reviews selected fields and refreshes the card after saving
   ui.requests[0].resolve(response([{ ...games[1], name: 'Custom Alpha', fileCount: 1, favorite: true, hasCover: true }]));
   await settle();
   const card = ui.cards()[0];
-  card.children[0].children[1].children[1].emit('click');
+  card.children[0].children[1].children[2].emit('click');
   const label = ui.document.createElement('label');
   const input = ui.document.createElement('input');
   input.value = 'title';
@@ -904,9 +920,9 @@ test('refresh feedback returns to the brand when the pointer has left', async ()
   ui.start();
   ui.requests[0].resolve(response(games));
   await settle();
-  ui.element('gs-refresh-trigger').emit('mouseenter');
+  ui.element('gs-refresh-trigger').emit('pointerenter');
   ui.click('gs-refresh-trigger');
-  ui.element('gs-refresh-trigger').emit('mouseleave');
+  ui.element('gs-refresh-trigger').emit('pointerleave');
   ui.requests[1].resolve(response(games));
   await settle();
   assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
@@ -981,7 +997,7 @@ async function coverEditor() {
   canvas.getContext = () => ({ fillRect() {}, save() {}, translate() {}, rotate() {}, scale() {}, drawImage() {}, restore() {} });
   canvas.toBlob = callback => callback({ size: 123 });
   ui.openCover = id => {
-    ui.cards().find(card => card.dataset.id === id).children[0].children[1].children[1].emit('click');
+    ui.cards().find(card => card.dataset.id === id).children[0].children[1].children[2].emit('click');
     ui.click('edit-game-cover');
     ui.images.at(-1).onload();
   };

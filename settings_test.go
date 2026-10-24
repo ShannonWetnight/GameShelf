@@ -36,3 +36,18 @@ func TestServerSettingsStayInsideConfiguredMounts(t *testing.T) {
 	handleServerSettings(response, httptest.NewRequest(http.MethodPut, "/api/server-settings", strings.NewReader(string(body))))
 	if response.Code != http.StatusBadRequest { t.Fatalf("outside path status %d", response.Code) }
 }
+
+func TestServerSettingsAcceptSeparateMountedSources(t *testing.T) {
+	root := t.TempDir()
+	data := t.TempDir()
+	first, second := filepath.Join(root, "first"), filepath.Join(root, "second")
+	for _, dir := range []string{first, second} { if err := os.Mkdir(dir, 0700); err != nil { t.Fatal(err) } }
+	previousHome, previousRoot := settingsHome, allowedLibraryRoot
+	t.Cleanup(func() { settingsHome, allowedLibraryRoot = previousHome, previousRoot })
+	settingsHome, allowedLibraryRoot = data, root
+	settings := serverSettings{RootDir:first, RootDirs:[]string{first, second}, DataDir:data, RefreshInterval:"0"}
+	if err := validateServerSettings(settings); err != nil { t.Fatalf("separate sources rejected: %v", err) }
+	settings.RootDirs = []string{root, first}
+	settings.RootDir = root
+	if err := validateServerSettings(settings); err == nil { t.Fatal("overlapping sources accepted") }
+}

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"image/png"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -144,7 +143,7 @@ func rollbackRestore(files []restoreFile) {
 	for i := len(files)-1; i >= 0; i-- {
 		item := files[i]
 		if item.applied { os.Remove(item.destination) }
-		if item.backup != "" { if err := os.Rename(item.backup, item.destination); err != nil { log.Printf("restore rollback failed for %s: %v", item.destination, err) } }
+		if item.backup != "" { if err := os.Rename(item.backup, item.destination); err != nil { logEvent("errors", "restore rollback failed for %s: %v", item.destination, err) } }
 	}
 }
 
@@ -196,8 +195,8 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		applicationLogs.Configure(settings.LogOptions)
 	}
 	refreshMu.Unlock()
-	if err != nil { log.Printf("library restore failed: %v", err); http.Error(w, "Restore failed; existing data was retained.", http.StatusServiceUnavailable); return }
-	if err := refreshGames(); err != nil { log.Printf("post-restore scan failed: %v", err); http.Error(w, "Restore saved, but the library scan failed. Refresh or restart the container.", http.StatusServiceUnavailable); return }
+	if err != nil { logEvent("errors", "library restore failed: %v", err); http.Error(w, "Restore failed; existing data was retained.", http.StatusServiceUnavailable); return }
+	if err := refreshGames(); err != nil { logEvent("errors", "post-restore scan failed: %v", err); http.Error(w, "Restore saved, but the library scan failed. Refresh or restart the container.", http.StatusServiceUnavailable); return }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"restored": true, "restartRequired": selection.Settings && len(archive.settings) > 0})
 }

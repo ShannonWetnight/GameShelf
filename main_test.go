@@ -28,16 +28,62 @@ import (
 // Tests share the production globals and deliberately do not run in parallel.
 func setupLibrary(t *testing.T) string {
 	t.Helper()
-	previousRoot, previousData, previousGames := rootDir, dataDir, gamesMap
+	previousRoot, previousRoots, previousData, previousGames := rootDir, rootDirs, dataDir, gamesMap
 	previousIndexedAt := lastIndexedAt
 	t.Cleanup(func() {
-		rootDir, dataDir, gamesMap, lastIndexedAt = previousRoot, previousData, previousGames, previousIndexedAt
+		rootDir, rootDirs, dataDir, gamesMap, lastIndexedAt = previousRoot, previousRoots, previousData, previousGames, previousIndexedAt
 	})
 	rootDir = t.TempDir()
+	rootDirs = nil
 	dataDir = t.TempDir()
 	gamesMap = make(map[string]*gameEntry)
 	lastIndexedAt = time.Time{}
 	return rootDir
+}
+
+func TestMultipleLibrarySourcesKeepSameNamedGamesSeparate(t *testing.T) {
+	primary := setupLibrary(t)
+	writeGame(t, "Alpha")
+	secondary := t.TempDir()
+	if err := os.Mkdir(filepath.Join(secondary, "Alpha"), 0755); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(secondary, "Alpha", "game.txt"), []byte("second source"), 0644); err != nil { t.Fatal(err) }
+	rootDirs = []string{primary, secondary}
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	if len(gamesMap) != 2 { t.Fatalf("indexed %d games, want 2", len(gamesMap)) }
+	var first, second *gameEntry
+	for _, entry := range gamesMap {
+		if entry.RootDir == primary { first = entry } else if entry.RootDir == secondary { second = entry }
+	}
+	if first == nil || second == nil || first.Game.ID == second.Game.ID || first.CoverKey == second.CoverKey { t.Fatalf("sources collided: %#v %#v", first, second) }
+	if first.Game.ID != "alpha" { t.Fatalf("primary ID changed: %q", first.Game.ID) }
+	w := httptest.NewRecorder()
+	handleDownload(w, httptest.NewRequest(http.MethodGet, "/download/"+second.Game.ID, nil))
+	if w.Code != http.StatusOK { t.Fatalf("secondary download status %d: %s", w.Code, w.Body.String()) }
+	archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+	if err != nil { t.Fatal(err) }
+	if len(archive.File) != 1 { t.Fatalf("secondary archive has %d files", len(archive.File)) }
+	file, err := archive.File[0].Open()
+	if err != nil { t.Fatal(err) }
+	contents, err := io.ReadAll(file)
+	file.Close()
+	if err != nil || string(contents) != "second source" { t.Fatalf("wrong source contents: %q, %v", contents, err) }
+}
+
+func TestCoverSourceOnlyServesSupportedImagesWithinGame(t *testing.T) {
+	setupLibrary(t)
+	writeGame(t, "Alpha")
+	file, err := os.Create(filepath.Join(rootDir, "Alpha", "candidate.png"))
+	if err != nil { t.Fatal(err) }
+	if err := png.Encode(file, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil { t.Fatal(err) }
+	file.Close()
+	if err := refreshGames(); err != nil { t.Fatal(err) }
+	for _, test := range []struct { path string; status int }{
+		{"candidate.png", http.StatusOK}, {"game.txt", http.StatusNotFound}, {"../candidate.png", http.StatusNotFound},
+	} {
+		w := httptest.NewRecorder()
+		handleCoverSource(w, httptest.NewRequest(http.MethodGet, "/api/cover-source/alpha?path="+url.QueryEscape(test.path), nil))
+		if w.Code != test.status { t.Errorf("%s: status %d, want %d", test.path, w.Code, test.status) }
+	}
 }
 
 func writeGame(t *testing.T, name string) {

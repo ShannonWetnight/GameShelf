@@ -11,8 +11,6 @@ services:
       - GAMESHELF_ROOT=/games
       # Optional: Change GameShelf's default (8080) internal bind address
       #- GAMESHELF_ADDR=:8080
-      # Optional: rescan every 12h by default; set 0 to disable or use a duration such as 1h.
-      #- GAMESHELF_REFRESH_INTERVAL=1h
     volumes:
       - /path/to/games:/games:ro
       - gameshelf-data:/data # Docker creates this automatically; no host directory needed.
