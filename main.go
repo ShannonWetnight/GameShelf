@@ -1622,7 +1622,7 @@ func validateServerSettings(value serverSettings) error {
 		if !filepath.IsAbs(directory) || !filepath.IsLocal(filepath.Base(directory)) || !pathInside(allowedLibraryRoot, directory) { return errors.New("library paths must stay within the configured library mount") }
 		for j := 0; j < i; j++ {
 			// A secondary share can be mounted beneath the primary /games mount.
-			if j == 0 && pathInside(roots[0], directory) { continue }
+			if j == 0 && pathInside(roots[0], directory) && !pathInside(directory, roots[0]) { continue }
 			if pathInside(roots[j], directory) || pathInside(directory, roots[j]) { return errors.New("library paths must not overlap except for a share beneath the primary path") }
 		}
 	}

@@ -50,6 +50,8 @@ func TestServerSettingsAcceptSeparateMountedSources(t *testing.T) {
 	settings.RootDirs = []string{root, first}
 	settings.RootDir = root
 	if err := validateServerSettings(settings); err != nil { t.Fatalf("share under primary mount rejected: %v", err) }
+	settings.RootDirs = []string{root, root}
+	if err := validateServerSettings(settings); err == nil { t.Fatal("duplicate source accepted") }
 	nested := filepath.Join(first, "nested")
 	if err := os.Mkdir(nested, 0700); err != nil { t.Fatal(err) }
 	settings.RootDirs = []string{root, first, nested}
