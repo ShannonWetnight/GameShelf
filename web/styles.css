@@ -2137,3 +2137,37 @@ body.gs-card-depth .gs-grid .gs-card { box-shadow:inset 0 1px 0 color-mix(in srg
 .gs-details-art #game-details-image { object-fit:contain; }
 
 .gs-no-cover .gs-cover-unavailable::after { content:none; }
+/* First-run setup uses the same surfaces and save control as Settings. */
+.gs-setup-page { width:min(680px,100%);margin:1rem auto 2rem;animation:gs-setting-enter .24s ease-out; }
+.gs-setup-page[hidden],#setup-retry[hidden] { display:none; }
+.gs-setup-eyebrow { color:var(--accent);font-size:.75rem;letter-spacing:.1em;font-weight:750;margin:0 0 .65rem; }
+.gs-setup-page h1 { font-size:clamp(1.8rem,4vw,2.4rem);margin:0;line-height:1.2; }
+.gs-setup-intro { color:var(--text-muted);line-height:1.6;margin:.75rem 0 1.5rem; }
+.gs-setup-panel { border:1px solid var(--border-subtle);border-radius:var(--radius-lg);background:var(--bg-elevated);padding:1.4rem;box-shadow:var(--shadow-soft);display:grid;gap:1rem; }
+.gs-setup-panel .gs-server-field { margin:0;gap:.45rem; }
+.gs-setup-panel :is(input,textarea),.gs-setup-page .gs-detail-action,.gs-source-browser .gs-detail-action { background:var(--input-background);color:var(--text); }
+.gs-setup-panel textarea { width:100%;min-height:90px;resize:vertical;box-sizing:border-box;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:.65rem;font:inherit;line-height:1.5; }
+.gs-setup-panel :is(input,textarea):focus-visible { outline:2px solid var(--accent);outline-offset:2px; }
+.gs-setup-source-toolbar { display:flex;align-items:center;gap:.8rem;flex-wrap:wrap; }
+.gs-setup-source-toolbar .gs-settings-help { margin:0;flex:1;min-width:160px; }
+.gs-setup-help { color:var(--text-muted);font-size:.85rem;line-height:1.6; }
+.gs-setup-help summary { color:var(--text);cursor:pointer; }
+.gs-setup-help pre { white-space:pre-wrap;overflow-wrap:anywhere;background:var(--input-background);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:.7rem;color:var(--text); }
+.gs-setup-help .gs-server-field { margin-top:.75rem; }
+.gs-setup-status:empty { display:none; }
+.gs-setup-status { margin:0;color:var(--text);font-size:.9rem;line-height:1.5; }
+.gs-setup-finish { display:flex;gap:.75rem;align-items:center;justify-content:flex-end;font-size:.9rem; }
+.gs-setup-finish #setup-retry { margin-right:auto; }
+.gs-setup-page .gs-title-save:is(:hover,:focus-visible):not(:disabled) { background:var(--accent);color:var(--bg); }
+.gs-needs-setup .gs-main > :not(#setup-page),.gs-needs-setup .gs-search-field,.gs-needs-setup .gs-sort > :not(#build-info),.gs-needs-setup #scroll-to-top { display:none!important; }
+.gs-needs-setup .gs-search-wrapper { flex:0 0 auto;min-width:0; }
+.gs-needs-setup .gs-header-row { justify-content:space-between; }
+.gs-source-browser { width:min(540px,calc(100vw - 32px)); }
+.gs-source-navigation { display:flex;gap:.6rem;flex-wrap:wrap; }
+#source-browser-path { overflow-wrap:anywhere; }
+.gs-source-folders { max-height:35vh;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-sm); }
+.gs-source-folders:empty { display:none; }
+.gs-source-folder { display:block;box-sizing:border-box;width:100%;text-align:left;padding:.7rem .85rem;border:0;border-bottom:1px solid var(--border-subtle);background:var(--input-background);color:var(--text);font:inherit;overflow-wrap:anywhere;cursor:pointer; }
+.gs-source-folder:last-child { border-bottom:0; }
+.gs-source-folder:is(:hover,:focus-visible) { color:var(--accent);background:var(--accent-soft); }
+@media(max-width:600px) { .gs-setup-panel{padding:1rem}.gs-setup-page{margin-top:.5rem} }

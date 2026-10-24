@@ -45,15 +45,14 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         "run", "--detach", *SECURITY,
         *(["--user", user] if user else []),
         *(["--group-add", str(group)] if group else []),
-        "--publish", f"127.0.0.1::{port}",
+        "--publish", "127.0.0.1::8080",
         "--mount", f"type=bind,src={root},dst={mount},readonly",
         *(["--env", f"GAMESHELF_ROOT={mount}",
-           "--env", f"GAMESHELF_REFRESH_INTERVAL={interval}",
-           "--env", f"GAMESHELF_ADDR=:{port}"] if settings else []), image,
+           "--env", f"GAMESHELF_REFRESH_INTERVAL={interval}"] if settings else []), image,
     )
     try:
         uid, gid = map(int, (user or "10001:10001").split(":"))
-        address = docker("port", cid, f"{port}/tcp").splitlines()[0]
+        address = docker("port", cid, "8080/tcp").splitlines()[0]
         base = "http://" + address
 
         def get(path):
@@ -225,7 +224,7 @@ def restricted_check(image, root, owner, dmode, fmode, **options):
         path.chmod(dmode if path.is_dir() else fmode)
     try:
         ownership(image, root, owner)
-        check(image, root, 9090, 2, **options)
+        check(image, root, 8080, 2, **options)
     finally:
         # Restore the runner's ownership before TemporaryDirectory cleanup.
         ownership(image, root, f"{os.getuid()}:{os.getgid()}")
@@ -238,24 +237,27 @@ def denied_root(image, root):
     ownership(image, root, "0:0")
     cid = None
     try:
-        cid = docker("run", "--detach", *SECURITY,
+        cid = docker("run", "--detach", *SECURITY, "--publish", "127.0.0.1::8080",
+                     "--env", "GAMESHELF_ROOT=/games",
                      "--mount", f"type=bind,src={root},dst=/games,readonly", image)
         for attempt in range(30):
-            state = json.loads(docker("inspect", cid))[0]["State"]
-            if not state["Running"]:
-                assert state["ExitCode"] != 0, state
-                assert "permission denied" in docker("logs", cid), state
-                print("PASS: inaccessible root fails startup with permission denied")
+            try:
+                address = docker("port", cid, "8080/tcp").splitlines()[0]
+                with urllib.request.urlopen("http://" + address + "/api/setup", timeout=3) as response:
+                    assert json.load(response)["required"]
+                assert docker("inspect", "--format", "{{.State.Running}}", cid) == "true"
+                assert "permission denied" in docker("logs", cid)
+                print("PASS: inaccessible explicit library keeps setup available without a restart loop")
                 break
-            time.sleep(0.1)
-        else:
-            raise AssertionError("inaccessible root unexpectedly started")
+            except (OSError, urllib.error.URLError):
+                if attempt == 29:
+                    raise
+                time.sleep(.1)
     finally:
         if cid:
             docker("rm", "--force", "--volumes", cid)
         ownership(image, root, f"{os.getuid()}:{os.getgid()}")
         root.chmod(0o755)
-
 
 def temporary_ids(image):
     # Actual restricted UID/GID, not a root process that bypasses chmod.
@@ -281,7 +283,7 @@ def temporary_ids(image):
                              "--user", "10002:10003", "--publish", "127.0.0.1::8080",
                              "--mount", f"type=bind,src={root},dst=/games,readonly",
                              "--mount", f"type=bind,src={data},dst=/data",
-                             "--env", "GAMESHELF_REFRESH_INTERVAL=0", image)
+                             "--env", "GAMESHELF_ROOT=/games", "--env", "GAMESHELF_REFRESH_INTERVAL=0", image)
                 def games(refresh=False):
                     for attempt in range(50):
                         try:
@@ -322,16 +324,78 @@ def temporary_ids(image):
                 data.chmod(0o700)
 
 
+def first_run(image, root=None):
+    cid = docker("run", "--detach", *SECURITY, "--publish", "127.0.0.1::8080",
+                 *(["--mount", f"type=bind,src={root},dst=/collection,readonly"] if root else []), image)
+    try:
+        def request(path, value=None, method=None):
+            address = docker("port", cid, "8080/tcp").splitlines()[0]
+            req = urllib.request.Request("http://" + address + path,
+                data=json.dumps(value).encode() if value is not None else None,
+                headers={"Content-Type": "application/json"}, method=method)
+            with urllib.request.urlopen(req, timeout=5) as response:
+                return json.load(response)
+        for attempt in range(40):
+            try:
+                setup = request("/api/setup")
+                break
+            except (OSError, urllib.error.URLError):
+                if attempt == 39:
+                    raise
+                time.sleep(.1)
+        assert setup["required"] and setup["port"] == 8080, setup
+        assert setup["settings"]["rootDir"] == "", setup
+        for _ in range(3):
+            assert request("/api/games?forceRefresh=1") == []
+        assert "scan error" not in docker("logs", cid)
+        assert "reading library source /games" not in docker("logs", cid)
+        assert docker("inspect", "--format", "{{.RestartCount}}", cid) == "0"
+        if root:
+            assert "/collection" in setup["mounts"], setup
+            assert request("/api/library-folders?path=/collection")["path"] == "/collection"
+            value = dict(setup["settings"], rootDir="/etc", rootDirs=["/etc"])
+            try:
+                request("/api/setup", value)
+                raise AssertionError("setup accepted a container system directory")
+            except urllib.error.HTTPError as error:
+                assert error.code == 400
+            value.update(rootDir="/collection", rootDirs=["/collection"], refreshInterval="0")
+            assert request("/api/setup", value)["complete"]
+            assert not request("/api/setup")["required"]
+            assert len(request("/api/games")) == 2
+            docker("restart", cid)
+            for attempt in range(40):
+                try:
+                    assert not request("/api/setup")["required"]
+                    assert len(request("/api/games")) == 2
+                    break
+                except (OSError, urllib.error.URLError):
+                    if attempt == 39:
+                        raise
+                    time.sleep(.1)
+            value["refreshInterval"] = "24h"
+            assert not request("/api/server-settings", value, "PUT")["restartRequired"]
+            print("PASS: no environment variables, detected mount, validated setup, immediate index, persisted restart, live schedule")
+        else:
+            assert setup["mounts"] == [], setup
+            print("PASS: no environment variables or game mounts starts quietly on 8080 with setup available")
+    finally:
+        print(docker("logs", cid))
+        docker("rm", "--force", "--volumes", cid)
+
+
 if __name__ == "__main__":
     image = sys.argv[1]
     assert docker("image", "inspect", "--format", "{{.Config.User}}", image) == "10001:10001"
+    first_run(image)
     temporary_ids(image)
     with tempfile.TemporaryDirectory(prefix="gameshelf-smoke-") as temp:
         root = pathlib.Path(temp)
         root.chmod(0o755)
-        check(image, root, 8080, 0, mount="/games", settings=False)
+        check(image, root, 8080, 0, mount="/games")
         fixture(root)
-        check(image, root, 9090, 2, interval="100ms", refresh_failures=True)
+        first_run(image, root)
+        check(image, root, 8080, 2, interval="100ms", refresh_failures=True)
         restricted_check(image, root, "0:10001", 0o550, 0o440)
         restricted_check(image, root, "10002:10003", 0o500, 0o400, user="10002:10003")
         restricted_check(image, root, "0:10004", 0o550, 0o440,

@@ -383,3 +383,33 @@ test('cover formats preserve artwork and frame size while empty Playlist stays c
     assert.equal(r.stable,true);assert.equal(r.disabled,true);assert.equal(r.tray,'none');assert.ok(r.details.w<=720&&r.details.h<=416&&r.details.art>=219&&r.details.art<=220,JSON.stringify(r.details));assert.equal(r.details.fit,'contain');assert.ok(r.empty.h<280&&r.empty.w<=390,JSON.stringify(r.empty));assert.match(r.empty.text,/Your Playlist is empty/);assert.equal(r.empty.actions,'none');for(const s of r.surfaces){assert.equal(s.logs,s.select,s.theme);assert.equal(s.configure,s.select,s.theme);}assert.ok(r.selectGap>=35&&r.selectGap<=45,r.selectGap);assert.ok(r.expandGap>=35&&r.expandGap<=45,r.expandGap);assert.equal(r.redrawStarted,true);assert.deepEqual(r.theme,{current:'retro',body:'1',dialog:'1',animations:0});assert.equal(r.motionOffTheme,'light');
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+
+test('first-time setup validates choices, browses mounted folders, and opens the library', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gameshelf-first-setup-'));
+  try {
+    const setup=fs.readFileSync(path.join(root,'web/setup.js'),'utf8');
+    function render(required,width){
+      const stub=`<script>let needsSetup=`+required+`;let configuration={rootDir:needsSetup?'':'/library',dataDir:'/data',refreshInterval:'168h'};const writes=[];fetch=async(url,options={})=>{let data;
+        if(url==='/api/server-settings')data=configuration;
+        else if(url==='/api/setup'&&options.method==='POST'){const value=JSON.parse(options.body);writes.push(value);if(value.rootDir==='/etc')return{ok:false,text:async()=> 'Choose a mounted library folder.'};configuration=value;needsSetup=false;data={complete:true};}
+        else if(url==='/api/setup')data={required:needsSetup,mounts:['/library','/other'],port:8080,settings:configuration};
+        else if(url.startsWith('/api/library-folders'))data=url.includes('path=')?{path:'/library',parent:'',folders:['/library/Collection']}:{path:'',parent:'',folders:['/library','/other']};
+        else if(url==='/api/version')data={version:'test',channel:'edge'};
+        else data=needsSetup?[]:[{id:'sample',name:'First Game',hasCover:false,sizeBytes:1024}];return{ok:true,json:async()=>data};};</script>`;
+      const probe=`<script>addEventListener('load',()=>setTimeout(async()=>{try{const result={required:document.body.classList.contains('gs-needs-setup'),hidden:document.querySelector('#setup-page').hidden,overflow:document.documentElement.scrollWidth>innerWidth};
+        if(result.required){const form=document.querySelector('#setup-form'),status=document.querySelector('#setup-status'),input=document.querySelector('#setup-roots');form.dispatchEvent(new Event('submit',{cancelable:true}));result.emptyError=status.textContent;
+          input.value='/etc';form.dispatchEvent(new Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,0));result.rejected=status.textContent;result.keptSetup=document.body.classList.contains('gs-needs-setup');
+          input.value='';document.querySelector('#setup-browse').click();await new Promise(r=>setTimeout(r,0));document.querySelector('#source-browser-folders button').click();await new Promise(r=>setTimeout(r,0));document.querySelector('#source-browser-select').click();await new Promise(r=>setTimeout(r,200));result.folder=input.value;
+          document.querySelector('#setup-refresh').value='0';form.dispatchEvent(new Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,0));result.saved=writes.at(-1);result.finished=!document.body.classList.contains('gs-needs-setup')&&document.querySelector('#setup-page').hidden;result.games=document.querySelectorAll('.gs-card').length;
+          document.querySelector('#build-info').click();document.querySelector('#open-server-settings').click();result.laterPath=document.querySelector('#server-root-path').value;result.laterData=document.querySelector('#server-data-path').value;
+        }
+        const report=document.createElement('pre');report.id='setup-report';report.textContent=JSON.stringify(result);document.body.append(report);
+      }catch(error){const report=document.createElement('pre');report.id='setup-report';report.textContent=JSON.stringify({error:error.stack});document.body.append(report);}},10));</script>`;
+      const source=html.replace('<link rel="stylesheet" href="/styles.css">','<style>'+css+'</style>').replace('<script src="/app.js"></script>',stub+'<script>'+app+'</script><script>'+setup+'</script>'+probe);
+      const file=path.join(dir,'setup-'+required+'-'+width+'.html');fs.writeFileSync(file,source);const run=spawnSync(chrome,['--headless','--disable-gpu','--no-sandbox','--disable-dev-shm-usage','--window-size='+width+',1000','--virtual-time-budget=3000','--dump-dom',pathToFileURL(file).href],{encoding:'utf8',timeout:15000,maxBuffer:10*1024*1024});assert.equal(run.status,0,run.stderr);const match=run.stdout.match(/<pre id="setup-report">([^<]+)<\/pre>/);assert.ok(match,'Browser did not report setup');const result=JSON.parse(match[1]);assert.equal(result.error,undefined,result.error);return result;
+    }
+    for(const width of [1280,390]){const r=render(true,width);assert.equal(r.required,true);assert.equal(r.hidden,false);assert.equal(r.overflow,false);assert.match(r.emptyError,/at least one/);assert.match(r.rejected,/mounted library/);assert.equal(r.keptSetup,true);assert.equal(r.folder,'/library');assert.equal(r.saved.refreshInterval,'0');assert.equal(r.finished,true);assert.equal(r.games,1);assert.equal(r.laterPath,'/library');assert.equal(r.laterData,'/data');}
+    const configured=render(false,1280);assert.equal(configured.required,false);assert.equal(configured.hidden,true);
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
