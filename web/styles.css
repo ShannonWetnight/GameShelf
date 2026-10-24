@@ -1856,6 +1856,7 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-log-config-group .gs-settings-option { margin: 0; padding: .65rem .85rem; border: 0; border-radius: 0; }
 .gs-log-config-group .gs-settings-option + .gs-settings-option { border-top: 1px solid var(--border-subtle); }
 .gs-log-retention { grid-template-columns: minmax(0,1fr) auto; gap: .5rem; padding: .6rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.gs-log-retention .gs-settings-option { border: 0; padding: .3rem; background: transparent; }
 .gs-log-retention-value { display: flex; align-items: center; gap: .45rem; }
 .gs-log-retention-value input { box-sizing: border-box; width: 5.4rem; height: 38px; padding: 0 .5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--input-background); color: var(--text); font: inherit; text-align: center; }
 .gs-log-retention-value input:disabled { opacity: .45; }
@@ -1889,11 +1890,12 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-card-actions .gs-card-download { order: 0; }
 .gs-card-actions .gs-card-cart { order: 1; }
 .gs-card-actions .gs-card-info { order: 2; }
-.gs-grid.list-view .gs-card-actions { box-sizing: border-box; height: 100%; padding: 0 .4rem; background: var(--icon-background); transform: translateY(-8px); transition: transform .22s ease, opacity .22s ease; }
+.gs-grid.list-view .gs-card-actions { box-sizing: border-box; height: 100%; padding: 0 .4rem 0 0; background: var(--icon-background); transform: translateX(12px); transition: transform .22s ease, opacity .22s ease; }
 .gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover .gs-card-actions,
 .gs-grid.list-view .gs-card:not(.gs-hover-suppressed):focus-within .gs-card-actions { transform: translateY(0); }
 .gs-grid.list-view .gs-card-actions > * { border: 0; background: transparent; box-shadow: none; }
-.gs-grid.list-view .gs-card-cover > .gs-favorite-star { order: 2; }
+.gs-grid.list-view .gs-card-actions .gs-card-cart { width: 42px; height: 42px; }
+.gs-grid.list-view .gs-card-cover > .gs-favorite-star { order: 0; }
 .gs-grid.list-view .gs-card-actions .gs-card-download { order: 0; }
 .gs-grid.list-view .gs-card-actions .gs-card-cart { order: 1; }
 .gs-grid.list-view .gs-card-actions .gs-card-info { order: 2; }

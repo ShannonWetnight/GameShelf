@@ -345,9 +345,8 @@ function animateControl(button) {
 }
 
 function transitionLibrary(update) {
-  if (disableEffects || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { update(); return; }
-  if (document.startViewTransition) { document.startViewTransition(update); return; }
   update();
+  if (disableEffects || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const stage = document.getElementById('library-stage');
   stage.classList.remove('gs-home-enter');
   void stage.offsetWidth;
