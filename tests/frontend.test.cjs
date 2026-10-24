@@ -852,8 +852,9 @@ test('theme and recent range persist, including migration of the old 3650-day se
   ui.element('theme-select').emit('change');
   assert.equal(storage.get('gameshelf:theme'), 'dark');
   assert.equal(ui.document.body.dataset.theme, 'dark');
+  ui.click('open-recent-settings');
   ui.element('recent-days').value = '3650';
-  ui.element('recent-days').emit('change');
+  ui.click('recent-settings-save');
   const next = app(undefined, storage);
   next.start();
   assert.equal(next.element('recent-days').value, '3650');
