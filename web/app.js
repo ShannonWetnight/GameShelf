@@ -64,6 +64,9 @@ function openModal(dialog) {
   if (!observedDialogs.has(dialog)) {
     dialog.addEventListener('close', () => {
       openDialogs.delete(dialog);
+      const parent = [...openDialogs].filter(item => item.open && !item.dataset.closing).at(-1);
+      if (parent) parent.focus?.({ preventScroll: true });
+      else document.activeElement?.blur?.();
       if (openDialogs.size === 0) {
         document.body.classList.remove('gs-modal-open');
         document.documentElement?.classList.remove('gs-modal-open');
@@ -88,7 +91,9 @@ function openModal(dialog) {
     observedDialogs.add(dialog);
   }
   dialog._cancelMotion?.();
+  dialog.tabIndex = -1;
   dialog.showModal();
+  dialog.focus?.({ preventScroll: true });
   if (!disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) dialog._openingMotion = dialog.animate?.(
     [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }],
     { duration: 180, easing: 'cubic-bezier(.2,.7,.2,1)' });
@@ -306,14 +311,17 @@ function syncCart() {
       button.setAttribute('aria-label', added ? 'Remove from Playlist' : 'Add to Playlist');
       button.dataset.tooltip = added ? 'Remove from Playlist' : 'Add to Playlist';
       button.title = button.dataset.tooltip;
+      button.textContent = added ? '✓' : '+';
     }
   }
   const detailButton = document.getElementById('game-details-cart');
   detailButton.classList.toggle('is-added', cartGameIds.has(detailsGameId));
+  detailButton.textContent = cartGameIds.has(detailsGameId) ? '✓' : '+';
   detailButton.setAttribute('aria-label', cartGameIds.has(detailsGameId) ? 'Remove from Playlist' : 'Add to Playlist');
   detailButton.dataset.tooltip = cartGameIds.has(detailsGameId) ? 'Remove from Playlist' : 'Add to Playlist';
   const spotlightButton = document.getElementById('spotlight-cart');
   spotlightButton.classList.toggle('is-added', cartGameIds.has(suggestedGameId));
+  spotlightButton.textContent = cartGameIds.has(suggestedGameId) ? '✓' : '+';
   spotlightButton.dataset.tooltip = cartGameIds.has(suggestedGameId) ? 'Remove from Playlist' : 'Add to Playlist';
   renderCart();
 }
@@ -461,6 +469,22 @@ function createGameCard(game) {
   img.alt = `${game.name} cover`;
 
   cover.appendChild(img);
+  const ambience = document.createElement('div');
+  ambience.className = 'gs-card-ambience';
+  ambience.setAttribute('aria-hidden', 'true');
+  const reveal = document.createElement('img');
+  reveal.className = 'gs-card-reveal';
+  reveal.alt = '';
+  ambience.appendChild(reveal);
+
+  card.addEventListener('pointermove', event => {
+    const theme = document.body.dataset.theme;
+    if (!['rose', 'midnight', 'lattice'].includes(theme) || document.getElementById('games-container').classList.contains('list-view')) return;
+    const bounds = cover.getBoundingClientRect();
+    cover.style.setProperty?.('--pointer-x', ((event.clientX - bounds.left) / bounds.width * 100) + '%');
+    cover.style.setProperty?.('--pointer-y', ((event.clientY - bounds.top) / bounds.height * 100) + '%');
+    if (theme === 'midnight' && reveal.src !== img.src) reveal.src = img.src;
+  });
   const star = document.createElement('button');
   star.className = 'gs-favorite-star';
   star.type = 'button';
@@ -521,6 +545,7 @@ function createGameCard(game) {
   actions.appendChild(details);
   cover.appendChild(actions);
   cover.appendChild(star);
+  cover.appendChild(ambience);
 
   const body = document.createElement('div');
   body.className = 'gs-card-body';
@@ -565,6 +590,7 @@ function openGameDetails(game, trigger, card) {
   fileListController = null;
   detailsGameId = game.id;
   document.getElementById('game-details-cart').classList.toggle('is-added', cartGameIds.has(game.id));
+  document.getElementById('game-details-cart').textContent = cartGameIds.has(game.id) ? '✓' : '+';
   document.getElementById('game-details-title').textContent = game.name;
   const detailArt = document.getElementById('game-details-art');
   detailArt.classList.toggle('gs-no-cover', game.hasCover === false);
@@ -592,7 +618,7 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-details-favorite-mobile').title = favorite.title;
   document.getElementById('game-details-cart').dataset.tooltip = cartGameIds.has(game.id) ? 'Remove from Playlist' : 'Add to Playlist';
   openModal(dialog);
-  document.getElementById('game-details-close').focus();
+
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
     if (openingCoverEditor) { openingCoverEditor = false; return; }
@@ -1216,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const uiWindow = typeof window === 'undefined' ? { scrollY: 0, matchMedia: () => ({ matches: false }), scrollTo: () => {} } : window;
   const themeMedia = uiWindow.matchMedia('(prefers-color-scheme: dark)');
   const themeSelect = document.getElementById('theme-select');
-  if (!['system', 'classic', 'light', 'dark', 'retro'].includes(themePreference)) themePreference = 'system';
+  if (!['system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice'].includes(themePreference)) themePreference = 'system';
   function applyTheme() {
     const theme = themePreference === 'system' ? (themeMedia.matches ? 'classic' : 'light') : themePreference;
     if (document.documentElement) document.documentElement.dataset.theme = theme;
@@ -1391,6 +1417,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const gameTitlesInput = document.getElementById('show-game-titles');
   const placeholderInput = document.getElementById('show-placeholder-images');
   const listImagesInput = document.getElementById('show-list-images');
+  const instantPreferences = {
+    'theme-select': 'Theme', 'slow-animations': 'Slow motion animations', 'disable-effects': 'Animation preference',
+    'animate-tiles': 'Loaded game tile animation', 'show-hover-text': 'Button hints', 'show-game-titles': 'Game titles',
+    'show-placeholder-images': 'Placeholder images', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
+    'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'
+  };
+  // Schedule after the saving listeners have applied each preference.
+  for (const [id, label] of Object.entries(instantPreferences)) document.getElementById(id).addEventListener('change', () => {
+    Promise.resolve().then(() => showNotification(label + ' saved.'));
+  });
   const playlistInput = document.getElementById('enable-playlist');
   const disableEffectsInput = document.getElementById('disable-effects');
   const animateTilesInput = document.getElementById('animate-tiles');
@@ -1405,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playlistEnabled = playlistInput.checked;
     localStorage.setItem('gameshelf:playlist-enabled', String(playlistEnabled));
     document.body.classList.toggle('gs-playlist-disabled', !playlistEnabled);
-    showNotification(playlistEnabled ? 'Download Playlist enabled.' : 'Download Playlist disabled.');
+
   });
   disableEffectsInput.checked = disableEffects;
   animateTilesInput.checked = animateTiles;
@@ -1452,7 +1488,7 @@ document.addEventListener('DOMContentLoaded', () => {
   settingsButton.addEventListener('click', () => {
     animateControl(settingsButton);
     openModal(settingsDialog);
-    document.getElementById(`settings-${settingsLevel}`).focus();
+
   });
   const exportDialog = document.getElementById('export-dialog');
   const exportOptions = document.getElementById('export-options');
@@ -1596,6 +1632,7 @@ document.addEventListener('DOMContentLoaded', () => {
     recentDays = Math.max(1, Math.min(3650, Number(daysInput.value) || 7));
     daysInput.value = String(recentDays);
     localStorage.setItem('gameshelf:recent-days', String(recentDays));
+    showSaveFeedback(document.getElementById('recent-settings-save'));
     applySearchFilter(); recentDialog.close(); showNotification('Recently Added range saved.');
   });
   const expandInput = document.getElementById('expand-list-image');
@@ -1644,6 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await saveServerSettings(next);
       document.getElementById('server-settings-status').textContent = '';
       document.getElementById('settings-save-status').textContent = '';
+      showSaveFeedback(button);
       serverDialog.close();
       showNotification(result.restartRequired ? 'Library settings saved. Restart the container to apply changes.' : 'Library settings saved.');
     } catch (error) { document.getElementById('server-settings-status').textContent = `Could not save settings: ${error.message}`; }
@@ -1668,6 +1706,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const hours = Number(document.getElementById('server-refresh-interval').value);
       if (!Number.isInteger(hours) || hours < 0 || hours > 8760) throw new Error('Choose 0–8760 whole hours.');
       await saveServerSettings({ ...serverSettings, refreshInterval:hours === 0 ? '0' : `${hours}h` });
+      showSaveFeedback(button);
       refreshDialog.close();
       showNotification('Refresh interval saved.');
     } catch (error) { document.getElementById('refresh-settings-status').textContent = `Could not save interval: ${error.message}`; }

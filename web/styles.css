@@ -1424,7 +1424,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 .gs-title-detail { gap: 0.5rem; }
 .gs-title-detail input { box-sizing: border-box; min-width: 0; width: 100%; height: 36px; background: #0a1324; color: var(--text); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0 0.5rem; font: inherit; line-height: 34px; }
 .gs-title-detail input:focus-visible { outline: 2px solid var(--accent); }
-.gs-title-save { width: 36px; height: 36px; min-height: 36px; flex: none; padding: 0; }
+.gs-title-save { width: 38px; height: 38px; min-height: 38px; flex: none; padding: 0; }
 .gs-title-save svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
 .gs-control-label { display: inline-block; transform: translateY(-1px); }
 .gs-details-dialog { width: min(760px, calc(100vw - 32px)); padding: 0; overflow: hidden; }
@@ -1490,7 +1490,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 .gs-files-section { margin-top: auto; }
 .gs-files-toggle { min-height: 38px; padding: 0 0.85rem; }
 .gs-cover-save-row > button, .gs-cover-save-actions > button { height: 36px; min-height: 36px; }
-.gs-cover-save-actions > #cover-editor-save { min-width: 36px; width: 36px; padding: 0; }
+.gs-cover-save-actions > #cover-editor-save { min-width: 38px; width: 38px; padding: 0; }
 .gs-view-morph svg { animation: gs-view-morph 170ms ease-out; transform-origin: center; }
 @keyframes gs-view-morph { from { opacity: 0.45; transform: scale(0.78); } to { opacity: 1; transform: scale(1); } }
 .gs-sort-open #sort-button::after { display: none !important; }
@@ -1716,8 +1716,6 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-cart-count[hidden] { display: none; }
 .gs-card-cart { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--border-subtle); border-radius: 50%; background: var(--bg-elevated); color: var(--text); font-size: 1.3rem; cursor: pointer; }
 .gs-card-cart.is-added { border-color: var(--accent); color: var(--accent); }
-.gs-card-cart.is-added::after { content: '✓'; position: absolute; font-size: .8rem; }
-.gs-card-cart.is-added { font-size: 0; }
 .gs-cart-dialog { width: min(540px, calc(100vw - 32px)); }
 .gs-cart-items { max-height: 45vh; overflow: auto; list-style: none; margin: .7rem 0; padding: 0; }
 .gs-cart-items li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .7rem; border-bottom: 1px solid var(--border-subtle); }
@@ -1836,7 +1834,7 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-cart-toggle svg, .gs-card-cart { transition: transform .16s ease, background .16s ease; }
 .gs-cart-toggle.gs-control-feedback svg, .gs-card-cart.gs-control-feedback { animation: gs-view-morph 170ms ease-out; }
 .gs-playlist-disabled #open-cart, .gs-playlist-disabled .gs-card-cart { display: none !important; }
-.gs-playlist-disabled .gs-details-download-row .gs-details-download { width: 100%; }
+
 .gs-details-download-row { display: flex; align-items: stretch; gap: .4rem; }
 .gs-details-download-row .gs-details-download { flex: 1; min-width: 0; }
 .gs-details-download-row .gs-card-cart { flex: none; box-sizing: border-box; width: 42px; height: 42px; border-radius: var(--radius-sm); }
@@ -1908,9 +1906,6 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 .gs-card[data-favorite="true"] .gs-favorite-star, .gs-favorite-star.is-favorite, :root[data-theme="light"] .gs-card[data-favorite="true"] .gs-favorite-star, :root[data-theme="light"] .gs-favorite-star.is-favorite { background: transparent; color: #f9b234; }
 .gs-favorite-star:hover, .gs-favorite-star:focus-visible { background: transparent; color: var(--accent); }
 .gs-card-cart.is-added { position: relative; }
-.gs-card-cart.is-added::after { inset: 0; display: grid; place-items: center; font-size: 1rem; }
-#game-details-cart.is-added::before { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.1rem; }
-#game-details-cart.is-added::after { content: attr(data-tooltip); }
 #game-details-cart.gs-has-tooltip::after { inset: auto 0 calc(100% + 14px) auto; display: block; font-size: .75rem; }
 
 .gs-grid.list-view .gs-card-cover { align-self: stretch; height: 100%; }
@@ -1974,7 +1969,7 @@ dialog.gs-settings-dialog, dialog.gs-list-image-dialog { animation: none; }
 :is(.gs-icon-button, .gs-card-info, .gs-card-cart, .gs-favorite-star, .gs-view-toggle, .gs-sort-button, .gs-settings-close, .gs-log-icon, .gs-search-clear, .gs-home-trigger, .gs-cover-preview-folder, .gs-cover-preview-upload, .gs-scroll-to-top, :where(#reroll-game)):not(.gs-title-save) {
   background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none; color: var(--text-muted) !important; transition: color .15s ease, opacity .18s ease, transform .16s ease;
 }
-:is(.gs-icon-button, .gs-card-info, .gs-card-cart, .gs-favorite-star, .gs-view-toggle, .gs-sort-button, .gs-settings-close, .gs-log-icon, .gs-search-clear, .gs-home-trigger, .gs-cover-preview-folder, .gs-cover-preview-upload, .gs-scroll-to-top, :where(#reroll-game)):not(.gs-title-save):not(:disabled):is(:hover, :focus-visible, :focus) { color: var(--accent) !important; background: transparent !important; box-shadow: none !important; }
+:is(.gs-icon-button, .gs-card-info, .gs-card-cart, .gs-favorite-star, .gs-view-toggle, .gs-sort-button, .gs-settings-close, .gs-log-icon, .gs-search-clear, .gs-home-trigger, .gs-cover-preview-folder, .gs-cover-preview-upload, .gs-scroll-to-top, :where(#reroll-game)):not(.gs-title-save):not(:disabled):is(:hover, :focus-visible) { color: var(--accent) !important; background: transparent !important; box-shadow: none !important; }
 .gs-view-toggle svg, .gs-sort-button svg { fill: currentColor; transition: transform .16s ease; }
 .gs-random svg, .gs-cart-toggle svg, #open-cart svg { fill: none; }
 .gs-sort :is(.gs-view-toggle, .gs-sort-button):not(:disabled):is(:hover, :focus-visible) svg { transform: scale(1.1); }
@@ -1993,14 +1988,14 @@ dialog.gs-settings-dialog, dialog.gs-list-image-dialog { animation: none; }
 /* One continuous deck animation; the real result card never changes layout. */
 .gs-grid.gs-spotlight { position: relative; isolation: isolate; }
 .gs-shuffle-deck { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; pointer-events: none; perspective: 1000px; }
-.gs-shuffle-face { position: absolute; width: min(100%, 320px); height: 100%; object-fit: fill; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-soft); will-change: transform, opacity; animation: gs-deck-cut var(--shuffle-duration) ease-in-out both; }
+.gs-shuffle-face { position: absolute; width: min(100%, 320px); height: 100%; object-fit: fill; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-soft); will-change: transform; animation: gs-deck-cut var(--shuffle-duration) ease-in-out both; }
 .gs-shuffle-face:nth-child(2) { animation-name: gs-deck-return; }
 .gs-shuffle-face:nth-child(3) { animation-name: gs-deck-settle; }
-.gs-card.gs-shuffle-anchor { animation: gs-deck-reveal var(--shuffle-duration) linear both; pointer-events: none; }
-@keyframes gs-deck-cut { 0% { z-index: 3; opacity: 1; transform: translate(0,0) rotate(0); } 30% { z-index: 3; opacity: 1; transform: translate(-65%,-5%) rotate(-14deg); } 55% { z-index: 1; opacity: 1; transform: translate(10px,8px) rotate(4deg); } 80%,100% { z-index: 1; opacity: 0; transform: translate(0,0) rotate(0); } }
-@keyframes gs-deck-return { 0% { z-index: 2; opacity: 1; transform: translate(10px,8px) rotate(4deg); } 30% { z-index: 2; opacity: 1; transform: translate(0,0) rotate(0); } 60% { z-index: 3; opacity: 1; transform: translate(65%,-5%) rotate(14deg); } 85%,100% { z-index: 1; opacity: 0; transform: translate(0,0) rotate(0); } }
-@keyframes gs-deck-settle { 0% { z-index: 1; opacity: 1; transform: translate(-10px,12px) rotate(-4deg); } 60% { z-index: 2; opacity: 1; transform: translate(0,0) rotate(0); } 80% { z-index: 4; opacity: 1; transform: none; } 100% { z-index: 4; opacity: 0; transform: none; } }
-@keyframes gs-deck-reveal { 0%,75% { opacity: 0; } 90%,100% { opacity: 1; } }
+.gs-card.gs-shuffle-anchor { visibility: hidden; pointer-events: none; }
+@keyframes gs-deck-cut {0% {z-index:3;transform:none} 25% {z-index:3;transform:translate(-100%,-3%) rotate(-12deg)} 26% {z-index:1;transform:translate(-100%,-3%) rotate(-12deg)} 58%,100% {z-index:1;transform:translate(9px,7px) rotate(3deg)}}
+@keyframes gs-deck-return {0% {z-index:2;transform:translate(9px,7px) rotate(3deg)} 28% {z-index:3;transform:none} 55% {z-index:3;transform:translate(100%,-3%) rotate(12deg)} 56% {z-index:1;transform:translate(100%,-3%) rotate(12deg)} 85%,100% {z-index:1;transform:translate(-9px,7px) rotate(-3deg)}}
+@keyframes gs-deck-settle {0%,55% {z-index:1;transform:translate(-8px,9px) rotate(-3deg)} 65%,100% {z-index:4;transform:none}}
+
 @media (hover: none) { .gs-grid .gs-card .gs-favorite-star { opacity: 1; pointer-events: auto; transform: none; } }
 
 .gs-sort-button svg.gs-sort-symbol { fill: none; stroke: currentColor; }
@@ -2010,3 +2005,52 @@ dialog.gs-settings-dialog, dialog.gs-list-image-dialog { animation: none; }
 .gs-card-actions > :is(:hover, :focus-visible) { transform: none; }
 
 .gs-card.gs-tile-fill:not(.gs-shuffle-anchor) { animation: gs-tile-fill .32s ease-out both; }
+
+/* Shared, predictable controls across every settings screen. */
+dialog:focus { outline: none; }
+.gs-title-save, .gs-export-actions .gs-title-save, .gs-cover-save-actions .gs-title-save, .gs-title-detail .gs-title-save {
+  box-sizing: border-box; display: inline-grid; place-items: center; position: relative; width: 38px; min-width: 38px; max-width: 38px; height: 38px; min-height: 38px; padding: 0; flex: 0 0 38px; line-height: 1;
+}
+.gs-title-save svg { inset: 0; margin: auto; width: 18px; height: 18px; }
+/* A checked Playlist item occupies exactly the same layout cell as its plus. */
+.gs-grid:not(.list-view) .gs-card-actions .gs-card-cart, .gs-grid.list-view .gs-card-actions .gs-card-cart { position: relative; }
+#game-details-cart[data-tooltip]::after { pointer-events: none; }
+.gs-details-download-row, .gs-playlist-disabled .gs-details-download-row { display: flex; justify-content: center; align-items: center; gap: 12px; }
+.gs-details-download-row > *, .gs-playlist-disabled .gs-details-download-row .gs-details-download { position: relative; inset: auto; flex: 0 0 40px; box-sizing: border-box; width: 40px; height: 40px; min-height: 40px; display: inline-grid; place-items: center; padding: 0; border: 0; }
+.gs-details-download-row .gs-favorite-star { font-size: 1.35rem; }
+#game-details-favorite-mobile { display: none !important; }
+.gs-details-download-row .gs-has-tooltip::after { top: auto; bottom: calc(100% + 12px); }
+/* Place sizes against the same inner gutter as names; show the file action on demand. */
+.gs-files-panel li { position: relative; }
+.gs-files-panel li span:nth-child(2) { flex: 0 0 auto; justify-content: flex-end; text-align: right; font-variant-numeric: tabular-nums; }
+.gs-files-panel li a { position: absolute; right: .75rem; background: var(--input-background); }
+.gs-files-panel li:is(:hover, :focus-within) span:nth-child(2) { padding-right: 40px; }
+.gs-grid:not(.list-view) .gs-card:not(.gs-hover-suppressed):is(:hover, :focus-within) .gs-card-actions svg,
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):is(:hover, :focus-within) .gs-card-actions svg { transition: transform .16s ease; }
+.gs-card-actions > :is(:hover, :focus-visible) svg { transform: scale(1.1); }
+.gs-card-actions > :is(.gs-card-cart, .gs-card-info):is(:hover, :focus-visible), .gs-favorite-star:is(:hover, :focus-visible) { scale: 1.1; }
+.gs-show-placeholders .gs-grid:not(.list-view) .gs-no-cover .gs-card-cover img { height: 100%; bottom: 0; }
+.gs-show-placeholders .gs-details-art.gs-no-cover img { object-fit: fill; }
+.gs-card-ambience { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .35s ease; }
+.gs-card-ambience .gs-card-reveal { display: none; }
+.gs-grid:not(.list-view) .gs-card:not(.gs-hover-suppressed):is(:hover, :focus-within) .gs-card-ambience { opacity: 1; }
+.gs-card-actions { z-index: 3; }
+.gs-card-cart, .gs-card-cart.is-added, #game-details-cart.is-added { font-size:1.3rem;line-height:1; }
+.gs-files-panel li { display:grid;grid-template-columns:minmax(0,1fr) 28px max-content;column-gap:.75rem; }
+.gs-files-panel li span:first-child { grid-area:1/1; }
+.gs-files-panel li span:nth-child(2), .gs-files-panel li:is(:hover,:focus-within) span:nth-child(2) { grid-area:1/3;justify-self:end;padding:0; }
+.gs-files-panel li a { grid-area:1/2;position:static; }
+.gs-details-download-row .gs-details-download { flex:0 0 40px; width:40px; }
+.gs-details-download-row .gs-card-cart, .gs-details-download-row .gs-favorite-star { flex:0 0 40px;width:40px;height:40px; }
+@media (max-width:700px) {
+  .gs-details-layout { display:flex;flex-direction:column; }
+  .gs-details-content { order:1; }
+  .gs-details-art { display:flex;order:2;border-right:0;border-top:1px solid var(--border-subtle); }
+  .gs-details-art-frame { display:none; }
+  .gs-details-art-footer { min-height:80px; }
+  #game-details-files-mobile { display:none; }
+}
+.gs-show-placeholders .gs-grid:not(.list-view) .gs-no-cover .gs-card-cover img, .gs-show-placeholders .gs-details-art.gs-no-cover img { object-fit:cover; }
+
+.gs-card-cart.is-added::after { content:none; }
+#game-details-cart.is-added::after { content:attr(data-tooltip);display:block;inset:auto 0 calc(100% + 12px) auto;width:max-content;height:auto;font-size:.75rem; }
