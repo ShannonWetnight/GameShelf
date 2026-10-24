@@ -27,10 +27,13 @@
       }
       resize(); host.appendChild(canvas);
       const motion = matchMedia('(prefers-reduced-motion: reduce)');
-      const count = viewport ? Math.round(Math.min(350, Math.max(65, width * height / (theme === 'storm' ? 4400 : theme === 'autumn' ? 11000 : 7000)))) : theme === 'storm' ? 90 : theme === 'autumn' ? 42 : 62;
-      const velocity = viewport ? (theme === 'storm' ? 510 : theme === 'autumn' ? 260 : 360) : theme === 'storm' ? 320 : theme === 'autumn' ? 150 : 230;
+      const count = viewport ? Math.round(Math.min(theme === 'storm' ? 480 : 350, Math.max(65, width * height / (theme === 'storm' ? 3000 : theme === 'autumn' ? 11000 : 7000)))) : theme === 'storm' ? 140 : theme === 'autumn' ? 42 : 62;
+      const velocity = viewport ? (theme === 'storm' ? 510 : theme === 'autumn' ? 300 : 360) : theme === 'storm' ? 320 : theme === 'autumn' ? 175 : 230;
       const wind = theme === 'storm' ? -105 : theme === 'autumn' ? -36 : -62;
       const drops = Array.from({ length: count }, () => ({ x: Math.random() * width, y: Math.random() * height, vx: 0, depth: .55 + Math.random() * .75, length: viewport ? 10 + Math.random() * 24 : 6 + Math.random() * 11, alpha: viewport ? .06 + Math.random() * .2 : .15 + Math.random() * .4 }));
+      const splashes = [];
+      const leaves = viewport && theme === 'autumn' ? Array.from({length:Math.max(4,Math.round(width/180))},()=>({x:Math.random()*width,y:Math.random()*height,phase:Math.random()*6.28,size:2+Math.random()*2,velocity:18+Math.random()*18})) : [];
+      let elapsed = 0;
       let pointer = null, frame = null, last = 0, stopped = false;
       function draw(now) {
         frame = null;
@@ -38,7 +41,7 @@
         if (!host.isConnected) { effect.stop(); return; }
         const rate = motion.matches ? 0 : speed();
         const dt = Math.min(32, last ? now - last : 16) / 1000 * rate;
-        last = now; context.clearRect(0, 0, width, height);
+        last = now; elapsed += dt; context.clearRect(0, 0, width, height);
         for (const drop of drops) {
           const before = drop.y, vy = velocity * drop.depth, vx = wind * drop.depth + drop.vx;
           drop.y += vy * dt; drop.x += vx * dt;
@@ -52,6 +55,10 @@
               drop.vx = side * (95 + Math.random() * 45);
             }
           }
+          if (before < height - 3 && drop.y >= height - 3 && dt > 0) {
+            splashes.push({x:drop.x,y:height-3,life:.22,size:2+Math.random()*4,alpha:drop.alpha*.8});
+            drop.y = -drop.length - Math.random()*40; drop.x = Math.random()*width; drop.vx = 0;
+          }
           if (drop.y > height + drop.length) { drop.y = -drop.length; drop.x = Math.random() * width; drop.vx = 0; }
           if (drop.x < -40) drop.x = width + 20;
           if (drop.x > width + 40) drop.x = -20;
@@ -61,6 +68,17 @@
           // Each streak is drawn along the same vector that advances the drop.
           context.beginPath(); context.moveTo(drop.x, drop.y);
           context.lineTo(drop.x - vx / vy * drop.length, drop.y - drop.length); context.stroke();
+        }
+        for (let i=splashes.length-1;i>=0;i--) {
+          const splash=splashes[i];splash.life-=dt;if(splash.life<=0){splashes.splice(i,1);continue;}
+          const size=splash.size*(1-splash.life/.22);
+          context.strokeStyle='rgba(192,214,231,'+(splash.alpha*splash.life/.22)+')';context.lineWidth=.65;
+          context.beginPath();context.moveTo(splash.x-size,splash.y-size*.5);context.lineTo(splash.x,splash.y);context.lineTo(splash.x+size,splash.y-size*.5);context.stroke();
+        }
+        for (const leaf of leaves) {
+          leaf.y+=leaf.velocity*dt;leaf.x+=(-8+Math.sin(elapsed*.6+leaf.phase)*7)*dt;
+          if(leaf.y>height+12){leaf.y=-12;leaf.x=Math.random()*width;}if(leaf.x<-12)leaf.x=width+12;
+          context.fillStyle='rgba(190,136,68,.3)';context.beginPath();context.ellipse(leaf.x,leaf.y,leaf.size*.55,leaf.size,leaf.phase+elapsed*.3,0,Math.PI*2);context.fill();
         }
         if (pointer) {
           context.strokeStyle = theme === 'autumn' ? 'rgba(242,198,143,.35)' : 'rgba(192,222,244,.3)';

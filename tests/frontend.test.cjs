@@ -401,6 +401,9 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(ui.hidden('spotlight-actions'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   assert.equal(selected()[0], stableCard);
+  assert.equal(selected()[0].classList.contains('gs-shuffle-confirm'), true);
+  selected()[0].emit('animationend');
+  assert.equal(selected()[0].classList.contains('gs-shuffle-confirm'), false);
   assert.equal(ui.element('games-container').children.filter(child => child.classList.contains('gs-shuffle-deck')).length, 0);
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), false);
   const firstId = selected()[0].dataset.id;
@@ -1127,4 +1130,36 @@ test('new controls migrate old motion preferences and persist opacity endpoints 
   ui.element('card-depth').checked=false;ui.element('card-depth').emit('change');
   const revisit=app(undefined,storage);revisit.start();assert.equal(revisit.element('list-opacity').value,'0');assert.equal(revisit.element('card-depth').checked,false);
   ui.element('list-opacity').value='100';ui.element('list-opacity').emit('input');assert.equal(storage.get('gameshelf:list-opacity'),'100');
+});
+
+test('hover titles default on and static titles temporarily disable their setting', () => {
+  const storage=new Map();const ui=app(undefined,storage);ui.start();
+  assert.equal(ui.element('hover-game-titles').checked,true);assert.equal(ui.element('hover-game-titles').disabled,false);
+  assert.equal(ui.document.body.classList.contains('gs-hover-game-titles'),true);
+  const staticTitles=ui.element('show-game-titles');staticTitles.checked=true;staticTitles.emit('change');
+  assert.equal(ui.element('hover-game-titles').disabled,true);assert.equal(ui.document.body.classList.contains('gs-hover-game-titles'),false);
+  staticTitles.checked=false;staticTitles.emit('change');assert.equal(ui.element('hover-game-titles').disabled,false);assert.equal(ui.document.body.classList.contains('gs-hover-game-titles'),true);
+  ui.element('hover-game-titles').checked=false;ui.element('hover-game-titles').emit('change');
+  const revisit=app(undefined,storage);revisit.start();assert.equal(revisit.element('hover-game-titles').checked,false);
+});
+
+
+test('sparkle stars twinkle independently, pause with motion off, and clean up on theme changes', () => {
+  let frames=new Map(),next=0,arcs=[],random=1,rate=1;const listeners=new Set(),variables={};
+  const host={isConnected:true,children:[],getBoundingClientRect:()=>({width:300,height:450}),appendChild(canvas){this.children.push(canvas);canvas.parent=this;}};
+  const context={scale(){},clearRect(){arcs=[];},beginPath(){},arc(x,y,r){arcs.push([x,y,r,this.globalAlpha]);},fill(){},moveTo(){},lineTo(){},stroke(){}};
+  const media={matches:false,addEventListener(type,listener){listeners.add(listener);},removeEventListener(type,listener){listeners.delete(listener);}};
+  const math=Object.create(Math);math.random=()=>{random=(random*16807)%2147483647;return random/2147483647;};
+  const window={addEventListener(){},removeEventListener(){}};
+  const sandbox={window,document:{body:host,documentElement:{style:{setProperty(k,v){variables[k]=v;}}},createElement(){return {setAttribute(){},getContext:()=>context,remove(){this.parent.children=this.parent.children.filter(c=>c!==this);}};}},Math:math,devicePixelRatio:1,innerWidth:1280,innerHeight:800,matchMedia:()=>media,performance:{now:()=>0},requestAnimationFrame(fn){const id=++next;frames.set(id,fn);return id;},cancelAnimationFrame(id){frames.delete(id);}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../web/ambience.js'),'utf8'),sandbox);
+  const api=window.GameShelfAmbience;const effect=api.startCover(host,'retro',()=>rate);const first=arcs.map(a=>a.slice());
+  for(let time=40;time<=800;time+=40){const queued=[...frames.values()];frames.clear();queued.forEach(fn=>fn(time));}
+  assert.ok(first.some((a,i)=>Math.abs(a[2]-arcs[i][2])>.01),'stars should change size without pointer motion');
+  assert.ok(first.some((a,i)=>Math.abs(a[3]-arcs[i][3])>.05),'individual stars should change brightness');
+  rate=0;const queued=[...frames.values()];frames.clear();queued.forEach(fn=>fn(840));assert.equal(frames.size,0);
+  effect.stop();assert.equal(host.children.length,0);assert.equal(listeners.size,0);
+  rate=1;api.setTheme('cosmos',()=>rate);const background=host.children[0],positions=arcs.map(a=>a[0]);const nebula=variables['--nebula-x'];api.setTheme('cosmos',()=>rate);
+  assert.notEqual(host.children[0],background);assert.notDeepEqual(arcs.map(a=>a[0]),positions);assert.notEqual(variables['--nebula-x'],nebula);assert.equal(host.children.length,1);assert.equal(listeners.size,1);
+  api.setTheme('classic',()=>rate);assert.equal(host.children.length,0);assert.equal(frames.size,0);assert.equal(listeners.size,0);
 });

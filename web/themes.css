@@ -64,11 +64,10 @@ body:not(.gs-show-placeholders) .gs-no-cover .gs-card-ambience .gs-card-reveal {
 :root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-grid .gs-card:not(.gs-hover-suppressed):is(:hover,:focus-within,.gs-random-selected) { border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft),var(--shadow-soft); }
 :root[data-theme="rain"] body::after { background:radial-gradient(ellipse at 15% 45%,#a7c6de0e,transparent 55%),radial-gradient(ellipse at 85% 10%,#c7d8e818,transparent 55%);animation:gs-rain-mist 15s ease-in-out infinite alternate; }
 :root[data-theme="storm"] body::after { background:radial-gradient(ellipse at 70% 5%,#a1b7e52b,transparent 60%);animation:gs-storm-cloud 12s ease-in-out infinite; }
-:root[data-theme="autumn"] body::after { background-image:radial-gradient(ellipse 3px 7px at 15% 15%,#cf9e5555 70%,transparent 90%),radial-gradient(ellipse 4px 9px at 70% 60%,#a5683855 70%,transparent 90%);background-size:241px 317px,379px 463px;animation:gs-autumn-leaves 24s linear infinite;opacity:.55; }
+:root[data-theme="autumn"] body::after { background:radial-gradient(ellipse at 20% 10%,#ad825513,transparent 60%);animation:gs-rain-mist 18s ease-in-out infinite alternate; }
 :root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-card-ambience::before { background:linear-gradient(transparent,#aac5df0c);opacity:.35; }
 @keyframes gs-rain-mist { from{opacity:.3;transform:translateX(-3%)}to{opacity:.8;transform:translateX(3%)} }
 @keyframes gs-storm-cloud { 0%,40%,100%{opacity:.15}60%{opacity:.7}75%{opacity:.3} }
-@keyframes gs-autumn-leaves { from{background-position:0 -317px,0 -463px}to{background-position:100px 317px,-80px 463px} }
 body.gs-no-animations::before,body.gs-no-animations::after { animation:none !important; }
 @media(prefers-reduced-motion:reduce) { body::before,body::after { animation:none !important; } }
 /* Retro Arcade keeps its warm text and purple surfaces, with a cool glitter wash. */
@@ -80,3 +79,12 @@ body.gs-no-animations::before,body.gs-no-animations::after { animation:none !imp
 :root #settings-dialog .gs-settings-backup > button { background:var(--input-background); }
 :root .gs-settings-dialog .gs-button:not(.gs-danger-action) { color:var(--text); }
 :root .gs-settings-dialog .gs-title-save:is(:hover,:focus-visible):not(:disabled) { background:var(--accent);color:var(--bg); }
+:root #settings-dialog .gs-settings-backup button { background:var(--input-background); }
+/* Dynamic sparkles are drawn by ambience.js; the CSS layer only adds color. */
+:root:is([data-theme="retro"],[data-theme="rose"]) .gs-card-ambience::before { background:linear-gradient(145deg,#d136df17,#333fad22,#269ad516);mask-image:none;animation:none; }
+:root:is([data-theme="retro"],[data-theme="rose"]) .gs-card-ambience::after { background:radial-gradient(circle 110px at var(--pointer-x,50%) var(--pointer-y,50%),#b37bda1a,transparent);animation:none; }
+.gs-sparkle-canvas,.gs-space-canvas { pointer-events:none; }
+.gs-sparkle-canvas { position:absolute;inset:0;width:100%;height:100%; }
+.gs-space-canvas { position:fixed;inset:0;width:100%;height:100%;z-index:-1; }
+:root[data-theme="cosmos"] { --page-background:radial-gradient(ellipse at var(--nebula-x,20%) var(--nebula-y,20%),#17244c 0,transparent 55%),radial-gradient(ellipse at var(--nebula-x2,85%) var(--nebula-y2,70%),#291242 0,transparent 50%),#02040e; }
+:root[data-theme="cosmos"] body::before,:root[data-theme="cosmos"] body::after { background:none;animation:none; }
