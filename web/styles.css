@@ -1969,3 +1969,25 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 .gs-random.is-rolling svg { animation: gs-dice-smooth var(--dice-roll-duration, 600ms) cubic-bezier(.18,.72,.25,1) both; transform-origin: center; }
 @keyframes gs-dice-smooth { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(165deg) scale(.94); } 85% { transform: rotate(345deg) scale(1.04); } 100% { transform: rotate(360deg) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .gs-random.is-rolling svg, .gs-card.gs-spotlight-enter, #settings-dialog[data-settings-level="advanced"] [data-setting-level="advanced"] { animation: none; } }
+/* Shared action trays: reserve the outer controls and center the primary pair. */
+#settings-dialog #logs-setting { flex-wrap: nowrap; align-items: flex-start; }
+#settings-dialog #logs-setting > span { flex: 1; }
+#settings-dialog #logs-setting .gs-settings-dual-actions { flex: 0 0 112px; width: 112px; }
+#settings-dialog .gs-settings-backup .gs-danger-action { color: #ee7682; border-color: #ca5964; background: rgba(202,89,100,.1); }
+#settings-dialog .gs-settings-backup .gs-danger-action:hover { background: rgba(202,89,100,.22); border-color: #ee7682; }
+.gs-cover-preview-actions > :hover, .gs-cover-preview-actions > :focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.gs-grid:not(.list-view) .gs-card-actions { height: 94px; align-items: flex-start; padding: 9px 50px 0; gap: 6px; background: linear-gradient(to bottom, var(--icon-background) 0%, color-mix(in srgb, var(--icon-background) 96%, transparent) 38%, color-mix(in srgb, var(--icon-background) 65%, transparent) 62%, color-mix(in srgb, var(--icon-background) 22%, transparent) 82%, transparent 100%); }
+.gs-grid:not(.list-view) .gs-card-actions .gs-card-info { position: absolute; top: 9px; right: 8px; }
+.gs-grid .gs-card .gs-card-actions .gs-card-download { border: 0; box-shadow: none; background: transparent; }
+.gs-grid:not(.list-view) .gs-card[data-favorite="false"] .gs-favorite-star { display: grid; opacity: 0; pointer-events: none; transform: translateY(-94px); }
+.gs-grid:not(.list-view) .gs-card[data-favorite="false"]:not(.gs-hover-suppressed):hover .gs-favorite-star,
+.gs-grid:not(.list-view) .gs-card[data-favorite="false"]:focus-within .gs-favorite-star { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.gs-grid.list-view .gs-card-cover { isolation: isolate; }
+.gs-grid.list-view .gs-card-actions::before { inset: 0 -12px 0 -100px; background: linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--icon-background) 20%, transparent) 12%, color-mix(in srgb, var(--icon-background) 65%, transparent) 28%, var(--icon-background) 48%); }
+.gs-grid.list-view .gs-card[data-favorite="false"] .gs-favorite-star { display: grid; opacity: 0; pointer-events: none; transform: translateX(18px); transition: transform .24s ease, opacity .24s ease; }
+.gs-grid.list-view .gs-card[data-favorite="false"]:not(.gs-hover-suppressed):hover .gs-favorite-star,
+.gs-grid.list-view .gs-card[data-favorite="false"]:focus-within .gs-favorite-star { opacity: 1; pointer-events: auto; transform: translateX(0); }
+.gs-card.gs-shuffle-preview, .gs-card.gs-shuffle-preview.gs-shuffle-reverse { animation: gs-shuffle-dissolve var(--shuffle-duration, 300ms) ease-in-out both; }
+.gs-grid.gs-slow-animations { --shuffle-duration: 480ms; }
+@keyframes gs-shuffle-dissolve { 0% { opacity: .3; } 30%, 75% { opacity: 1; } 100% { opacity: .3; } }
+@media (hover: none) { .gs-grid .gs-card[data-favorite="false"] .gs-favorite-star { opacity: 1; pointer-events: auto; transform: none; } }

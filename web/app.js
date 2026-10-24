@@ -18,7 +18,7 @@ localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
 let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
-let expandListImage = localStorage.getItem('gameshelf:expand-list-image') === 'true';
+let expandListImage = localStorage.getItem('gameshelf:expand-list-image') !== 'false';
 let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') !== 'false';
 let favoritePending = null;
 let serverSettings = null;
@@ -36,7 +36,7 @@ const cartGameIds = new Set();
 try { for (const id of JSON.parse(localStorage.getItem('gameshelf:cart') || '[]')) if (typeof id === 'string') cartGameIds.add(id); } catch { /* ignore stale cart */ }
 let showHoverText = localStorage.getItem('gameshelf:show-hover-text') !== 'false';
 let showGameTitles = localStorage.getItem('gameshelf:show-game-titles') === 'true';
-let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-images') === 'true';
+let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-images') !== 'false';
 let showListImages = localStorage.getItem('gameshelf:show-list-images') !== 'false';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
 let detailsGameId = null;
@@ -1076,7 +1076,7 @@ function suggestRandomGame() {
   diceButton.dataset.tooltip = 'Choosing a game…';
   applyViewMode();
   const frames = Math.min(4, alternatives.length * 2);
-  const frameDelay = slowAnimations ? 250 : 156;
+  const frameDelay = slowAnimations ? 480 : 300;
   let lastId = null;
   for (let step = 0; step < frames; step++) {
     const options = alternatives.filter(candidate => candidate.id !== lastId);
@@ -1089,9 +1089,7 @@ function suggestRandomGame() {
       shuffleGameId = preview.id;
       const previewCard = cardMap.get(preview.id);
       if (!previewCard) return;
-      void previewCard.offsetWidth;
       previewCard.classList.add('gs-shuffle-preview');
-      previewCard.classList.toggle('gs-shuffle-reverse', step % 2 === 1);
       applySearchFilter();
     };
     if (step === 0) showPreview();
@@ -1389,8 +1387,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('settings-advanced').setAttribute('aria-pressed', String(settingsLevel === 'advanced'));
   }
   applySettingsLevel();
-  for (const level of ['basic', 'advanced']) document.getElementById(`settings-${level}`).addEventListener('click', () => {
+  let changingSettingsLevel = false;
+  for (const level of ['basic', 'advanced']) document.getElementById(`settings-${level}`).addEventListener('click', async () => {
+    if (changingSettingsLevel || settingsLevel === level) return;
+    changingSettingsLevel = true;
     const before = settingsDialog.getBoundingClientRect?.().height;
+    if (level === 'basic' && !disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      const exits = Array.from(settingsDialog.querySelectorAll('[data-setting-level="advanced"]')).map(node =>
+        node.animate?.([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-5px)' }],
+          { duration: 220, easing: 'ease-in', fill: 'forwards' }));
+      await Promise.all(exits.map(animation => animation?.finished?.catch(() => {})));
+      exits.forEach(animation => animation?.cancel());
+    }
     settingsLevel = level;
     localStorage.setItem('gameshelf:settings-level', level);
     applySettingsLevel();
@@ -1399,6 +1407,7 @@ document.addEventListener('DOMContentLoaded', () => {
       [{ height: `${before}px`, overflow: 'hidden' }, { height: `${after}px`, overflow: 'hidden' }],
       { duration: 240, easing: 'cubic-bezier(.22,.7,.2,1)' }
     );
+    changingSettingsLevel = false;
   });
   disableEffectsInput.addEventListener('change', () => {
     disableEffects = disableEffectsInput.checked;
