@@ -2096,3 +2096,44 @@ body.gs-card-depth .gs-grid .gs-card { box-shadow:inset 0 1px 0 color-mix(in srg
 #cart-checkout:not(:disabled):active { transform:translateY(0) scale(.98); }
 .gs-weather-canvas { position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none; }
 .gs-header { transition:border-bottom-color .15s ease; }
+/* Covers keep one stable frame; full artwork is contained above a soft backdrop. */
+:root { --empty-cover-background:radial-gradient(ellipse at 35% 20%,color-mix(in srgb,var(--accent) 16%,var(--bg-elevated)),var(--card-footer) 90%); }
+.gs-grid:not(.list-view) .gs-card-cover { width:100%;aspect-ratio:2/3;flex:0 0 auto; }
+.gs-grid .gs-card .gs-card-cover > img.gs-cover-image { object-fit:contain;transform:none;height:100%;inset:0; }
+.gs-card-cover::before,.gs-details-art-frame::before { content:'';position:absolute;inset:-12px;background-image:var(--cover-image);background-size:cover;background-position:center;filter:blur(14px) brightness(.4);opacity:.8;pointer-events:none; }
+.gs-card-cover[data-cover-shape="poster"]::before,.gs-grid.list-view .gs-card-cover::before,.gs-no-cover .gs-card-cover::before,.gs-details-art.gs-no-cover .gs-details-art-frame::before { display:none; }
+:root .gs-grid:not(.list-view) .gs-no-cover .gs-card-cover,:root .gs-details-art.gs-no-cover { background:var(--empty-cover-background); }
+.gs-cover-unavailable { background:var(--empty-cover-background); }
+.gs-cover-unavailable::before { display:none; }
+.gs-cover-unavailable > img { visibility:hidden; }
+.gs-cover-unavailable::after { content:attr(data-cover-label);position:absolute;inset:0;display:grid;place-items:center;padding:1rem;text-align:center;font-weight:600; }
+.gs-grid.list-view .gs-list-image { object-fit:contain; }
+:root[data-theme="midnight"] .gs-card .gs-card-cover .gs-card-ambience .gs-card-reveal { object-fit:contain;transform:none; }
+/* Static names remain below the frame; hover names are a separate bottom tray. */
+.gs-card-hover-title { position:absolute;inset:auto 0 0;z-index:2;display:flex;align-items:flex-end;justify-content:center;min-height:70px;padding:22px 12px 12px;background:linear-gradient(transparent,color-mix(in srgb,var(--icon-background) 85%,transparent) 48%,var(--icon-background));color:var(--text);font-size:.85rem;font-weight:650;text-align:center;line-height:1.3;transform:translateY(101%);opacity:0;transition:transform .22s ease,opacity .22s ease;pointer-events:none; }
+.gs-hover-game-titles .gs-grid:not(.list-view) .gs-card:is(:hover,:focus-within) .gs-card-hover-title { transform:none;opacity:1; }
+.gs-grid.list-view .gs-card-hover-title,.gs-show-game-titles .gs-card-hover-title { display:none; }
+.gs-hover-game-titles .gs-grid:not(.list-view) .gs-no-cover:is(:hover,:focus-within) .gs-cover-title { opacity:0; }
+.gs-hover-game-titles .gs-grid:not(.list-view) .gs-placeholder-title { display:none !important; }
+#settings-dialog .gs-settings-option.gs-disabled { opacity:.48;cursor:not-allowed; }
+#settings-dialog .gs-theme-option select,#expand-list-image { field-sizing:content;width:auto;max-width:100%;min-width:0;flex-basis:auto; }
+/* A compact detail card reserves just enough space for artwork and actions. */
+@media(min-width:701px) {
+  .gs-details-dialog { width:min(720px,calc(100vw - 32px)); }
+  .gs-details-layout { grid-template-columns:220px minmax(0,1fr);height:min(414px,calc(100vh - 34px)); }
+  .gs-details-content { padding:1rem 1.1rem; }
+  .gs-details-art-footer { min-height:76px;padding:.5rem .75rem;gap:.2rem; }
+}
+.gs-cart-dialog.gs-playlist-empty { width:min(390px,calc(100vw - 32px));height:fit-content;min-height:0; }
+.gs-playlist-empty .gs-settings-help,.gs-playlist-empty .gs-cart-items,.gs-playlist-empty .gs-cart-total,.gs-playlist-empty .gs-export-actions { display:none; }
+.gs-playlist-empty-state { display:grid;justify-items:center;gap:.65rem;padding:1.3rem 1rem 1.6rem;text-align:center; }
+.gs-playlist-empty-state[hidden] { display:none; }
+.gs-playlist-empty-state svg { width:38px;height:38px;fill:none;stroke:var(--text-muted);stroke-width:1.6;stroke-linecap:round; }
+.gs-playlist-empty-state p { margin:0;color:var(--text-muted);font-size:.85rem; }
+.gs-card.gs-shuffle-confirm { animation:gs-shuffle-confirm .28s ease-out both; }
+@keyframes gs-shuffle-confirm { 0%{transform:scale(.995)}45%{transform:translateY(-3px) scale(1.012)}100%{transform:none} }
+.gs-card-hover-title-text { display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere; }
+
+.gs-details-art #game-details-image { object-fit:contain; }
+
+.gs-no-cover .gs-cover-unavailable::after { content:none; }

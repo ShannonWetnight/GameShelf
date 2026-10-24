@@ -41,6 +41,7 @@ const cartGameIds = new Set();
 try { for (const id of JSON.parse(localStorage.getItem('gameshelf:cart') || '[]')) if (typeof id === 'string') cartGameIds.add(id); } catch { /* ignore stale cart */ }
 let showHoverText = localStorage.getItem('gameshelf:show-hover-text') !== 'false';
 let showGameTitles = localStorage.getItem('gameshelf:show-game-titles') === 'true';
+let hoverGameTitles = localStorage.getItem('gameshelf:hover-game-titles') !== 'false';
 let showPlaceholderImages = localStorage.getItem('gameshelf:show-placeholder-images') !== 'false';
 let showListImages = localStorage.getItem('gameshelf:show-list-images') !== 'false';
 let currentView = localStorage.getItem('gameshelf:view') || 'grid';
@@ -68,10 +69,11 @@ const motionDuration = duration => Math.round(duration / (animationSpeed || 1));
 function applyMotionSpeed() {
   document.body.classList.toggle('gs-no-animations', disableEffects);
   window.GameShelfRain?.refreshBackground?.();
+  window.GameShelfAmbience?.refresh();
   for (const animation of document.getAnimations?.() || []) {
     // Shuffle and dialog timers use their own matching duration.
     const target = animation.effect?.target;
-    if (target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
+    if (animation.id === 'gs-theme-redraw' || target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
     animation.updatePlaybackRate?.(animationSpeed || 1);
   }
 }
@@ -384,6 +386,8 @@ function renderCart() {
   document.getElementById('cart-total').textContent = selected.length
     ? `${selected.length} game${selected.length === 1 ? '' : 's'} · ${formatSize(selected.reduce((total, game) => total + game.sizeBytes, 0))} estimated before ZIP packaging`
     : 'Your download Playlist is empty.';
+  document.getElementById('cart-dialog').classList.toggle('gs-playlist-empty', selected.length === 0);
+  document.getElementById('cart-empty-state').hidden = selected.length !== 0;
   document.getElementById('cart-checkout').disabled = selected.length === 0;
   document.getElementById('cart-clear').disabled = selected.length === 0;
 }
@@ -441,6 +445,7 @@ function fuzzyMatch(haystack, needle) {
 
 function applyViewMode() {
   window.GameShelfRain?.stopAll();
+  window.GameShelfAmbience?.stopCovers();
   const container = document.getElementById('games-container');
   const toggle = document.getElementById('view-toggle');
 
@@ -461,6 +466,37 @@ function applyViewMode() {
   toggle.classList.add('gs-view-morph');
 }
 
+const fittedImages = new WeakSet();
+function setCoverImage(image, frame, source, label) {
+  frame.dataset.coverLabel = label;
+  const fit = () => {
+    const width = image.naturalWidth, height = image.naturalHeight;
+    if (!width || !height) return;
+    const ratio = width / height;
+    const formats = [['poster', 2/3], ['portrait', 3/4], ['square', 1], ['landscape', 4/3], ['wide', 16/9]];
+    const closest = formats.reduce((a,b) => Math.abs(Math.log(ratio/a[1])) < Math.abs(Math.log(ratio/b[1])) ? a : b);
+    frame.dataset.coverShape = closest[0];
+    frame.classList.remove('gs-cover-unavailable');
+    frame.style.setProperty?.('--cover-image', 'url(' + JSON.stringify(image.currentSrc || image.src) + ')');
+  };
+  if (!fittedImages.has(image)) {
+    image.addEventListener('load', fit);
+    image.addEventListener('error', () => { frame.classList.add('gs-cover-unavailable'); frame.style.removeProperty?.('--cover-image'); });
+    fittedImages.add(image);
+  }
+  image.src = source;
+  if (image.complete) fit();
+}
+function sizeSettingsSelect(select) {
+  if (typeof getComputedStyle !== 'function' || !select) return;
+  const option = select.options?.[select.selectedIndex];
+  const context = document.createElement('canvas').getContext?.('2d');
+  if (!option || !context) return;
+  context.font = getComputedStyle(select).font;
+  select.style.width = Math.ceil(context.measureText(option.text).width + 40) + 'px';
+  select.style.flexBasis = 'auto';
+}
+
 /* =============================
    Card Creation
    ============================= */
@@ -470,7 +506,9 @@ function createGameCard(game) {
   card.classList.toggle('gs-no-cover', game.hasCover === false);
   let rainEffect = null;
   let rainTheme = null;
-  card.addEventListener('pointerleave', () => { card.classList.remove('gs-hover-suppressed'); rainEffect?.stop(); rainEffect = null; });
+  let sparkleEffect = null;
+  let sparkleTheme = null;
+  card.addEventListener('pointerleave', () => { card.classList.remove('gs-hover-suppressed'); rainEffect?.stop(); rainEffect = null; sparkleEffect?.stop(); sparkleEffect = null; });
   card.addEventListener('focusout', event => {
     if (!card.contains(event.relatedTarget)) card.classList.remove('gs-hover-suppressed');
   });
@@ -486,7 +524,8 @@ function createGameCard(game) {
   const img = document.createElement('img');
   const version = coverVersions.get(game.id);
   const suffix = version ? `?v=${version}` : '';
-  img.src = `/covers/${encodeURIComponent(game.id)}${suffix}`;
+  img.className = 'gs-cover-image';
+  setCoverImage(img, cover, `/covers/${encodeURIComponent(game.id)}${suffix}`, game.name);
   img.alt = `${game.name} cover`;
 
   cover.appendChild(img);
@@ -507,6 +546,13 @@ function createGameCard(game) {
       const bounds = cover.getBoundingClientRect();
       rainEffect?.move(event.clientX - bounds.left, event.clientY - bounds.top);
     } else { rainEffect?.stop(); rainEffect = null; }
+    if (['retro', 'rose'].includes(theme) && !document.getElementById('games-container').classList.contains('list-view')) {
+      if (sparkleTheme !== theme || sparkleEffect?.stopped) { sparkleEffect?.stop(); sparkleEffect = null; }
+      sparkleTheme = theme;
+      sparkleEffect ||= window.GameShelfAmbience?.startCover(ambience, theme, () => animationSpeed);
+      const bounds = cover.getBoundingClientRect();
+      sparkleEffect?.move(event.clientX - bounds.left, event.clientY - bounds.top);
+    } else { sparkleEffect?.stop(); sparkleEffect = null; }
     if (!['retro', 'rose', 'midnight', 'lattice'].includes(theme) || document.getElementById('games-container').classList.contains('list-view')) return;
     const bounds = cover.getBoundingClientRect();
     cover.style.setProperty?.('--pointer-x', ((event.clientX - bounds.left) / bounds.width * 100) + '%');
@@ -573,6 +619,14 @@ function createGameCard(game) {
   cover.appendChild(actions);
   cover.appendChild(star);
   cover.appendChild(ambience);
+  const hoverTitle = document.createElement('span');
+  hoverTitle.className = 'gs-card-hover-title';
+  hoverTitle.setAttribute('aria-hidden','true');
+  const hoverTitleText = document.createElement('span');
+  hoverTitleText.className = 'gs-card-hover-title-text';
+  hoverTitleText.textContent = game.name;
+  hoverTitle.appendChild(hoverTitleText);
+  cover.appendChild(hoverTitle);
 
   const body = document.createElement('div');
   body.className = 'gs-card-body';
@@ -622,7 +676,7 @@ function openGameDetails(game, trigger, card) {
   const detailArt = document.getElementById('game-details-art');
   detailArt.classList.toggle('gs-no-cover', game.hasCover === false);
   const imageVersion = coverVersions.get(game.id);
-  document.getElementById('game-details-image').src = `/covers/${encodeURIComponent(game.id)}${imageVersion ? `?v=${imageVersion}` : ''}`;
+  setCoverImage(document.getElementById('game-details-image'), document.querySelector?.('.gs-details-art-frame') || document.getElementById('game-details-art'), `/covers/${encodeURIComponent(game.id)}${imageVersion ? `?v=${imageVersion}` : ''}`, game.name);
   document.getElementById('game-details-image-title').textContent = game.name;
   document.getElementById('game-title-input').value = game.name;
   document.getElementById('game-details-path').textContent = game.path || '';
@@ -1075,7 +1129,7 @@ function clearSuggestion() {
   shuffleDeck = null;
   for (const card of cardMap.values()) card.classList.remove('gs-shuffle-anchor');
   document.getElementById('random-game').classList.remove('is-rolling');
-  cardMap.get(suggestedGameId)?.classList.remove('gs-random-selected', 'gs-spotlight-enter');
+  cardMap.get(suggestedGameId)?.classList.remove('gs-random-selected', 'gs-spotlight-enter', 'gs-shuffle-confirm');
   suggestedGameId = null;
   shuffleGameId = null;
   isShuffling = false;
@@ -1120,6 +1174,10 @@ function suggestRandomGame() {
     isShuffling = false;
     suggestedGameId = game.id;
     card.classList.add('gs-random-selected');
+    if (!disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      card.classList.add('gs-shuffle-confirm');
+      card.addEventListener('animationend', () => card.classList.remove('gs-shuffle-confirm'), { once:true });
+    }
     diceButton.disabled = false;
     diceButton.dataset.tooltip = 'Suggest a random game';
     applyViewMode();
@@ -1270,11 +1328,29 @@ document.addEventListener('DOMContentLoaded', () => {
     window.GameShelfRain?.stopAll();
     document.body.dataset.theme = theme;
     window.GameShelfRain?.setTheme?.(theme, () => animationSpeed);
+    window.GameShelfAmbience?.setTheme(theme, () => animationSpeed);
     themeSelect.value = themePreference;
+    sizeSettingsSelect(themeSelect);
   }
   applyTheme();
   themeMedia.addEventListener?.('change', () => { if (themePreference === 'system') applyTheme(); });
-  themeSelect.addEventListener('change', () => { themePreference = themeSelect.value; localStorage.setItem('gameshelf:theme', themePreference); applyTheme(); });
+  let themeRedrawVersion = 0, themeMotions = [];
+  themeSelect.addEventListener('change', async () => {
+    themePreference = themeSelect.value;
+    localStorage.setItem('gameshelf:theme', themePreference);
+    const version = ++themeRedrawVersion;
+    themeMotions.forEach(motion => motion.cancel());
+    if (disableEffects || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !document.body.animate) { applyTheme(); return; }
+    const surfaces = [document.body, ...[...openDialogs].filter(dialog => dialog.open)];
+    const animate = (surface, frames, duration) => { const motion=surface.animate(frames,{duration:motionDuration(duration),easing:'ease',fill:'forwards'});motion.id='gs-theme-redraw';return motion; };
+    themeMotions = surfaces.map(surface => animate(surface,[{opacity:1},{opacity:.45}],90));
+    await Promise.all(themeMotions.map(motion => motion.finished.catch(() => {})));
+    if (version !== themeRedrawVersion) return;
+    themeMotions.forEach(motion => motion.cancel()); applyTheme();
+    themeMotions = surfaces.map(surface => animate(surface,[{opacity:.45},{opacity:1}],180));
+    await Promise.all(themeMotions.map(motion => motion.finished.catch(() => {})));
+    if (version === themeRedrawVersion) { themeMotions.forEach(motion => motion.cancel()); themeMotions=[]; }
+  });
   document.body.classList.toggle('gs-pin-favorite-stars', favoriteStarsOnly);
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
   document.body.classList.toggle('gs-show-game-titles', showGameTitles);
@@ -1438,12 +1514,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const speedInput = document.getElementById('animation-speed');
   const hoverTextInput = document.getElementById('show-hover-text');
   const gameTitlesInput = document.getElementById('show-game-titles');
+  const hoverTitlesInput = document.getElementById('hover-game-titles');
+  function syncHoverTitles() {
+    hoverTitlesInput.checked = hoverGameTitles; hoverTitlesInput.disabled = showGameTitles;
+    document.getElementById('hover-game-titles-option').classList.toggle('gs-disabled', showGameTitles);
+    document.body.classList.toggle('gs-hover-game-titles', hoverGameTitles && !showGameTitles);
+  }
+  syncHoverTitles();
+  hoverTitlesInput.addEventListener('change', () => { hoverGameTitles = hoverTitlesInput.checked; localStorage.setItem('gameshelf:hover-game-titles', String(hoverGameTitles)); syncHoverTitles(); });
   const placeholderInput = document.getElementById('show-placeholder-images');
   const listImagesInput = document.getElementById('show-list-images');
   const instantPreferences = {
     'theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
     'animate-tiles': 'Loaded game tile animation', 'show-hover-text': 'Button hints', 'show-game-titles': 'Game titles',
-    'show-placeholder-images': 'Placeholder images', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
+    'show-placeholder-images': 'Placeholder images', 'hover-game-titles': 'Hover game titles', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
     'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'
   };
   // Schedule after the saving listeners have applied each preference.
@@ -1651,8 +1735,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const expandInput = document.getElementById('expand-list-image');
   expandInput.value = listImageClick;
+  sizeSettingsSelect(expandInput);
   document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled');
-  expandInput.addEventListener('change', () => { listImageClick = expandInput.value; localStorage.setItem('gameshelf:list-image-click', listImageClick); document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled'); });
+  expandInput.addEventListener('change', () => { listImageClick = expandInput.value; sizeSettingsSelect(expandInput); localStorage.setItem('gameshelf:list-image-click', listImageClick); document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled'); });
   const listImageDialog = document.getElementById('list-image-dialog');
   listImageDialog.addEventListener('click', () => listImageDialog.close());
   const resetSettingsDialog = document.getElementById('reset-settings-dialog');
@@ -1993,6 +2078,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showGameTitles = gameTitlesInput.checked;
     localStorage.setItem('gameshelf:show-game-titles', String(showGameTitles));
     document.body.classList.toggle('gs-show-game-titles', showGameTitles);
+    syncHoverTitles();
   });
   placeholderInput.addEventListener('change', () => {
     showPlaceholderImages = placeholderInput.checked;

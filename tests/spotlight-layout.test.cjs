@@ -141,7 +141,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.returnHiddenDuringShuffle, true);
     assert.equal(result.selectedCount, 1);
     assert.ok(result.centerDifference <= 1, 'selected card is not centered');
-    assert.equal(result.animationName, 'none');
+    assert.match(result.animationName, /^(none|gs-shuffle-confirm)$/);
     assert.equal(result.selectedFocused, false);
     assert.equal(result.returnBelowCard, true);
     assert.ok(Math.abs(result.buttonGap - 8) <= 1, 'spotlight buttons need an 8px gap');
