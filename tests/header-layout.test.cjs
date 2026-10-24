@@ -544,3 +544,38 @@ test('themes retain readable palettes and shared controls retain their geometry'
     for(const theme of r.themes){if(theme.text.length===7&&theme.bg.length===7){const a=luminance(theme.text),b=luminance(theme.bg);assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,theme.theme);}if(!['classic','light','dark'].includes(theme.theme))assert.notEqual(theme.logo,'none',theme.theme);}
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('advanced sliders align and every theme respects row transparency and shared surfaces', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gameshelf-surfaces-'));
+  try {
+    const probe=`<script>
+      const root=document.documentElement, settings=document.querySelector('#settings-dialog');settings.dataset.settingsLevel='advanced';settings.showModal();
+      const rect=s=>document.querySelector(s).getBoundingClientRect();
+      const speed=rect('#animation-speed'),opacity=rect('#list-opacity');
+      const result={sliders:{speedBelow:speed.top>=rect('#animation-speed').top&&speed.top>document.querySelector('#animation-speed').closest('label').querySelector('strong').getBoundingClientRect().bottom,opacityBelow:opacity.top>document.querySelector('#list-opacity').closest('label').querySelector('strong').getBoundingClientRect().bottom,equal:Math.abs(speed.width-opacity.width)<1,aligned:Math.abs(document.querySelector('#animation-speed').closest('label').querySelector('strong').getBoundingClientRect().left-document.querySelector('.gs-theme-option strong').getBoundingClientRect().left)<1,subtitles:document.querySelector('#animation-speed').closest('label').querySelectorAll('small').length+document.querySelector('#list-opacity').closest('label').querySelectorAll('small').length},themes:[]};
+      settings.dataset.settingsLevel='basic';result.speedHidden=getComputedStyle(document.querySelector('#animation-speed').closest('label')).display==='none';result.opacityHidden=getComputedStyle(document.querySelector('#list-opacity').closest('label')).display==='none';settings.close();
+      const grid=document.querySelector('#games-container');grid.classList.add('list-view');grid.innerHTML='<article class="gs-card qa-hover"><div class="gs-card-body"><div class="gs-card-content">Game</div></div><div class="gs-card-cover"><div class="gs-card-actions"><button class="gs-card-info">i</button></div></div></article>';
+      const card=grid.querySelector('.gs-card'),search=document.querySelector('.gs-search'),header=document.querySelector('.gs-header');
+      const paint=document.createElement('canvas').getContext('2d');paint.canvas.width=paint.canvas.height=1;
+      const alpha=color=>{paint.clearRect(0,0,1,1);paint.fillStyle=color;paint.fillRect(0,0,1,1);return paint.getImageData(0,0,1,1).data[3]/255};
+      for(const theme of ['classic','light','dark','retro','neon','cartridge','cosmos','ion','rose','midnight','lattice','rain','storm','autumn']){
+        root.dataset.theme=theme;root.style.setProperty('--list-opacity','0%');root.style.setProperty('--list-opacity-factor','0');
+        const row=getComputedStyle(card),empty=alpha(row.backgroundColor),backdrop=row.backdropFilter,body=alpha(getComputedStyle(card.querySelector('.gs-card-body')).backgroundColor),tray=+getComputedStyle(card.querySelector('.gs-card-actions'),'::before').opacity;
+        root.style.setProperty('--list-opacity','80%');root.style.setProperty('--list-opacity-factor','.8');const middle=alpha(getComputedStyle(card).backgroundColor);
+        root.style.setProperty('--list-opacity','100%');root.style.setProperty('--list-opacity-factor','1');const full=alpha(getComputedStyle(card).backgroundColor);
+        search.blur();search.classList.remove('is-filtering');const idle=getComputedStyle(header).borderBottomColor===getComputedStyle(search).borderBottomColor;
+        search.focus();const focus=getComputedStyle(header).borderBottomColor===getComputedStyle(search).borderBottomColor;
+        search.classList.add('is-filtering');const filtering=getComputedStyle(header).borderBottomColor===getComputedStyle(search).borderBottomColor;search.blur();search.classList.remove('is-filtering');
+        result.themes.push({theme,empty,middle,full,body,tray,backdrop,idle,focus,filtering,surface:getComputedStyle(document.querySelector('#export-library-data')).backgroundColor,select:getComputedStyle(document.querySelector('#theme-select')).backgroundColor});
+      }
+      const checkout=document.querySelector('#cart-checkout');checkout.closest('dialog').showModal();checkout.closest('dialog').tabIndex=-1;checkout.closest('dialog').focus();checkout.classList.add('qa-hover');checkout.disabled=false;const enabled=getComputedStyle(checkout).transform;checkout.disabled=true;const disabled=getComputedStyle(checkout).transform;result.checkout={enabled,disabled};
+      const report=document.createElement('pre');report.id='surfaces-report';report.textContent=JSON.stringify(result);document.body.append(report);
+    </script>`;
+    const source=html.replace('<link rel="stylesheet" href="/styles.css">',`<style>${css.replaceAll(':hover',':is(:hover,.qa-hover)')}*{transition:none!important}</style>`).replace('<script src="/app.js"></script>',probe);
+    const file=path.join(dir,'surfaces.html');fs.writeFileSync(file,source);const r=readLayoutProbe(file,1280,'surfaces-report');
+    const mobile=readLayoutProbe(file,390,'surfaces-report');assert.equal(mobile.sliders.equal,true);assert.equal(mobile.sliders.speedBelow,true);assert.equal(mobile.sliders.opacityBelow,true);
+    assert.equal(r.sliders.speedBelow,true);assert.equal(r.sliders.opacityBelow,true);assert.equal(r.sliders.equal,true);assert.equal(r.sliders.aligned,true);assert.equal(r.sliders.subtitles,0);assert.equal(r.speedHidden,true);assert.equal(r.opacityHidden,true);
+    for(const theme of r.themes){assert.ok(theme.empty<.01&&theme.full>.99&&Math.abs(theme.middle-.8)<.01,JSON.stringify(theme));assert.equal(theme.backdrop,'none',theme.theme);assert.equal(theme.body,0,theme.theme);assert.equal(theme.tray,0,theme.theme);assert.equal(theme.surface,theme.select,theme.theme);assert.ok(theme.idle&&theme.focus&&theme.filtering,JSON.stringify(theme));}
+    assert.notEqual(r.checkout.enabled,'none');assert.equal(r.checkout.disabled,'none');
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});

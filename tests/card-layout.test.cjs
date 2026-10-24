@@ -125,7 +125,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.listDownloadInside, result.listInfoInside, 'list actions should move together');
     assert.equal(result.listActionsPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.listFocusedPointer, 'auto');
-    assert.equal(result.downloadSuppressed, true);
+    assert.equal(result.downloadSuppressed, false);
     assert.equal(result.downloadPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.downloadRestored, true);
     assert.equal(result.suppressed, false);
@@ -312,16 +312,19 @@ test('list preview keeps scroll position and the revealed favorite accepts point
       const cards=[...document.querySelectorAll('.gs-card')];const card=cards.find(c=>{const r=c.getBoundingClientRect();return r.top>100&&r.bottom<innerHeight-30});
       card.querySelector('.gs-list-image').click();const during=scrollY;document.querySelector('#list-image-dialog').close();
       await new Promise(r=>setTimeout(r,220));const after=scrollY;
-      card.classList.add('test-hover');card.querySelector('.gs-card-info').focus();await new Promise(r=>setTimeout(r,220));
+      card.querySelector('.gs-card-actions').style.transition='none';card.classList.add('test-hover');card.querySelector('.gs-card-info').focus();await new Promise(r=>setTimeout(r,220));
       const star=card.querySelector('.gs-favorite-star'),b=star.getBoundingClientRect();const hit=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2)===star;
+      const actions=card.querySelector('.gs-card-actions'),beforeOpacity=getComputedStyle(actions).opacity;
+      card.querySelector('.gs-card-cart').click();await new Promise(r=>setTimeout(r,220));
+      const hoverRetained=beforeOpacity==='1'&&getComputedStyle(actions).opacity==='1'&&!card.classList.contains('gs-hover-suppressed');
       star.click();await new Promise(r=>setTimeout(r,20));
-      const report=document.createElement('pre');report.id='list-scroll-report';report.textContent=JSON.stringify({before,during,after,hit,favorite:card.dataset.favorite});document.body.append(report);
+      const report=document.createElement('pre');report.id='list-scroll-report';report.textContent=JSON.stringify({before,during,after,hit,hoverRetained,favorite:card.dataset.favorite});document.body.append(report);
     },100));</script>`;
     const source=html.replace('<link rel="stylesheet" href="/styles.css">',`<style>${css.replaceAll(':hover',':is(:hover,.test-hover)')}</style>`).replace('<script src="/app.js"></script>',setup+`<script>${app}</script>`+probe);
     const file=path.join(dir,'list.html');fs.writeFileSync(file,source);
     const run=spawnSync(chrome,['--headless','--disable-gpu','--no-sandbox',`--user-data-dir=${path.join(dir,'profile')}`,'--window-size=1280,900','--virtual-time-budget=2500','--dump-dom',pathToFileURL(file).href],{encoding:'utf8',timeout:20000,maxBuffer:12*1024*1024});
     const match=run.stdout?.match(/<pre id="list-scroll-report">([^<]+)<\/pre>/);assert.ok(match,run.stderr||'No list interaction report');const r=JSON.parse(match[1]);
-    assert.ok(r.before>500);assert.ok(Math.abs(r.during-r.before)<2,JSON.stringify(r));assert.ok(Math.abs(r.after-r.before)<2,JSON.stringify(r));assert.equal(r.hit,true,JSON.stringify(r));assert.equal(r.favorite,'true');
+    assert.ok(r.before>500);assert.ok(Math.abs(r.during-r.before)<2,JSON.stringify(r));assert.ok(Math.abs(r.after-r.before)<2,JSON.stringify(r));assert.equal(r.hit,true,JSON.stringify(r));assert.equal(r.favorite,'true');assert.equal(r.hoverRetained,true,JSON.stringify(r));
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
 
@@ -331,5 +334,17 @@ test('rain effect follows the pointer and releases its canvas when stopped', () 
     const rain=fs.readFileSync(path.join(root,'web/rain.js'),'utf8');
     const file=path.join(dir,'rain.html');fs.writeFileSync(file,`<div id="host" style="width:240px;height:360px"></div><script>${rain}</script><script>const host=document.getElementById('host');const effect=GameShelfRain.start(host,'storm',()=>1.1);effect.move(120,150);const canvas=host.querySelector('canvas');const before={width:canvas.width,height:canvas.height};effect.stop();const result={before,removed:!host.querySelector('canvas'),stopped:effect.stopped};const pre=document.createElement('pre');pre.id='rain-report';pre.textContent=JSON.stringify(result);document.body.append(pre);</script>`);
     const run=spawnSync(chrome,['--headless','--disable-gpu','--no-sandbox','--virtual-time-budget=500','--dump-dom',pathToFileURL(file).href],{encoding:'utf8',timeout:15000});const match=run.stdout?.match(/<pre id="rain-report">([^<]+)<\/pre>/);assert.ok(match);const r=JSON.parse(match[1]);assert.ok(r.before.width>=240&&r.before.height>=360);assert.equal(r.removed,true);assert.equal(r.stopped,true);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('viewport rain has no tiled layer and streak direction follows particle motion', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gameshelf-weather-direction-'));
+  try {
+    const rain=fs.readFileSync(path.join(root,'web/rain.js'),'utf8');
+    const setup=`let sample=null,next=null;const ctx={scale(){},clearRect(){sample=null},beginPath(){},moveTo(x,y){if(!sample)sample={x,y}},lineTo(x,y){if(sample&&sample.tx===undefined){sample.tx=x;sample.ty=y}},stroke(){},ellipse(){}};HTMLCanvasElement.prototype.getContext=()=>ctx;window.requestAnimationFrame=cb=>{next=cb;return 1};window.cancelAnimationFrame=()=>{};Math.random=()=>.5;`;
+    const probe=`GameShelfRain.setTheme('rain',()=>1.1);const first={...sample};const canvas=document.querySelector('.gs-weather-canvas');next(performance.now()+16);const second={...sample};const width=canvas.width;GameShelfRain.setTheme('retro',()=>1.1);const removed=!document.querySelector('.gs-weather-canvas');next=null;GameShelfRain.setTheme('autumn',()=>0);const still=next===null;GameShelfRain.setTheme('classic',()=>1);const report=document.createElement('pre');report.id='weather-report';report.textContent=JSON.stringify({first,second,width,viewport:innerWidth,removed,still});document.body.append(report);`;
+    const file=path.join(dir,'weather.html');fs.writeFileSync(file,`<body><script>${setup}</script><script>${rain}</script><script>${probe}</script>`);
+    const run=spawnSync(chrome,['--headless','--disable-gpu','--no-sandbox','--virtual-time-budget=500','--dump-dom',pathToFileURL(file).href],{encoding:'utf8',timeout:15000});const match=run.stdout?.match(/<pre id="weather-report">([^<]+)<\/pre>/);assert.ok(match);const r=JSON.parse(match[1]);
+    assert.ok(r.width>=r.viewport);assert.ok(r.first.tx>r.first.x&&r.first.ty<r.first.y,'streak should lean into the leftward fall');assert.ok(r.second.x<r.first.x&&r.second.y>r.first.y,'particles should fall left along their streaks');assert.equal(r.removed,true);assert.equal(r.still,true);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
