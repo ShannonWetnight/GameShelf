@@ -9,7 +9,7 @@ const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
 const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -54,7 +54,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
       'result.placeholderOverlay=getComputedStyle(placeholderTitle).display;' +
       'result.placeholderBackdrop=getComputedStyle(placeholderTitle).backgroundColor;' +
       'result.placeholderText=placeholderTitle.textContent;' +
-      'result.placeholderNoOverlap=missingImage.getBoundingClientRect().bottom<=placeholderTitle.getBoundingClientRect().top+1;' +
+      'result.placeholderFillsCover=missingImage.getBoundingClientRect().height>=missing.querySelector(".gs-card-cover").getBoundingClientRect().height-1;' +
       'result.placeholderFooter=getComputedStyle(missing.querySelector(".gs-card-body")).display;' +
       'result.realCoverFooter=getComputedStyle(card.querySelector(".gs-card-body")).display;' +
       'const titles=document.querySelector("#show-game-titles");' +
@@ -112,7 +112,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.notEqual(result.placeholderOverlay, 'none');
     assert.notEqual(result.placeholderBackdrop, 'rgba(0, 0, 0, 0)');
     assert.equal(result.placeholderText, 'No Cover');
-    assert.equal(result.placeholderNoOverlap, true);
+    assert.equal(result.placeholderFillsCover, true);
     assert.equal(result.placeholderFooter, 'none');
     assert.equal(result.realCoverFooter, 'none');
     assert.notEqual(result.allTitlesFooter, 'none');
@@ -267,11 +267,12 @@ test('editing a GameShelf title updates the card without changing its folder', (
     const probe = `<script>window.addEventListener('load', function() {
       setTimeout(function() {
         document.querySelector('.gs-card-info').click();
+        const menuFocusIsNeutral = document.activeElement === document.querySelector('#game-details-dialog');
         document.querySelector('#game-title-input').value = 'Display Name';
         document.querySelector('#save-game-title').click();
         setTimeout(function() {
           const report = document.createElement('pre'); report.id='title-report';
-          report.textContent=JSON.stringify({request:window.titleRequest,
+          report.textContent=JSON.stringify({menuFocusIsNeutral,request:window.titleRequest,
             cardTitle:document.querySelector('.gs-card-title').textContent,
             detailTitle:document.querySelector('#game-details-title').textContent,
             folderPath:document.querySelector('#game-details-path').textContent});
@@ -290,6 +291,7 @@ test('editing a GameShelf title updates the card without changing its folder', (
     const match = run.stdout.match(/<pre id="title-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the title edit');
     const result = JSON.parse(match[1]);
+    assert.equal(result.menuFocusIsNeutral, true);
     assert.deepEqual(result.request, { url: '/api/game-title/sample', body: { title: 'Display Name' } });
     assert.equal(result.cardTitle, 'Display Name');
     assert.equal(result.detailTitle, 'Display Name');

@@ -9,7 +9,7 @@ const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
-const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8');
 assert.ok(html.includes('<link rel="stylesheet" href="/styles.css">'));
 assert.ok(html.includes('<script src="/app.js"></script>'));
@@ -310,6 +310,8 @@ test('narrow screens keep controls and game cards within the viewport', () => {
         result.listScrollWidth = document.documentElement.scrollWidth;
         document.querySelector('#game-details-dialog').showModal();
         result.mobileDetailArt = getComputedStyle(document.querySelector('.gs-details-art')).display;
+        result.mobileFrame = getComputedStyle(document.querySelector('.gs-details-art-frame')).display;
+        result.mobileActions = getComputedStyle(document.querySelector('.gs-details-download-row')).display;
         document.querySelector('#game-details-dialog').close();
         const report = document.createElement('pre');
         report.id = 'mobile-report';
@@ -325,7 +327,9 @@ test('narrow screens keep controls and game cards within the viewport', () => {
     assert.ok(result.viewportWidth <= 680, 'mobile breakpoint was not exercised');
     assert.ok(result.scrollWidth <= result.viewportWidth, 'grid view overflows horizontally');
     assert.ok(result.listScrollWidth <= result.viewportWidth, 'list view overflows horizontally');
-    assert.equal(result.mobileDetailArt, 'none');
+    assert.equal(result.mobileDetailArt, 'flex');
+    assert.equal(result.mobileFrame, 'none');
+    assert.equal(result.mobileActions, 'flex');
     const within = (box, name) => {
       assert.ok(box.left >= -1 && box.right <= result.viewportWidth + 1,
         `${name} extends past the viewport`);
@@ -511,3 +515,32 @@ test('very long titles stay within fixed card footers and two detail lines', () 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+
+test('themes retain readable palettes and shared controls retain their geometry', () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gameshelf-theme-controls-'));
+  try {
+    const probe=`<script>
+      document.querySelector('#settings-dialog').showModal();
+      const saves=['save-game-title','cover-editor-save','server-settings-save','refresh-settings-save','recent-settings-save','log-config-save'];
+      const result={saves:[],themes:[]};
+      document.querySelector('#settings-dialog').close();
+      for(const id of saves){const button=document.getElementById(id),dialog=button.closest('dialog');dialog.showModal();
+        const b=button.getBoundingClientRect(),s=button.querySelector('svg').getBoundingClientRect();result.saves.push({id,w:b.width,h:b.height,offset:Math.max(Math.abs((s.left+s.right-b.left-b.right)/2),Math.abs((s.top+s.bottom-b.top-b.bottom)/2))});dialog.close();}
+      const dialog=document.querySelector('#game-details-dialog');dialog.showModal();dialog.tabIndex=-1;dialog.focus();
+      const row=document.querySelector('.gs-details-download-row');
+      const center=(nodes)=>{const boxes=nodes.map(n=>n.getBoundingClientRect()),r=row.getBoundingClientRect();return Math.abs((boxes[0].left+boxes.at(-1).right-r.left-r.right)/2)};
+      result.rowBoxes=[...row.children].map(n=>({id:n.id,x:n.getBoundingClientRect().x,w:n.getBoundingClientRect().width,display:getComputedStyle(n).display}));result.rowBox={x:row.getBoundingClientRect().x,w:row.getBoundingClientRect().width};result.threeCentered=center([...row.children]);document.body.classList.add('gs-playlist-disabled');result.twoCentered=center([...row.children].filter(n=>getComputedStyle(n).display!=='none'));document.body.classList.remove('gs-playlist-disabled');dialog.close();
+      const root=document.documentElement;
+      for(const theme of ['classic','light','dark','retro','neon','cartridge','cosmos','ion','rose','midnight','lattice']){root.dataset.theme=theme;const s=getComputedStyle(root);result.themes.push({theme,text:s.getPropertyValue('--text').trim(),bg:s.getPropertyValue('--bg-elevated').trim(),logo:getComputedStyle(document.querySelector('.gs-logo-icon')).filter});}
+      const report=document.createElement('pre');report.id='theme-controls-report';report.textContent=JSON.stringify(result);document.body.append(report);
+    </script>`;
+    const source=html.replace('<link rel="stylesheet" href="/styles.css">',`<style>${css}</style>`).replace('<script src="/app.js"></script>',probe);
+    const file=path.join(dir,'themes.html');fs.writeFileSync(file,source);const r=readLayoutProbe(file,1280,'theme-controls-report');
+    const mobile=readLayoutProbe(file,390,'theme-controls-report');
+    assert.ok(mobile.threeCentered<1 && mobile.twoCentered<1, 'small-screen icon row must remain centered');
+    for(const save of r.saves){assert.equal(save.w,38,save.id);assert.equal(save.h,38,save.id);assert.ok(save.offset<1,save.id);}
+    assert.ok(r.threeCentered<1,JSON.stringify(r));assert.ok(r.twoCentered<1,JSON.stringify(r));
+    const luminance=hex=>{const channels=hex.slice(1).match(/.{2}/g).map(c=>parseInt(c,16)/255).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4);return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;};
+    for(const theme of r.themes){if(theme.text.length===7&&theme.bg.length===7){const a=luminance(theme.text),b=luminance(theme.bg);assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,theme.theme);}if(!['classic','light','dark'].includes(theme.theme))assert.notEqual(theme.logo,'none',theme.theme);}
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});

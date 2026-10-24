@@ -330,3 +330,19 @@ New browsers use the System theme, animated loaded tiles, button hints, placehol
 The Advanced **Click to expand image in list view** preference offers **Single-click** (default), **Double-click**, and **Disabled**. Image expansion requires list images to be enabled. Menus use matching opening and closing motion, respecting disabled animations and reduced-motion preferences.
 
 **Show favorited game stars on top** keeps stars visible for favorite games. Turn it off to show stars with the other card controls on hover. Icon buttons highlight their symbols on hover while keeping their original click areas; save controls retain their confirmation styling.
+
+## Appearance themes
+
+Choose a theme in **Settings → Appearance**. System, GameShelf Classic, Light, Dark, and Retro Arcade remain available. Additional themes are:
+
+| Theme | Palette and effects |
+| --- | --- |
+| Neon Mirage | Cyan and pink arcade glow, a perspective grid, and a moving CRT wash; warm ivory text. |
+| Cartridge Gray | Classic console grays, ivory surfaces, and red accents. |
+| Deep Space | Deep blue nebulae, drifting and twinkling stars, and starry card overlays. |
+| Ion Grid | A teal science-fiction interface with a quiet technical grid and scanning card overlays. |
+| Rose Quartz | Pink and pearl colors with glitter that follows the pointer over covers. |
+| Midnight | Black surfaces and a soft pointer flashlight that reveals the cover through its dark blur. |
+| Lattice | A green-and-ivory geometric theme with moving threads of light around the pointer. |
+
+Expressive themes recolor the GameShelf logo to match. Standard Classic, Light, and Dark keep the existing branding. **Disable all animations** and the device's reduced-motion preference stop ambient motion. Settings that save immediately display a confirmation banner; configuration dialogs confirm after their save icon is pressed.

@@ -9,7 +9,7 @@ const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
 const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -63,9 +63,9 @@ test('dice selection shows one centered card and reset restores the library', ()
       'const result = {sortOpen:sortOpen,sortedNames:sortedNames,sizeDescNames:sizeDescNames,' +
       'sizeAscNames:sizeAscNames,alphaNames:alphaNames,listView:listView,' +
       'gearCenterDifference:gearCenterDifference,shuffleCount:visible().length,' +
-      'shuffleAnimation:getComputedStyle(preview).animationName,' +
+      'shuffleAnimation:getComputedStyle(grid.querySelector(".gs-shuffle-face")).animationName,' +
       'normalDiceDuration:getComputedStyle(document.querySelector("#random-game svg")).animationDuration,' +
-      'normalShuffleDuration:getComputedStyle(preview).animationDuration,' +
+      'normalShuffleDuration:getComputedStyle(grid.querySelector(".gs-shuffle-face")).animationDuration,' +
       'diceDisabled:document.querySelector("#random-game").disabled,' +
       'returnHiddenDuringShuffle:getComputedStyle(document.querySelector("#spotlight-actions")).visibility==="hidden"};' +
       'setTimeout(function() {' +
@@ -105,7 +105,7 @@ test('dice selection shows one centered card and reset restores the library', ()
       'document.querySelector("#random-game").click();' +
       'result.returnResetOnReroll=getComputedStyle(document.querySelector("#spotlight-actions")).visibility==="hidden";' +
       'result.slowDiceDuration = getComputedStyle(document.querySelector("#random-game svg")).animationDuration;' +
-      'result.slowShuffleDuration = getComputedStyle(visible()[0]).animationDuration;' +
+      'result.slowShuffleDuration = getComputedStyle(grid.querySelector(".gs-shuffle-face")).animationDuration;' +
       'const report = document.createElement("pre");' +
       'report.id = "spotlight-report";' +
       'report.textContent = JSON.stringify(result);' +
@@ -134,7 +134,7 @@ test('dice selection shows one centered card and reset restores the library', ()
     assert.equal(result.listView, true);
     assert.ok(result.gearCenterDifference <= 1, 'settings icon is not centered');
     assert.equal(result.shuffleCount, 1);
-    assert.match(result.shuffleAnimation, /^gs-deck-reveal/);
+    assert.match(result.shuffleAnimation, /^gs-deck-cut/);
     assert.equal(result.normalDiceDuration, result.normalShuffleDuration);
     assert.equal(result.normalShuffleDuration, '1.2s');
     assert.equal(result.diceDisabled, true);

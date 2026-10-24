@@ -513,7 +513,8 @@ test('settings dialog defaults off and slows dice and card shuffle together', as
   assert.equal(ui.element('random-game').classList.contains('gs-slow-animations'), false);
   ui.click('build-info');
   assert.equal(ui.element('settings-dialog').open, true);
-  assert.equal(ui.element('settings-basic').focused, true);
+  assert.equal(ui.element('settings-dialog').focused, true);
+  assert.notEqual(ui.element('settings-close').focused, true);
   ui.element('slow-animations').checked = true;
   ui.element('slow-animations').emit('change');
   assert.equal(storage.get('gameshelf:slow-animations'), 'true');
@@ -1116,4 +1117,21 @@ test('menu dismissal animates and reopening cancels a pending close', () => {
   assert.equal(prevented, true); assert.equal(dialog.open, true);
   ui.tick(160); assert.equal(dialog.open, false);
   assert.equal(ui.document.body.classList.contains('gs-modal-open'), false);
+});
+
+for (const theme of ['neon','cartridge','cosmos','ion','rose','midnight','lattice']) test(`theme ${theme} is saved and restored with confirmation`, async () => {
+  const storage = new Map(); const ui=app(undefined,storage);ui.start();
+  ui.element('theme-select').value=theme;ui.element('theme-select').emit('change');await settle();
+  assert.equal(storage.get('gameshelf:theme'),theme);
+  assert.equal(ui.document.body.dataset.theme,theme);
+  assert.equal(ui.element('notification-text').textContent,'Theme saved.');
+  const revisit=app(undefined,storage);revisit.start();assert.equal(revisit.element('theme-select').value,theme);
+});
+
+test('each instant preference confirms its saved change', async () => {
+  const ui=app();ui.start();
+  for(const id of ['slow-animations','disable-effects','animate-tiles','show-hover-text','show-game-titles','show-placeholder-images','favorites-first','show-list-images','enable-playlist','favorite-stars-only','expand-list-image']){
+    const field=ui.element(id);if(id==='expand-list-image')field.value='double';else field.checked=!field.checked;
+    field.emit('change');await settle();assert.match(ui.element('notification-text').textContent,/saved\.$/,id);
+  }
 });
