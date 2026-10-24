@@ -1942,7 +1942,8 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 #game-details-cart.is-added::after { content: attr(data-tooltip); }
 #game-details-cart.gs-has-tooltip::after { inset: auto 0 calc(100% + 14px) auto; display: block; font-size: .75rem; }
 
-.gs-grid.list-view .gs-card-actions { position: relative; align-self: stretch; height: auto; padding: 0 .4rem; background: transparent; transform: none; overflow: visible; isolation: isolate; }
+.gs-grid.list-view .gs-card-cover { align-self: stretch; height: 100%; }
+.gs-grid.list-view .gs-card-actions { position: relative; align-self: stretch; height: 100%; padding: 0 .4rem; background: transparent; transform: none; overflow: visible; isolation: isolate; }
 .gs-grid.list-view .gs-card-actions::before { content: ''; position: absolute; z-index: -1; inset: 0 -4px 0 -52px; background: linear-gradient(to right, transparent, color-mix(in srgb, var(--icon-background) 88%, transparent) 27%, var(--icon-background) 100%); transform: scaleX(0); transform-origin: right; transition: transform .24s cubic-bezier(.22,.7,.2,1); }
 .gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover .gs-card-actions::before, .gs-grid.list-view .gs-card:focus-within .gs-card-actions::before { transform: scaleX(1); }
 .gs-show-list-images:not(.gs-show-placeholders) .gs-grid.list-view .gs-no-cover .gs-card-body::before { content: ''; flex: 0 0 34px; width: 34px; height: 48px; }
@@ -1956,7 +1957,7 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 .gs-list-image-dialog { padding: 0; border: 0; border-radius: 10px; background: transparent; overflow: hidden; box-shadow: var(--shadow-soft); animation: gs-setting-enter .2s ease-out; cursor: zoom-out; }
 .gs-list-image-dialog::backdrop { background: rgba(0,0,0,.78); }
 .gs-list-image-dialog img { display: block; width: min(380px, 80vw); max-height: 80vh; object-fit: contain; }
-.gs-show-list-images .gs-grid.list-view .gs-list-image { cursor: zoom-in; }
+.gs-expand-list-image.gs-show-list-images .gs-grid.list-view .gs-list-image { cursor: zoom-in; }
 
 /* A single reveal makes the final dice result settle without a second scale pop. */
 .gs-card.gs-spotlight-enter { animation: gs-spotlight-reveal .26s ease-out both; }

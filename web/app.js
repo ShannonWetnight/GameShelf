@@ -1558,7 +1558,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const expandInput = document.getElementById('expand-list-image');
   expandInput.checked = expandListImage;
-  expandInput.addEventListener('change', () => { expandListImage = expandInput.checked; localStorage.setItem('gameshelf:expand-list-image', String(expandListImage)); });
+  document.body.classList.toggle('gs-expand-list-image', expandListImage);
+  expandInput.addEventListener('change', () => { expandListImage = expandInput.checked; localStorage.setItem('gameshelf:expand-list-image', String(expandListImage)); document.body.classList.toggle('gs-expand-list-image', expandListImage); });
   const listImageDialog = document.getElementById('list-image-dialog');
   listImageDialog.addEventListener('click', () => listImageDialog.close());
   const resetSettingsDialog = document.getElementById('reset-settings-dialog');
@@ -1609,7 +1610,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshDialog = document.getElementById('refresh-settings-dialog');
   document.getElementById('open-refresh-settings').addEventListener('click', () => {
     if (!serverSettings) return;
-    document.getElementById('server-refresh-interval').value = String(Number.parseInt(serverSettings.refreshInterval, 10) || 0);
+    const interval = serverSettings.refreshInterval;
+    const legacyMinutes = /^([0-9]+)m$/.exec(interval);
+    document.getElementById('server-refresh-interval').value = interval === '0' ? '0' : String(legacyMinutes ? Math.ceil(Number(legacyMinutes[1]) / 60) : (Number.parseInt(interval, 10) || 168));
     document.getElementById('refresh-settings-status').textContent = '';
     openModal(refreshDialog);
   });
