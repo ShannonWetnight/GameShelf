@@ -67,6 +67,7 @@ let modalScrollPosition = null;
 const motionDuration = duration => Math.round(duration / (animationSpeed || 1));
 function applyMotionSpeed() {
   document.body.classList.toggle('gs-no-animations', disableEffects);
+  window.GameShelfRain?.refreshBackground?.();
   for (const animation of document.getAnimations?.() || []) {
     // Shuffle and dialog timers use their own matching duration.
     const target = animation.effect?.target;
@@ -267,7 +268,6 @@ async function saveFavorite() {
     document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
     document.getElementById('game-details-favorite').classList.toggle('is-favorite', game.favorite);
     document.getElementById('game-details-favorite-mobile').classList.toggle('is-favorite', game.favorite);
-    card.classList.add('gs-hover-suppressed');
     applySort();
     applySearchFilter();
     if (document.getElementById('favorite-dialog').open) document.getElementById('favorite-dialog').close();
@@ -507,7 +507,7 @@ function createGameCard(game) {
       const bounds = cover.getBoundingClientRect();
       rainEffect?.move(event.clientX - bounds.left, event.clientY - bounds.top);
     } else { rainEffect?.stop(); rainEffect = null; }
-    if (!['rose', 'midnight', 'lattice'].includes(theme) || document.getElementById('games-container').classList.contains('list-view')) return;
+    if (!['retro', 'rose', 'midnight', 'lattice'].includes(theme) || document.getElementById('games-container').classList.contains('list-view')) return;
     const bounds = cover.getBoundingClientRect();
     cover.style.setProperty?.('--pointer-x', ((event.clientX - bounds.left) / bounds.width * 100) + '%');
     cover.style.setProperty?.('--pointer-y', ((event.clientY - bounds.top) / bounds.height * 100) + '%');
@@ -519,7 +519,7 @@ function createGameCard(game) {
   star.textContent = game.favorite ? '★' : '☆';
   star.setAttribute('aria-label', game.favorite ? `Remove ${game.name} from favorites` : `Add ${game.name} to favorites`);
   star.title = game.favorite ? 'Remove from favorites' : 'Add to favorites';
-  star.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); star.blur(); card.classList.add('gs-hover-suppressed'); openFavoriteConfirm(game); });
+  star.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); star.blur(); openFavoriteConfirm(game); });
 
   if (game.hasCover === false) {
     const coverTitle = document.createElement('span');
@@ -551,7 +551,6 @@ function createGameCard(game) {
   dl.addEventListener('click', () => {
     showDownloadStarted();
     dl.blur();
-    card.classList.add('gs-hover-suppressed');
   });
 
   const details = document.createElement('button');
@@ -567,7 +566,7 @@ function createGameCard(game) {
   cart.textContent = '+';
   cart.setAttribute('aria-label', `Add ${game.name} to Playlist`);
   cart.title = 'Add to Playlist';
-  cart.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); animateControl(cart); toggleCart(game.id); cart.blur(); card.classList.add('gs-hover-suppressed'); });
+  cart.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); animateControl(cart); toggleCart(game.id); cart.blur(); });
   actions.appendChild(dl);
   actions.appendChild(cart);
   actions.appendChild(details);
@@ -1270,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.documentElement) document.documentElement.dataset.theme = theme;
     window.GameShelfRain?.stopAll();
     document.body.dataset.theme = theme;
+    window.GameShelfRain?.setTheme?.(theme, () => animationSpeed);
     themeSelect.value = themePreference;
   }
   applyTheme();
@@ -1621,7 +1621,6 @@ document.addEventListener('DOMContentLoaded', () => {
   favoriteDialog.addEventListener('close', () => {
     const card = favoritePending && cardMap.get(favoritePending.id);
     card?.querySelector('.gs-favorite-star')?.blur();
-    card?.classList.add('gs-hover-suppressed');
   });
   const favoritesFirstInput = document.getElementById('favorites-first');
   favoritesFirstInput.checked = favoritesFirst;
@@ -1974,6 +1973,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const syncOpacity = () => {
     listOpacity = Math.max(0, Math.min(100, Number(opacityInput.value) || 0));
     document.documentElement?.style.setProperty?.('--list-opacity', listOpacity + '%');
+    document.documentElement?.style.setProperty?.('--list-opacity-factor', String(listOpacity / 100));
     document.getElementById('list-opacity-value').textContent = listOpacity + '%';
     localStorage.setItem('gameshelf:list-opacity', String(listOpacity));
   };

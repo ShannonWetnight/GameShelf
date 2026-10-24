@@ -2074,3 +2074,25 @@ body.gs-card-depth .gs-grid .gs-card { box-shadow:inset 0 1px 0 color-mix(in srg
 :root body.gs-card-depth .gs-grid .gs-card:not(.gs-hover-suppressed):is(:hover,:focus-within,.gs-random-selected) { box-shadow:inset 0 1px 0 color-mix(in srgb,var(--text) 14%,transparent),0 0 0 1px var(--accent-soft),0 4px 7px #0004,0 15px 30px #0005; }
 .gs-rain-canvas { position:absolute;inset:0;width:100%;height:100%;pointer-events:none; }
 .gs-grid.list-view .gs-card-cover > .gs-favorite-star { inset:auto;align-self:center; }
+/* Sliders follow the same text gutter and share one full-width control layout. */
+#settings-dialog .gs-settings-section .gs-settings-option.gs-settings-range:not(.gs-settings-number-option) { flex-direction:column;align-items:stretch;gap:.6rem; }
+#settings-dialog .gs-settings-section .gs-settings-range > .gs-range-control { display:grid;grid-template-columns:minmax(0,1fr) 54px;align-items:center;gap:.7rem;width:100%; }
+.gs-range-control input[type="range"] { margin:0; }
+/* List transparency affects every surface without fading titles or icons. */
+.gs-grid.list-view .gs-card { backdrop-filter:none;-webkit-backdrop-filter:none; }
+.gs-grid.list-view .gs-card-cover,.gs-grid.list-view .gs-card-body,.gs-grid.list-view .gs-card-content { background:transparent; }
+.gs-grid.list-view .gs-card-actions::before { opacity:var(--list-opacity-factor,.8); }
+:root { --search-outline:var(--border-subtle); }
+.gs-search { border-color:var(--search-outline); }
+.gs-header { border-bottom-color:var(--search-outline); }
+.gs-header:has(.gs-search:focus) { border-bottom-color:var(--accent-soft); }
+.gs-header:has(.gs-search.is-filtering) { border-bottom-color:var(--accent-soft); }
+/* Text and save controls share the select's theme surface; icon-only controls stay clear. */
+.gs-settings-dialog :is(.gs-detail-action,.gs-button,.gs-cover-cancel,.gs-danger-action),
+#settings-dialog .gs-settings-backup > button { background:var(--input-background); }
+.gs-settings-dialog .gs-title-save:is(:hover,:focus-visible):not(:disabled) { background:var(--accent); }
+#cart-checkout:not(:disabled) { transition:color .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease; }
+#cart-checkout:not(:disabled):is(:hover,:focus-visible) { color:var(--accent);border-color:var(--accent);transform:translateY(-1px);box-shadow:0 2px 9px var(--accent-soft); }
+#cart-checkout:not(:disabled):active { transform:translateY(0) scale(.98); }
+.gs-weather-canvas { position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none; }
+.gs-header { transition:border-bottom-color .15s ease; }

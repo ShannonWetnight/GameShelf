@@ -12,7 +12,7 @@
 :root:is([data-theme="retro"],[data-theme="neon"],[data-theme="cartridge"],[data-theme="cosmos"],[data-theme="ion"],[data-theme="rose"],[data-theme="midnight"],[data-theme="lattice"]) .gs-logo-text { color:var(--accent);text-shadow:0 0 12px var(--accent-soft); }
 :root:is([data-theme="neon"],[data-theme="cartridge"],[data-theme="cosmos"],[data-theme="ion"],[data-theme="rose"],[data-theme="midnight"],[data-theme="lattice"]) .gs-grid .gs-card:is(:hover,:focus-within,.gs-random-selected):not(.gs-hover-suppressed) { border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent),0 0 24px var(--accent-soft),var(--shadow-soft); }
 :root[data-theme="cartridge"] .gs-card { border-radius:6px;border-color:#aaa8a4; }
-:root[data-theme="cartridge"] .gs-header { border-bottom:3px solid #b91d29; }
+:root[data-theme="cartridge"] .gs-header { border-bottom-width:3px; }
 :root[data-theme="ion"] .gs-card { border-radius:3px 15px 3px 15px; }
 :root[data-theme="lattice"] .gs-card { border-color:#3e6254; }
 /* Ambient page layers stay behind controls and never intercept input. */
@@ -62,14 +62,21 @@ body:not(.gs-show-placeholders) .gs-no-cover .gs-card-ambience .gs-card-reveal {
 :root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-logo-icon { filter:var(--brand-filter) drop-shadow(0 0 9px var(--accent-soft)); }
 :root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-logo-text { color:var(--accent);text-shadow:0 0 10px var(--accent-soft); }
 :root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-grid .gs-card:not(.gs-hover-suppressed):is(:hover,:focus-within,.gs-random-selected) { border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft),var(--shadow-soft); }
-:root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) body::before { inset:-100px; background-image:linear-gradient(105deg,transparent 47%,var(--rain-ink) 49%,var(--rain-ink) 50%,transparent 52%),linear-gradient(100deg,transparent 47%,var(--rain-ink) 49%,transparent 51%);background-size:41px 101px,73px 173px;animation:gs-rain-fall var(--rain-speed) linear infinite; }
 :root[data-theme="rain"] body::after { background:radial-gradient(ellipse at 15% 45%,#a7c6de0e,transparent 55%),radial-gradient(ellipse at 85% 10%,#c7d8e818,transparent 55%);animation:gs-rain-mist 15s ease-in-out infinite alternate; }
 :root[data-theme="storm"] body::after { background:radial-gradient(ellipse at 70% 5%,#a1b7e52b,transparent 60%);animation:gs-storm-cloud 12s ease-in-out infinite; }
 :root[data-theme="autumn"] body::after { background-image:radial-gradient(ellipse 3px 7px at 15% 15%,#cf9e5555 70%,transparent 90%),radial-gradient(ellipse 4px 9px at 70% 60%,#a5683855 70%,transparent 90%);background-size:241px 317px,379px 463px;animation:gs-autumn-leaves 24s linear infinite;opacity:.55; }
-:root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-card-ambience::before { background:linear-gradient(transparent,#aac5df0c),repeating-linear-gradient(102deg,transparent 0 36px,var(--rain-ink) 37px,transparent 38px);opacity:.35; }
-@keyframes gs-rain-fall { from{background-position:0 -101px,0 -173px}to{background-position:41px 0,73px 0} }
+:root:is([data-theme="rain"],[data-theme="storm"],[data-theme="autumn"]) .gs-card-ambience::before { background:linear-gradient(transparent,#aac5df0c);opacity:.35; }
 @keyframes gs-rain-mist { from{opacity:.3;transform:translateX(-3%)}to{opacity:.8;transform:translateX(3%)} }
 @keyframes gs-storm-cloud { 0%,40%,100%{opacity:.15}60%{opacity:.7}75%{opacity:.3} }
 @keyframes gs-autumn-leaves { from{background-position:0 -317px,0 -463px}to{background-position:100px 317px,-80px 463px} }
 body.gs-no-animations::before,body.gs-no-animations::after { animation:none !important; }
 @media(prefers-reduced-motion:reduce) { body::before,body::after { animation:none !important; } }
+/* Retro Arcade keeps its warm text and purple surfaces, with a cool glitter wash. */
+:root[data-theme="retro"] .gs-card-ambience::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='131' height='151'%3E%3Cpath d='M21 35l2 5 2 1-2 2-2 5-2-5-2-2 2-1z' fill='%23ed84ff'/%3E%3Cpath d='M86 101l2 4 3 2-3 2-2 5-2-5-3-2 3-2z' fill='%237dcfff'/%3E%3Cpath d='M109 18l1 3 3 1-3 1-1 3-1-3-3-1 3-1z' fill='%23d9bfff'/%3E%3C/svg%3E"),radial-gradient(circle at 12px 18px,#e8c5ff 0 .8px,transparent 1.8px),radial-gradient(circle at 36px 45px,#5acbff 0 1.2px,transparent 2.4px),radial-gradient(circle at 58px 20px,#f36dff 0 1.2px,transparent 2.2px),linear-gradient(145deg,#c52ae622,#4638ba33,#1587c226);background-size:131px 151px,23px 29px,53px 67px,83px 97px,100% 100%;mask-image:radial-gradient(circle 200px at var(--pointer-x,50%) var(--pointer-y,50%),#000,transparent);animation:gs-retro-glitter 4.5s ease-in-out infinite alternate; }
+:root[data-theme="retro"] .gs-card-ambience::after { background:radial-gradient(ellipse 22px 1px at var(--pointer-x,50%) var(--pointer-y,50%),#e9caffbb,transparent),radial-gradient(ellipse 1px 22px at var(--pointer-x,50%) var(--pointer-y,50%),#a3d9ffbb,transparent),radial-gradient(circle 90px at var(--pointer-x,50%) var(--pointer-y,50%),#9b3bdb2b,transparent); }
+@keyframes gs-retro-glitter { from{opacity:.65;filter:brightness(.95)}to{opacity:1;filter:brightness(1.4)} }
+/* All palettes use their select surface for settings buttons, including text actions. */
+:root .gs-settings-dialog :is(.gs-detail-action,.gs-button,.gs-cover-cancel,.gs-danger-action),
+:root #settings-dialog .gs-settings-backup > button { background:var(--input-background); }
+:root .gs-settings-dialog .gs-button:not(.gs-danger-action) { color:var(--text); }
+:root .gs-settings-dialog .gs-title-save:is(:hover,:focus-visible):not(:disabled) { background:var(--accent);color:var(--bg); }

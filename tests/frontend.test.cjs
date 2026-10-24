@@ -236,7 +236,7 @@ test('cover actions download the game and open read-only details', async () => {
   action.emit('click');
   assert.equal(ui.element('notification-text').textContent, 'Download started.');
   assert.equal(action.focused, false);
-  assert.equal(card.classList.contains('gs-hover-suppressed'), true);
+  assert.equal(card.classList.contains('gs-hover-suppressed'), false);
   card.emit('pointerleave');
   assert.equal(card.classList.contains('gs-hover-suppressed'), false);
   details.emit('click');
@@ -629,7 +629,7 @@ test('adding favorites saves directly and removing asks for confirmation', async
   ui.requests.at(-1).resolve(response({ favorite: false }));
   await settle();
   assert.equal(alpha.dataset.favorite, 'false');
-  assert.equal(alpha.classList.contains('gs-hover-suppressed'), true);
+  assert.equal(alpha.classList.contains('gs-hover-suppressed'), false);
   assert.equal(alpha.classList.contains('gs-random-selected'), false);
   assert.equal(alpha.querySelector('.gs-favorite-star').focused, false);
 });
