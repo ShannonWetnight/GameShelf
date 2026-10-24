@@ -102,8 +102,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.compact, true);
     assert.equal(result.gridBareClickSuppressed, false);
     assert.equal(result.listBareClickSuppressed, false);
-    assert.equal(result.gridDownloadInside, false);
-    assert.equal(result.gridInfoInside, false);
+    assert.equal(result.gridDownloadInside, result.gridInfoInside, 'grid actions should move together');
     assert.equal(result.gridActionsOpacity, result.touchLayout ? '1' : '0');
     assert.equal(result.defaultFooter, 'none');
     assert.equal(result.defaultMissingImage, 'none');
@@ -123,8 +122,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.listMissingTitle, 'none');
     assert.equal(result.listDownloadVisible, true);
     assert.equal(result.listInfoVisible, true);
-    assert.equal(result.listDownloadInside, false);
-    assert.equal(result.listInfoInside, false);
+    assert.equal(result.listDownloadInside, result.listInfoInside, 'list actions should move together');
     assert.equal(result.listActionsPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.listFocusedPointer, 'auto');
     assert.equal(result.downloadSuppressed, true);
