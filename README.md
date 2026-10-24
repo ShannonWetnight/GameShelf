@@ -322,3 +322,7 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 > [!WARNING]
 > If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
 
+
+### Default preferences
+
+New browsers use the System theme, animated loaded tiles, button hints, placeholder images, favorites first, list images, playlist downloads, and double-click list image expansion. Slow motion, disabled animations, game titles, and the card-star setting start off; the favorited-only preference starts on. Recently Added uses 7 days and automatic refresh uses 168 hours. Backup options start selected. Existing saved preferences are preserved. **Reset All Settings → Wipe** restores defaults after confirmation.

@@ -306,7 +306,8 @@ test('display preferences default to hints on and persist changes', () => {
   ui.start();
   assert.equal(ui.element('show-hover-text').checked, true);
   assert.equal(ui.element('show-game-titles').checked, false);
-  assert.equal(ui.element('show-placeholder-images').checked, false);
+  assert.equal(ui.element('show-placeholder-images').checked, true);
+  assert.equal(ui.element('expand-list-image').checked, true);
   assert.equal(ui.element('show-list-images').checked, true);
   for (const [id, key, bodyClass, checked] of [
     ['show-hover-text', 'gameshelf:show-hover-text', 'gs-hide-tooltips', false],
@@ -386,8 +387,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(selected().length, 0);
   assert.equal(ui.element('random-game').disabled, true);
   assert.equal(ui.cards().filter(card => card.classList.contains('gs-shuffle-preview')).length, 1);
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   assert.equal(selected().length, 1);
   assert.equal(ui.element('random-game').disabled, false);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
@@ -410,8 +411,8 @@ test('random suggestion highlights a game without downloading and avoids immedia
   ui.click('random-game');
   assert.equal(ui.element('random-game').classList.contains('is-rolling'), true);
   assert.equal(selected().length, 0);
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   assert.equal(selected().length, 1);
   assert.notEqual(selected()[0].dataset.id, firstId);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -435,8 +436,8 @@ test('spotlight resets through Return to all games or Escape and restores list v
   assert.equal(ui.element('games-container').classList.contains('list-view'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   ui.click('show-all-games');
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   assert.equal(ui.hidden('spotlight-actions'), true);
@@ -444,8 +445,8 @@ test('spotlight resets through Return to all games or Escape and restores list v
 
   ui.click('random-game');
   ui.document.emit('keydown', { key: 'Escape' });
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
 });
@@ -456,16 +457,16 @@ test('sort and view controls leave dice spotlight before acting', async () => {
   ui.requests[0].resolve(response(games));
   await settle();
   ui.click('random-game');
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
   ui.click('sort-button');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.hidden('sort-menu'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
   ui.click('random-game');
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   ui.click('view-toggle');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
@@ -479,8 +480,8 @@ test('search cancels a pending shuffle and reduced motion skips it', async () =>
   await settle();
   ui.click('random-game');
   ui.search('Alpha');
-  ui.tick(156);
-  ui.tick(375);
+  ui.tick(300);
+  ui.tick(663);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.hidden('spotlight-actions'), true);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
@@ -516,12 +517,12 @@ test('settings dialog defaults off and slows dice and card shuffle together', as
   ui.requests[0].resolve(response(games));
   await settle();
   ui.click('random-game');
-  assert.ok(ui.timerDelays().includes(250));
-  assert.ok(ui.timerDelays().includes(600));
+  assert.ok(ui.timerDelays().includes(480));
+  assert.ok(ui.timerDelays().includes(1060));
   ui.tick(156);
   assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 0);
-  ui.tick(250);
-  ui.tick(600);
+  ui.tick(480);
+  ui.tick(1060);
   assert.equal(ui.cards().filter(card => card.classList.contains('gs-random-selected')).length, 1);
 
   const nextVisit = app(undefined, storage);

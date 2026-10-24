@@ -105,8 +105,8 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.gridDownloadInside, result.gridInfoInside, 'grid actions should move together');
     assert.equal(result.gridActionsOpacity, result.touchLayout ? '1' : '0');
     assert.equal(result.defaultFooter, 'none');
-    assert.equal(result.defaultMissingImage, 'none');
-    assert.notEqual(result.defaultMissingTitle, 'none');
+    assert.notEqual(result.defaultMissingImage, 'none');
+    assert.equal(result.defaultMissingTitle, 'none');
     assert.notEqual(result.placeholderImage, 'none');
     assert.equal(result.placeholderTitle, 'none');
     assert.notEqual(result.placeholderOverlay, 'none');
