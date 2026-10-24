@@ -1918,7 +1918,9 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 #favorite-confirm, #cart-clear { border: 1px solid #ca5964; }
 #favorite-confirm:hover, #cart-clear:hover { background: rgba(202,89,100,.12); border-color: #ee7682; }
 button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup button:disabled { opacity: .46; cursor: not-allowed; transform: none; }
-#open-cart { color: var(--text); background: var(--icon-background); }
+#open-cart { color: var(--text-muted); background: none; }
+#open-cart:hover, #open-cart:focus-visible { background: rgba(255,255,255,.08); }
+:root[data-theme="light"] #open-cart:hover, :root[data-theme="light"] #open-cart:focus-visible { background: rgba(25,43,73,.07); }
 #open-cart svg { fill: none; }
 
 /* Cover source and upload belong to one preview toolbar. */
