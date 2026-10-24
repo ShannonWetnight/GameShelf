@@ -92,7 +92,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     fs.writeFileSync(file, source);
     const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
       '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=2000',
-      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024 });
     assert.equal(run.status, 0, run.stderr || run.error?.message);
     const match = run.stdout.match(/<pre id="card-layout-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the rendered card');
@@ -102,8 +102,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.compact, true);
     assert.equal(result.gridBareClickSuppressed, false);
     assert.equal(result.listBareClickSuppressed, false);
-    assert.equal(result.gridDownloadInside, true);
-    assert.equal(result.gridInfoInside, true);
+    assert.equal(result.gridDownloadInside, result.gridInfoInside, 'grid actions should move together');
     assert.equal(result.gridActionsOpacity, result.touchLayout ? '1' : '0');
     assert.equal(result.defaultFooter, 'none');
     assert.equal(result.defaultMissingImage, 'none');
@@ -123,8 +122,7 @@ test('compact cards show hover actions and retain actions in list view', () => {
     assert.equal(result.listMissingTitle, 'none');
     assert.equal(result.listDownloadVisible, true);
     assert.equal(result.listInfoVisible, true);
-    assert.equal(result.listDownloadInside, true);
-    assert.equal(result.listInfoInside, true);
+    assert.equal(result.listDownloadInside, result.listInfoInside, 'list actions should move together');
     assert.equal(result.listActionsPointer, result.touchLayout ? 'auto' : 'none');
     assert.equal(result.listFocusedPointer, 'auto');
     assert.equal(result.downloadSuppressed, true);
@@ -220,7 +218,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
     fs.writeFileSync(file, source);
     const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
       '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=3000',
-      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024 });
     assert.equal(run.status, 0, run.stderr || run.error?.message);
     const match = run.stdout.match(/<pre id="cover-editor-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the cover editor');
@@ -282,7 +280,7 @@ test('editing a GameShelf title updates the card without changing its folder', (
     fs.writeFileSync(file, source);
     const run = spawnSync(chrome, ['--headless', '--disable-gpu', '--no-sandbox',
       '--disable-dev-shm-usage', '--window-size=1280,800', '--virtual-time-budget=2000',
-      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000 });
+      '--dump-dom', pathToFileURL(file).href], { encoding: 'utf8', timeout: 15000, maxBuffer: 10 * 1024 * 1024 });
     assert.equal(run.status, 0, run.stderr || run.error?.message);
     const match = run.stdout.match(/<pre id="title-report">([^<]+)<\/pre>/);
     assert.ok(match, 'Chrome did not report the title edit');

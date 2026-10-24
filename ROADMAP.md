@@ -6,7 +6,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 
 ### Recommended Next
 * [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
-* [x] Add a download cart for choosing several games, reviewing their estimated size, and creating one ZIP.
+* [x] Add an optional download playlist for choosing several games, reviewing their estimated size, and creating one ZIP.
 * [ ] Add a first-launch setup guide for library and data mounts, including a path check and clear guidance for read-only library access.
 
 ### Core UX & Stability
@@ -21,7 +21,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] *(Planned)* Manual refresh button
 * [x] Integrate refresh button into GAMESHELF header text and remove button
 * [x] Make the header refresh control keyboard-accessible
-* [x] Add System, GameShelf Classic, Light, and Dark themes in Appearance settings
+* [x] Add System, GameShelf Classic, Light, Dark, and Retro Arcade themes in Appearance settings
 * [x] *(Planned)* Add micro-animations for hover and card transitions
 * [x] Add a game-card information button that opens a read-only details panel; show the app version in Settings
 * [x] *(Planned)* Add grid/list view toggle with optional cover thumbnails in list view
@@ -47,6 +47,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
   - Env to include, optional 
   - [ ] If enabled, cache fetched artwork locally and skip the remote fetch when a cached copy exists
 * [x] Add ability to upload and edit cover images from the UI while keeping game folders read-only
+* [x] Let the cover editor choose a supported image already inside a game's folder
 * [x] Export uploaded and available game-folder covers with library data; exclude placeholder artwork
 * [x] Show compact game covers in list view by default, with a setting to hide them
 
@@ -81,10 +82,11 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Include optional server settings and recent application logs in the export
 * [x] Confirm successful title, cover, favorite, settings, metadata-reset, and export actions with a notification banner
 * [x] *(Planned)* Folder autodiscovery
-* [x] Add a cart to download multiple game folders in one ZIP
+* [x] Add an optional playlist to download multiple game folders in one ZIP
 * [ ] Add optional GOG API integration for automatic downloads (account-based, but reduces the need for manual transfers)
   - Env to include, optional 
-* [ ] Add support for multiple directories
+* [x] Add support for multiple local or host-mounted library directories
+* [ ] Evaluate direct SMB, NFS, SFTP, and WebDAV connectors with credential storage and the same file containment guarantees as mounted sources
 * [ ] Explore a first-launch setup page for library paths, multiple directories, and clearly explained download/ZIP streaming options; define where settings persist and preserve read-only library access
 * [x] Let users save mounted library and data paths and the refresh interval from Settings, applying path and interval changes after restart
 * [x] Keep cover reads and ZIP contents within the selected game directory, including symlinks and files changed during a request; preserve uploaded covers under application data

@@ -45,11 +45,14 @@ type Game struct {
 type gameEntry struct {
 	Game      Game
 	DirName   string // directory name on disk
+	RootDir   string // containing library source; empty uses the legacy primary source
+	CoverKey  string // unique storage name for an uploaded cover
 	CoverPath string // absolute path to cover, if any
 }
 
 var (
 	rootDir       string
+	rootDirs      []string
 	dataDir       string
 	gamesMu       sync.RWMutex
 	refreshMu     sync.Mutex                    // serialize scans without blocking readers
@@ -65,6 +68,7 @@ var (
 func main() {
 	settings := initializeServerSettings()
 	rootDir = settings.RootDir
+	rootDirs = libraryRoots(settings)
 	dataDir = settings.DataDir
 
 	if err := refreshGames(); err != nil {
@@ -72,14 +76,14 @@ func main() {
 	}
 
 	if interval := configuredRefreshInterval(settings.RefreshInterval); interval > 0 {
-		log.Printf("Auto-rescanning every %s", interval)
+		logEvent("system", "Auto-rescanning every %s", interval)
 		go func() {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 
 			for range ticker.C {
 				if err := refreshGames(); err != nil {
-					log.Printf("periodic scan error: %v", err)
+					logEvent("errors", "periodic scan error: %v", err)
 				}
 			}
 		}()
@@ -98,6 +102,7 @@ func main() {
 	mux.HandleFunc("/api/library-backup", handleLibraryBackup)
 	mux.HandleFunc("/api/library-restore", handleLibraryRestore)
 	mux.HandleFunc("/api/covers/", handleCoverUpload)
+	mux.HandleFunc("/api/cover-source/", handleCoverSource)
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/api/favorite/", handleFavorite)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
@@ -105,6 +110,7 @@ func main() {
 	mux.HandleFunc("/api/logs", handleLogs)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/download-cart", handleDownloadCart)
+	mux.HandleFunc("/download-playlist", handleDownloadCart)
 	mux.HandleFunc("/covers/", handleCover)
 
 	// Static frontend
@@ -121,7 +127,7 @@ func main() {
 		addr = v
 	}
 
-	log.Printf("GameShelf serving %s on %s", rootDir, addr)
+	logEvent("system", "GameShelf serving %s on %s", rootDir, addr)
 	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
 		log.Fatal(err)
 	}
@@ -148,7 +154,7 @@ func refreshInterval() time.Duration {
 
 	dur, err := time.ParseDuration(value)
 	if err != nil {
-		log.Printf("invalid GAMESHELF_REFRESH_INTERVAL %q, using default 12h", value)
+		logEvent("errors", "invalid GAMESHELF_REFRESH_INTERVAL %q, using default 12h", value)
 		return 12 * time.Hour
 	}
 
@@ -284,6 +290,22 @@ func customCoverPath(dirName string) string {
 	return filepath.Join(dataDir, "covers", dirName, "cover.png")
 }
 
+func entryRootDir(entry *gameEntry) string {
+	if entry.RootDir != "" { return entry.RootDir }
+	return rootDir
+}
+
+func entryCoverKey(entry *gameEntry) string {
+	if entry.CoverKey != "" { return entry.CoverKey }
+	return entry.DirName
+}
+
+func sourceCoverKey(source, name string) string {
+	if source == rootDir { return name }
+	hash := sha256.Sum256([]byte(filepath.Join(source, name)))
+	return fmt.Sprintf("source-%x", hash[:16])
+}
+
 func legacyCustomCoverPath(dirName string) string {
 	hash := sha256.Sum256([]byte(dirName))
 	return filepath.Join(dataDir, "covers", fmt.Sprintf("%x.png", hash))
@@ -345,17 +367,41 @@ func refreshGames() error {
 	state, stateErr := readLibraryMetadata()
 	firstSeen := state.FirstSeen
 	if stateErr != nil {
-		log.Printf("Date-added state unavailable: %v", stateErr)
+		logEvent("errors", "Date-added state unavailable: %v", stateErr)
 	}
 	nextFirstSeen := make(map[string]string)
 	stateChanged := false
 
-	entries, err := os.ReadDir(rootDir)
-	if err != nil {
-		return fmt.Errorf("reading rootDir: %w", err)
+	primaryEntries, err := os.ReadDir(rootDir)
+	if err != nil { return fmt.Errorf("reading library source %s: %w", rootDir, err) }
+	scanRoots := rootDirs
+	if len(scanRoots) == 0 { scanRoots = []string{rootDir} }
+	type sourceFolder struct { source, name, key string }
+	folders := make([]sourceFolder, 0)
+	// A share mounted below /games is a source container, not a game in /games.
+	isSourceContainer := func(source, name string) bool {
+		child := filepath.Join(source, name)
+		for _, other := range scanRoots {
+			if other != source && pathInside(child, other) { return true }
+		}
+		return false
+	}
+	primaryGameEntries := make([]os.DirEntry, 0, len(primaryEntries))
+	for _, e := range primaryEntries {
+		if e.IsDir() && !isSourceContainer(rootDir, e.Name()) {
+			primaryGameEntries = append(primaryGameEntries, e)
+			folders = append(folders, sourceFolder{rootDir, e.Name(), e.Name()})
+		}
+	}
+	for _, source := range scanRoots {
+		if source == rootDir { continue }
+		entries, err := os.ReadDir(source)
+		if err != nil { return fmt.Errorf("reading library source %s: %w", source, err) }
+		for _, e := range entries { if e.IsDir() && !isSourceContainer(source, e.Name()) { folders = append(folders, sourceFolder{source, e.Name(), filepath.Join(source, e.Name())}) } }
 	}
 	// A different library/storage pair must not inherit process-local assignments.
-	if cachedIDRoot != rootDir || cachedIDData != dataDir {
+	rootSignature := strings.Join(scanRoots, "\x00")
+	if cachedIDRoot != rootSignature || cachedIDData != dataDir {
 		cachedIDs = nil
 	}
 	// Disk is authoritative on recovery. Reuse cached IDs only if neither their
@@ -378,31 +424,43 @@ func refreshGames() error {
 			usedIDs[id] = true
 		}
 	}
-	ids, _ := assignGameIDs(entries, savedIDs)
+	ids, _ := assignGameIDs(primaryGameEntries, savedIDs)
+	used := make(map[string]bool)
+	for _, id := range ids { used[id] = true }
+	for _, folder := range folders {
+		if folder.source == rootDir || ids[folder.key] != "" { continue }
+		base := slugify(folder.name)
+		if base == "" { base = "game" }
+		id := base
+		if used[id] {
+			hash := sha256.Sum256([]byte(folder.key))
+			id = fmt.Sprintf("%s-%x", base, hash[:8])
+			for n := 1; used[id]; n++ { id = fmt.Sprintf("%s-%x-%d", base, hash[:8], n) }
+		}
+		ids[folder.key] = id
+		used[id] = true
+	}
 	persistedIDs := state.IDs
 	idsChanged := !maps.Equal(ids, persistedIDs)
 	state.IDs = ids
 	stateChanged = idsChanged
 
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-
-		dirName := e.Name()
+	for _, folder := range folders {
+		dirName := folder.name
 		if logTypeEnabled("scans") { log.Printf("[scan] scanning %q", dirName) }
-		id := ids[dirName]
-		absPath := filepath.Join(rootDir, dirName)
+		id := ids[folder.key]
+		absPath := filepath.Join(folder.source, dirName)
 
 		size, fileCount, err := dirStats(absPath)
 		if err != nil {
 			return fmt.Errorf("scanning game %q: %w", dirName, err)
 		}
 
-		cover := customCoverPath(dirName)
+		coverKey := sourceCoverKey(folder.source, dirName)
+		cover := customCoverPath(coverKey)
 		coverSource := "uploaded"
 		if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
-			cover = legacyCustomCoverPath(dirName)
+			cover = legacyCustomCoverPath(coverKey)
 			if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
 				cover = findCover(absPath)
 				coverSource = "folder"
@@ -444,6 +502,8 @@ func refreshGames() error {
 				Favorite:    state.Favorites[absPath],
 			},
 			DirName:   dirName,
+			RootDir:   folder.source,
+			CoverKey:  coverKey,
 			CoverPath: cover,
 		}
 
@@ -457,9 +517,9 @@ func refreshGames() error {
 			state.FirstSeen = nextFirstSeen
 			if err := writeLibraryMetadata(state); err != nil {
 				if idsChanged {
-					log.Printf("Game ID assignments are temporary (in memory only): %v; URLs may change after restart if the folder set or saved state changes", err)
+					logEvent("errors", "Game ID assignments are temporary (in memory only): %v; URLs may change after restart if the folder set or saved state changes", err)
 				}
-				log.Printf("Date-added state could not be saved: %v", err)
+				logEvent("errors", "Date-added state could not be saved: %v", err)
 				for _, entry := range nextGames {
 					if firstSeen[entry.Game.Path] == "" {
 						entry.Game.AddedAt = ""
@@ -470,15 +530,15 @@ func refreshGames() error {
 			}
 		}
 	}
-	for name, id := range ids {
-		if entry := nextGames[id]; entry != nil && entry.DirName == name {
-			entry.Game.IDPersisted = persistedIDs[name] == id
+	for key, id := range ids {
+		if entry := nextGames[id]; entry != nil && (entry.DirName == key || entry.Game.Path == key) {
+			entry.Game.IDPersisted = persistedIDs[key] == id
 		}
 	}
 	if stateErr != nil && idsChanged {
-		log.Printf("Game ID assignments are temporary (in memory only): library state unavailable; URLs may change after restart if the folder set or saved state changes")
+		logEvent("errors", "Game ID assignments are temporary (in memory only): library state unavailable; URLs may change after restart if the folder set or saved state changes")
 	}
-	cachedIDs, cachedIDRoot, cachedIDData = ids, rootDir, dataDir
+	cachedIDs, cachedIDRoot, cachedIDData = ids, rootSignature, dataDir
 
 	// Publish only a complete scan; readers keep the last successful index.
 	gamesMu.Lock()
@@ -486,7 +546,7 @@ func refreshGames() error {
 	lastIndexedAt = time.Now().UTC()
 	gamesMu.Unlock()
 
-	log.Printf("Indexed %d games", len(nextGames))
+	logEvent("library", "Indexed %d games", len(nextGames))
 	return nil
 }
 
@@ -564,7 +624,7 @@ func openGameRoot(entry *gameEntry) (*os.Root, error) {
 	if !filepath.IsLocal(entry.DirName) || filepath.Base(entry.DirName) != entry.DirName {
 		return nil, fmt.Errorf("invalid game directory")
 	}
-	library, err := os.OpenRoot(rootDir)
+	library, err := os.OpenRoot(entryRootDir(entry))
 	if err != nil {
 		return nil, err
 	}
@@ -637,7 +697,7 @@ func handleVersion(w http.ResponseWriter, r *http.Request) {
 		Version string `json:"version"`
 		Channel string `json:"channel"`
 	}{buildVersion, buildChannel}); err != nil {
-		log.Printf("encode version: %v", err)
+		logEvent("errors", "encode version: %v", err)
 	}
 }
 
@@ -661,7 +721,7 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	file, size, err := prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings, selected)
 	if err != nil {
-		log.Printf("library backup unavailable: %v", err)
+		logEvent("errors", "library backup unavailable: %v", err)
 		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
 		return
 	}
@@ -673,7 +733,7 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-library-backup.zip"`)
 	w.Header().Set("Content-Length", fmt.Sprint(size))
 	if _, err := io.Copy(w, file); err != nil {
-		log.Printf("send library backup: %v", err)
+		logEvent("errors", "send library backup: %v", err)
 		// Abort the connection rather than finish a truncated successful response.
 		panic(http.ErrAbortHandler)
 	}
@@ -746,7 +806,7 @@ func openFolderCoverForBackup(entry gameEntry) (*os.File, error) {
 		return nil, err
 	}
 	defer root.Close()
-	rel, err := filepath.Rel(filepath.Join(rootDir, entry.DirName), entry.CoverPath)
+	rel, err := filepath.Rel(filepath.Join(entryRootDir(&entry), entry.DirName), entry.CoverPath)
 	if err != nil {
 		return nil, err
 	}
@@ -801,12 +861,13 @@ func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, 
 		for _, entry := range covers {
 			var file *os.File
 			var openErr error
-			archiveName := path.Join("covers", entry.DirName, "cover.png")
+			coverKey := entryCoverKey(&entry)
+			archiveName := path.Join("covers", coverKey, "cover.png")
 			if entry.Game.CoverSource == "uploaded" {
-				file, openErr = openUploadedCoverForBackup(entry.DirName, entry.CoverPath)
+				file, openErr = openUploadedCoverForBackup(coverKey, entry.CoverPath)
 			} else {
 				file, openErr = openFolderCoverForBackup(entry)
-				archiveName = path.Join("folder-covers", entry.DirName, filepath.Base(entry.CoverPath))
+				archiveName = path.Join("folder-covers", coverKey, filepath.Base(entry.CoverPath))
 			}
 			if openErr != nil {
 				err = fmt.Errorf("open cover for %q: %w", entry.DirName, openErr)
@@ -872,7 +933,7 @@ func handleGameTitle(w http.ResponseWriter, r *http.Request) {
 		state.Titles[entry.Game.Path] = name
 	}
 	if err := writeLibraryMetadata(state); err != nil {
-		log.Printf("save game title: %v", err)
+		logEvent("errors", "save game title: %v", err)
 		http.Error(w, "Unable to save title.", http.StatusServiceUnavailable)
 		return
 	}
@@ -914,6 +975,35 @@ func handleFavorite(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(payload)
 }
 
+// Serve a supported image from the selected game through its confined root.
+// The browser uses this only as an editor source; saving still writes a PNG to dataDir.
+func handleCoverSource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	id := strings.TrimPrefix(r.URL.Path, "/api/cover-source/")
+	entry := getGameEntryByID(id)
+	rel := r.URL.Query().Get("path")
+	ext := strings.ToLower(filepath.Ext(rel))
+	if entry == nil || !filepath.IsLocal(rel) || rel == "." || strings.Contains(rel, "\\") || (ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".gif" && ext != ".webp") {
+		http.NotFound(w, r); return
+	}
+	root, err := openGameRoot(entry)
+	if err != nil { http.NotFound(w, r); return }
+	defer root.Close()
+	file, info, err := openRegularFile(root, rel)
+	if err != nil || info.Size() > 20<<20 { if file != nil { file.Close() }; http.NotFound(w, r); return }
+	defer file.Close()
+	first := make([]byte, 512)
+	n, err := file.Read(first)
+	if err != nil && err != io.EOF { http.NotFound(w, r); return }
+	contentType := http.DetectContentType(first[:n])
+	if contentType != "image/png" && contentType != "image/jpeg" && contentType != "image/gif" && contentType != "image/webp" { http.NotFound(w, r); return }
+	if _, err := file.Seek(0, io.SeekStart); err != nil { http.NotFound(w, r); return }
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
+}
+
 func handleCoverUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -945,7 +1035,7 @@ func handleCoverUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
-	coverPath := customCoverPath(entry.DirName)
+	coverPath := customCoverPath(entryCoverKey(entry))
 	if err := os.MkdirAll(filepath.Dir(coverPath), 0700); err != nil {
 		http.Error(w, "Unable to save cover image.", http.StatusServiceUnavailable)
 		return
@@ -969,7 +1059,7 @@ func handleCoverUpload(w http.ResponseWriter, r *http.Request) {
 		err = os.Rename(file.Name(), coverPath)
 	}
 	if err != nil {
-		log.Printf("save cover for %s: %v", entry.Game.Name, err)
+		logEvent("errors", "save cover for %s: %v", entry.Game.Name, err)
 		http.Error(w, "Unable to save cover image.", http.StatusServiceUnavailable)
 		return
 	}
@@ -994,7 +1084,7 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 	// forceRefresh enables client to bypass auto-scan timer
 	if r.URL.Query().Has("forceRefresh") {
 		if err := refreshGames(); err != nil {
-			log.Printf("forced scan error: %v", err)
+			logEvent("errors", "forced scan error: %v", err)
 			http.Error(w, "Unable to refresh game library. Please try again later.", http.StatusServiceUnavailable)
 			return
 		}
@@ -1010,7 +1100,7 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(list); err != nil {
-		log.Printf("encode games: %v", err)
+		logEvent("errors", "encode games: %v", err)
 	}
 }
 
@@ -1046,7 +1136,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		log.Printf("encode stats: %v", err)
+		logEvent("errors", "encode stats: %v", err)
 	}
 }
 
@@ -1067,7 +1157,7 @@ func handleGameFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dirPath := filepath.Join(rootDir, entry.DirName)
+	dirPath := filepath.Join(entryRootDir(entry), entry.DirName)
 	files := make([]gameFile, 0)
 	const maxFiles = 2000
 	truncated := false
@@ -1096,7 +1186,7 @@ func handleGameFiles(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
-		log.Printf("list files for %s: %v", entry.Game.Name, err)
+		logEvent("errors", "list files for %s: %v", entry.Game.Name, err)
 		http.Error(w, "Unable to list game files.", http.StatusServiceUnavailable)
 		return
 	}
@@ -1106,7 +1196,7 @@ func handleGameFiles(w http.ResponseWriter, r *http.Request) {
 		Files     []gameFile `json:"files"`
 		Truncated bool       `json:"truncated"`
 	}{files, truncated}); err != nil {
-		log.Printf("encode game files: %v", err)
+		logEvent("errors", "encode game files: %v", err)
 	}
 }
 
@@ -1171,7 +1261,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	output := &zipResponseWriter{ResponseWriter: w}
 	if err := writeGameZIP(output, root); err != nil {
-		log.Printf("zip error for %s: %v", entry.Game.Name, err)
+		logEvent("errors", "zip error for %s: %v", entry.Game.Name, err)
 		if output.started {
 			// Do not finalize a partial archive as a successful ZIP. net/http aborts
 			// the connection (or HTTP/2 stream) without appending an error to ZIP data.
@@ -1271,20 +1361,20 @@ func handleDownloadCart(w http.ResponseWriter, r *http.Request) {
 		items = append(items, item{id, root})
 	}
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-cart.zip"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-playlist.zip"`)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	output := &zipResponseWriter{ResponseWriter:w}
 	archive := zip.NewWriter(output)
 	for _, selected := range items {
-		if logTypeEnabled("downloads") { log.Printf("[download] cart game %s", selected.id) }
+		if logTypeEnabled("downloads") { log.Printf("[download] playlist game %s", selected.id) }
 		if err := addGameToZIP(archive, selected.root, selected.id); err != nil {
-			log.Printf("cart zip error: %v", err)
+			logEvent("errors", "playlist zip error: %v", err)
 			if output.started { panic(http.ErrAbortHandler) }
 			http.Error(w, "Unable to package selected games.", http.StatusServiceUnavailable)
 			return
 		}
 	}
-	if err := archive.Close(); err != nil { log.Printf("cart zip close: %v", err); panic(http.ErrAbortHandler) }
+	if err := archive.Close(); err != nil { logEvent("errors", "playlist zip close: %v", err); panic(http.ErrAbortHandler) }
 }
 
 func handleCover(w http.ResponseWriter, r *http.Request) {
@@ -1328,7 +1418,7 @@ func handleCover(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if entry.Game.CoverSource == "uploaded" {
 		// Only the two supported uploaded-cover locations are allowed.
-		if entry.CoverPath != customCoverPath(entry.DirName) && entry.CoverPath != legacyCustomCoverPath(entry.DirName) {
+		if entry.CoverPath != customCoverPath(entryCoverKey(entry)) && entry.CoverPath != legacyCustomCoverPath(entryCoverKey(entry)) {
 			http.NotFound(w, r)
 			return
 		}
@@ -1339,7 +1429,7 @@ func handleCover(w http.ResponseWriter, r *http.Request) {
 	} else {
 		root, err = openGameRoot(entry)
 		if err == nil {
-			rel, err = filepath.Rel(filepath.Join(rootDir, entry.DirName), entry.CoverPath)
+			rel, err = filepath.Rel(filepath.Join(entryRootDir(entry), entry.DirName), entry.CoverPath)
 		}
 	}
 	if root != nil {
@@ -1373,13 +1463,23 @@ func sanitizeFilename(name string) string {
 
 type serverSettings struct {
 	RootDir string `json:"rootDir"`
+	RootDirs []string `json:"rootDirs,omitempty"`
 	DataDir string `json:"dataDir"`
 	RefreshInterval string `json:"refreshInterval"`
 	Verbose bool `json:"verbose"`
 	LogOptions *logOptions `json:"logOptions,omitempty"`
 }
 
+func libraryRoots(settings serverSettings) []string {
+	if len(settings.RootDirs) > 0 { return settings.RootDirs }
+	return []string{settings.RootDir}
+}
+
 type logOptions struct {
+	BaseConfigured bool `json:"baseConfigured,omitempty"`
+	System bool `json:"system"`
+	Library bool `json:"library"`
+	Errors bool `json:"errors"`
 	Requests bool `json:"requests"`
 	Scans bool `json:"scans"`
 	Downloads bool `json:"downloads"`
@@ -1389,21 +1489,33 @@ type logOptions struct {
 	Days int `json:"days"`
 }
 
-func defaultLogOptions() *logOptions { return &logOptions{Requests:true, Scans:true, Downloads:true, SizeMB:10, Days:7} }
+func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, SizeMB:10, Days:7} }
 
 func normalizeLogOptions(value *logOptions) *logOptions {
 	if value == nil { return defaultLogOptions() }
 	copy := *value
+	if !copy.BaseConfigured { copy.System, copy.Library, copy.Errors = true, true, true; copy.BaseConfigured = true }
 	if copy.SizeMB == 0 { copy.SizeMB = 10 }
 	if copy.Days == 0 { copy.Days = 7 }
 	return &copy
 }
 
 func logTypeEnabled(kind string) bool {
-	if !verboseLogging.Load() { return false }
 	settingsMu.RLock(); options := normalizeLogOptions(configuredSettings.LogOptions); settingsMu.RUnlock()
-	switch kind { case "requests": return options.Requests; case "scans": return options.Scans; case "downloads": return options.Downloads }
+	custom := verboseLogging.Load()
+	switch kind {
+	case "system": return !custom || options.System
+	case "library": return !custom || options.Library
+	case "errors": return !custom || options.Errors
+	case "requests": return custom && options.Requests
+	case "scans": return custom && options.Scans
+	case "downloads": return custom && options.Downloads
+	}
 	return false
+}
+
+func logEvent(kind, format string, args ...any) {
+	if logTypeEnabled(kind) { log.Printf("["+kind+"] "+format, args...) }
 }
 
 var (
@@ -1497,14 +1609,24 @@ func validRefreshInterval(value string) bool {
 
 func validateServerSettings(value serverSettings) error {
 	if options := normalizeLogOptions(value.LogOptions); options.SizeMB < 1 || options.SizeMB > 100 || options.Days < 1 || options.Days > 3650 { return errors.New("log retention must be 1–100 MB and 1–3650 days") }
+	roots := libraryRoots(value)
+	if len(roots) < 1 || len(roots) > 16 || roots[0] != value.RootDir { return errors.New("choose 1–16 library paths with the primary path first") }
 	if !filepath.IsAbs(value.RootDir) || !filepath.IsAbs(value.DataDir) || !filepath.IsLocal(filepath.Base(value.RootDir)) || !filepath.IsLocal(filepath.Base(value.DataDir)) {
 		return errors.New("paths must be absolute container paths")
 	}
-	if !pathInside(allowedLibraryRoot, value.RootDir) || !pathInside(settingsHome, value.DataDir) {
+	if !pathInside(settingsHome, value.DataDir) {
 		return errors.New("paths must stay within the configured library and data mounts")
 	}
 	if !validRefreshInterval(value.RefreshInterval) { return errors.New("refresh interval must be a positive duration or 0") }
-	for _, directory := range []string{value.RootDir, value.DataDir} {
+	for i, directory := range roots {
+		if !filepath.IsAbs(directory) || !filepath.IsLocal(filepath.Base(directory)) || !pathInside(allowedLibraryRoot, directory) { return errors.New("library paths must stay within the configured library mount") }
+		for j := 0; j < i; j++ {
+			// A secondary share can be mounted beneath the primary /games mount.
+			if j == 0 && pathInside(roots[0], directory) && !pathInside(directory, roots[0]) { continue }
+			if pathInside(roots[j], directory) || pathInside(directory, roots[j]) { return errors.New("library paths must not overlap except for a share beneath the primary path") }
+		}
+	}
+	for _, directory := range append(append([]string(nil), roots...), value.DataDir) {
 		info, err := os.Stat(directory)
 		if err != nil || !info.IsDir() { return fmt.Errorf("directory is unavailable: %s", directory) }
 	}
@@ -1520,11 +1642,11 @@ func initializeServerSettings() serverSettings {
 	contents, err := os.ReadFile(settingsFile())
 	if err == nil {
 		if jsonErr := json.Unmarshal(contents, &value); jsonErr != nil || validateServerSettings(value) != nil {
-			log.Printf("invalid saved server settings; using container defaults")
+			logEvent("errors", "invalid saved server settings; using container defaults")
 			value = defaults
 		}
 	} else if !os.IsNotExist(err) {
-		log.Printf("server settings unavailable: %v", err)
+		logEvent("errors", "server settings unavailable: %v", err)
 	}
 	settingsMu.Lock()
 	value.LogOptions = normalizeLogOptions(value.LogOptions)
@@ -1574,7 +1696,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		settingsMu.RUnlock()
 		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{old.RootDir != value.RootDir || old.DataDir != value.DataDir || old.RefreshInterval != value.RefreshInterval})
+		json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{old.RootDir != value.RootDir || strings.Join(libraryRoots(old), "\x00") != strings.Join(libraryRoots(value), "\x00") || old.DataDir != value.DataDir || old.RefreshInterval != value.RefreshInterval})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -1614,7 +1736,7 @@ func stageUploadedCovers(dirName string) ([]stagedCover, error) {
 
 func restoreStagedCovers(covers []stagedCover) {
 	for _, cover := range covers {
-		if err := os.Rename(cover.staged, cover.original); err != nil { log.Printf("restore cover after reset failure: %v", err) }
+		if err := os.Rename(cover.staged, cover.original); err != nil { logEvent("errors", "restore cover after reset failure: %v", err) }
 	}
 }
 
@@ -1637,7 +1759,7 @@ func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
 	if err != nil { http.Error(w, "library state unavailable", http.StatusServiceUnavailable); return }
 	var staged []stagedCover
 	if request.Cover {
-		staged, err = stageUploadedCovers(entry.DirName)
+		staged, err = stageUploadedCovers(entryCoverKey(entry))
 		if err != nil { http.Error(w, "could not reset cover", http.StatusServiceUnavailable); return }
 	}
 	if request.Title { delete(state.Titles, entry.Game.Path) }
@@ -1647,12 +1769,12 @@ func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not save metadata reset", http.StatusServiceUnavailable)
 		return
 	}
-	for _, cover := range staged { if err := os.Remove(cover.staged); err != nil { log.Printf("remove reset cover: %v", err) } }
+	for _, cover := range staged { if err := os.Remove(cover.staged); err != nil { logEvent("errors", "remove reset cover: %v", err) } }
 	updated := *entry
 	if request.Title { updated.Game.Name = entry.DirName }
 	if request.Favorite { updated.Game.Favorite = false }
 	if request.Cover {
-		updated.CoverPath = findCover(filepath.Join(rootDir, entry.DirName))
+		updated.CoverPath = findCover(filepath.Join(entryRootDir(entry), entry.DirName))
 		updated.Game.HasCover = updated.CoverPath != ""
 		updated.Game.CoverSource = "folder"
 		if !updated.Game.HasCover { updated.Game.CoverSource = "placeholder" }

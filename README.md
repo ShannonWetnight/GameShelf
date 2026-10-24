@@ -43,7 +43,7 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Local cover art detection
   - User-supplied cover art and placeholders while missing
 - Instant ZIP downloads of game folders
-- A download cart that combines up to 50 chosen games in one ZIP, with a review step and estimated size
+- An optional download playlist that combines up to 50 chosen games in one ZIP, with a review step and estimated size
 - Manual and scheduled rescan support
 - Zero-config outside of the indexing directory
 - Go backend and static web UI (Go 1.24 or later for source builds)
@@ -51,14 +51,15 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Local fuzzy search and sorting by name or size, plus Favorites and Recently Added filters
   - Search keyboard shortcuts (`/` to search, `Esc` to clear)
 - Grid and list views with optional list thumbnails, a random game picker, and card details with individual file downloads
-- System, GameShelf Classic, light, and dark themes; optional game title banners, placeholder art, button hints, card stars, and slower picker animations in Settings
+- System, GameShelf Classic, Light, Dark, and Retro Arcade themes; optional game title banners, placeholder art, button hints, card stars, and slower picker animations in Settings
 - Basic and Advanced settings, optional tile fill on refresh, and a switch to disable all animations
-- Editable GameShelf titles and uploaded cover art with crop, rotation, and tilt controls
+- Editable GameShelf titles and cover art from uploads or supported images already in a game folder, with crop, rotation, and tilt controls
 - Saved favorites with an on-by-default favorites-first setting, configurable Recently Added range, selective metadata reset, and success notifications for downloads and changes
 - Selective library backup export of state, server settings, logs, and available covers
 - Preview and restore exported library state, uploaded covers, and compatible server settings from Settings
 - Three-column desktop Settings layout and an always-available application log viewer with type filters, copy, and download controls
-- Configurable detailed request, scan, and download logging, with optional size and age retention limits
+- Configurable system, library, error, request, scan, and download logging, with optional size and age retention limits
+- Multiple local or host-mounted library sources under the configured library mount
 - Read-only `/api/stats` summary for local integrations
 
 ## Prerequisites
@@ -96,8 +97,6 @@ services:
       - GAMESHELF_ROOT=/games
       # Optional: change the internal bind address (default :8080)
       #- GAMESHELF_ADDR=:8080
-      # Optional: rescan every 12h by default; set 0 to disable or use a duration such as 1h.
-      #- GAMESHELF_REFRESH_INTERVAL=1h
     volumes:
       - /path/to/games:/games:ro
       - gameshelf-data:/data
@@ -118,9 +117,13 @@ If your own Compose or Portainer stack has no `/data` volume entry, Docker uses 
 
 In Settings, **Export Data** opens a selection dialog for `library-state.json`, server settings, recent application logs, and each available game cover. The resulting `gameshelf-library-backup.zip` can contain first-seen dates, customized titles, favorites, uploaded cover art, and cover images found in game folders. Uploaded covers are stored under `covers/<game>/`; folder covers are stored under `folder-covers/<game>/` with their original filenames. Placeholder images are excluded. The log item contains the retained messages from the current process (10 MB and 7 days by default). The server finishes the ZIP in a private temporary file in `/data` before starting the download; allow free space there for the archive. Temporary files are removed after the request finishes. Exports require write access to `/data`; deployments that override the container user must provide a state volume writable by that identity. If metadata or an indexed cover cannot be read, or the archive cannot be completed, Settings shows an export failure and offers no ZIP. Retry after correcting the problem shown in the container logs.
 
-**Settings → Application Logs → View Logs** opens the current process's bounded log snapshot, including base activity even when verbose logging is off. The viewer starts at the newest entries and can filter application, request, scan, and download entries. Its header controls copy the visible lines or download them as `gameshelf-logs.txt`. **Configure** enables verbose logging and selects its detailed categories. Logs remain in memory for this process only. The default retention is 7 days and 10 MB; either limit can be overridden in the Configure panel.
+**Settings → Application Logs → View Logs** opens the current process's bounded log snapshot. The viewer starts at the newest entries and can filter system, library, error, request, scan, and download entries. Its header controls copy the visible lines or download them as `gameshelf-logs.txt`. **Configure** offers Customize logging: without it, system, library, and error events stay on; with it, each category can be selected independently. Logs remain in memory for this process only. The default retention is 7 days and 10 MB; either limit can be overridden in Configure.
 
-The toolbar cart button opens a review of selected games and their estimated uncompressed size. Add or remove games from cards, the details panel, or the random game view, then download one `gameshelf-cart.zip`. Each game is placed in its own folder inside the archive. The cart holds up to 50 games and remains on this browser until cleared; the ZIP is streamed on demand. You can close the review before starting the download.
+The toolbar playlist button opens a review of selected games and their estimated uncompressed size. Add or remove games from cards, the details panel, or the random game view, then download one `gameshelf-playlist.zip`. Each game is placed in its own folder inside the archive. The playlist holds up to 50 games and remains on this browser until cleared; the ZIP is streamed on demand. Removing a game or clearing the playlist asks for confirmation. The entire playlist can be hidden in Settings.
+
+The cover editor can select PNG, JPEG, GIF, or WebP images already inside a game's folder. The selected image opens in the editor for adjustments; saving creates a PNG in application data. Game folders remain read-only.
+
+**Advanced Settings → Library Sources** accepts one container path per line, up to 16 sources. The first path is the primary source; existing game links keep their IDs. Additional sources and duplicate folder names receive separate stable IDs and cover storage. Secondary sources may be mounted beneath the primary path, but must not overlap one another. A directory containing a configured secondary source is treated as a mount container, not a game. Paths must be present within the original library mount. For a NAS, mount its SMB, NFS, SSHFS, WebDAV, or other supported share on the Docker host and bind it read-only beneath `/games`, then add that container path in Library Sources. Network addresses and credentials are configured with the host's mount tools; GameShelf does not currently connect to a share URL or store share passwords. Source changes take effect after a container restart. Automatic scan timing is configured separately under **Advanced Settings → Refresh Interval**; the initial value is 12h unless an existing deployment supplies a different value.
 
 Keep this ZIP with your other backups. To restore it, open **Settings → Restore Data**, choose the exported ZIP, and review its contents. Select library state, uploaded covers, and/or server settings, acknowledge that those selected files will be replaced, then confirm. Game-folder cover copies and logs in the archive are not restored; mounted game folders remain read-only. The ZIP is validated before changes are made, and selected files are staged before replacement. Archives are limited to 64 MiB compressed, 128 MiB expanded, and 500 entries. Server paths in a backup must be valid in the current container before restoring settings; deselect settings if they refer to another deployment. Restoring settings may require a container restart. The game library still needs to be mounted at the same container path for saved dates, favorites, and customized titles to match.
 
@@ -153,7 +156,7 @@ Keep the collection mount read-only and retain `no-new-privileges:true`. You can
       - ALL
 ```
 
-Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_DATA_DIR`, `GAMESHELF_ADDR`, and `GAMESHELF_REFRESH_INTERVAL` continue to work with the non-root user.
+Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivileged operation. To expose host port 80, map `80:8080` while keeping the internal listener on `8080`. `GAMESHELF_ROOT`, `GAMESHELF_DATA_DIR`, and `GAMESHELF_ADDR` continue to work with the non-root user. Configure automatic scans in Advanced Settings; older `GAMESHELF_REFRESH_INTERVAL` values are still read as an initial setting for compatibility.
 
 ### Environment Variables
 | Variable                     | Default  | Description                                                                     |
@@ -161,7 +164,6 @@ Use an internal port above `1023` with `GAMESHELF_ADDR` for portable unprivilege
 | `GAMESHELF_ROOT`             | `/games` | Directory containing indexable folders.                                         |
 | `GAMESHELF_DATA_DIR`         | `/data`  | Writable app state for first-seen dates; the image provides Docker-managed storage at this path. |
 | `GAMESHELF_ADDR`             | `:8080`  | Optional: Change GameShelf's default (`8080`) internal bind address.                                           |
-| `GAMESHELF_REFRESH_INTERVAL` | `12h`  | Optional rescan interval; set `0` to disable, or use a duration such as `1h` or `30m`. |
 
 **After successful installation, navigate to GameShelf's `IP:8080` address to view the indexed content.**
 
@@ -288,7 +290,7 @@ GameDrive
 3. Hover over a game card or list row for its download and information controls. Download retrieves that game's folder as a ZIP and shows a brief download-started notification. The information panel shows its title, location, size, cover status, date added, and file count; on desktop, the cover panel also offers a full-game download. Open the file count to download individual files directly. List cover thumbnails are on by default and can be hidden in Settings.
 4. Edit a GameShelf title or upload and adjust cover art from the information panel. The file count below **Download Game** opens a separate file list with individual downloads. **Reset Metadata** can restore the folder title, folder cover (or placeholder), and unfavorited state after review and confirmation. The original first-seen date is preserved. These changes live in `/data`; they do not modify your mounted game folders. Settings includes an export of saved titles, dates, and real cover images.
 
-Settings also offers appearance themes (**System**, **GameShelf Classic**, **Light**, and **Dark**), card and list display preferences, **Library Paths and Refresh**, and **Application Logs**. System follows the device's light or dark preference; a dark system uses GameShelf Classic. The paths and scan interval start with the container's `GAMESHELF_ROOT`, `GAMESHELF_DATA_DIR`, and `GAMESHELF_REFRESH_INTERVAL` values. Saved path and interval changes take effect after a container restart; log configuration changes take effect immediately. Paths must already exist inside the container and remain within the library and data mounts originally configured by Docker. Changing the data path does not move saved metadata or artwork, so copy them to the new location before restarting. Settings are kept in `server-settings.json` under the original data mount, and can be included in Export Data. Saves and exports show a temporary confirmation banner; errors remain visible where the action was started.
+Settings also offers appearance themes (**System**, **GameShelf Classic**, **Light**, **Dark**, and **Retro Arcade**), card and list display preferences, **Library Sources**, **Refresh Interval**, and **Application Logs**. The compact Basic/Advanced switch reveals source, refresh, and animation controls. System follows the device's light or dark preference; a dark system uses GameShelf Classic. Saved path and interval changes take effect after a container restart; log configuration changes take effect immediately. Paths must already exist inside the container and remain within the library and data mounts originally configured by Docker. Changing the data path does not move saved metadata or artwork, so copy them to the new location before restarting. Settings are kept in `server-settings.json` under the original data mount, and can be included in Export Data. Saves and exports show a temporary confirmation banner; errors remain visible where the action was started.
 
 For local dashboards, `GET /api/stats` returns JSON fields `gameCount`, `fileCount`, `totalSizeBytes`, `coveredGameCount`, and `lastIndexedAt` (UTC RFC 3339). Counts reflect the current indexed game state: library file counts and sizes update on a successful scan, while cover availability also updates after an upload. `fileCount` and `totalSizeBytes` include regular files in indexed game folders, including folder cover files; uploaded covers in `/data` are not counted. `lastIndexedAt` marks the last successful scan and is empty until one succeeds. This endpoint does not expose host filesystem paths.
 
