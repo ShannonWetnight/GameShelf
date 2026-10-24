@@ -57,3 +57,20 @@ func TestServerSettingsAcceptSeparateMountedSources(t *testing.T) {
 	settings.RootDirs = []string{root, first, nested}
 	if err := validateServerSettings(settings); err == nil { t.Fatal("overlapping secondary sources accepted") }
 }
+
+func TestResetServerSettingsRestoresDefaultsWithoutLibraryChanges(t *testing.T) {
+	root, data := t.TempDir(), t.TempDir()
+	t.Setenv("GAMESHELF_ROOT", root)
+	t.Setenv("GAMESHELF_DATA_DIR", data)
+	t.Setenv("GAMESHELF_REFRESH_INTERVAL", "")
+	previousHome, previousRoot, previousSettings := settingsHome, allowedLibraryRoot, configuredSettings
+	t.Cleanup(func() { settingsHome, allowedLibraryRoot, configuredSettings = previousHome, previousRoot, previousSettings; verboseLogging.Store(previousSettings.Verbose) })
+	settingsHome, allowedLibraryRoot = data, root
+	custom := serverSettings{RootDir:root, DataDir:data, RefreshInterval:"1h", Verbose:true}
+	if err := saveServerSettings(custom); err != nil { t.Fatal(err) }
+	response := httptest.NewRecorder()
+	handleResetServerSettings(response, httptest.NewRequest(http.MethodPost, "/api/server-settings/reset", nil))
+	if response.Code != http.StatusOK { t.Fatalf("reset status %d: %s", response.Code, response.Body.String()) }
+	if configuredSettings.RefreshInterval != "168h" || configuredSettings.Verbose { t.Fatalf("settings not reset: %#v", configuredSettings) }
+	if _, err := os.Stat(settingsFile()); err != nil { t.Fatalf("settings file not saved: %v", err) }
+}

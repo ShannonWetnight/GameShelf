@@ -1911,3 +1911,61 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 @media (max-width: 680px) { .gs-playlist-disabled .gs-sort { grid-template-columns: repeat(4, minmax(0, 1fr)); } #settings-dialog .gs-theme-option select { width: 100%; } }
 #recent-days { appearance: textfield; }
 #recent-days::-webkit-inner-spin-button, #recent-days::-webkit-outer-spin-button { appearance: none; margin: 0; }
+
+/* Action color follows the consequence of a click. */
+.gs-cancel-action.gs-detail-action, .gs-cancel-action.gs-detail-action:hover, .gs-cancel-action.gs-detail-action:focus-visible { border-color: var(--border-subtle); background: var(--input-background); color: var(--text); }
+.gs-cancel-action.gs-detail-action:hover, .gs-cancel-action.gs-detail-action:focus-visible { border-color: var(--accent); }
+#favorite-confirm, #cart-clear { border: 1px solid #ca5964; }
+#favorite-confirm:hover, #cart-clear:hover { background: rgba(202,89,100,.12); border-color: #ee7682; }
+button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup button:disabled { opacity: .46; cursor: not-allowed; transform: none; }
+#open-cart { color: var(--text-muted); background: none; }
+#open-cart:hover, #open-cart:focus-visible { background: rgba(255,255,255,.08); }
+:root[data-theme="light"] #open-cart:hover, :root[data-theme="light"] #open-cart:focus-visible { background: rgba(25,43,73,.07); }
+#open-cart svg { fill: none; }
+
+/* Cover source and upload belong to one preview toolbar. */
+.gs-cover-preview-actions { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
+.gs-cover-preview-actions .gs-cover-preview-upload, .gs-cover-preview-folder { position: static; box-sizing: border-box; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: rgba(10,18,32,.9); color: var(--text); cursor: pointer; opacity: 0; transition: opacity .15s ease, border-color .15s ease; }
+.gs-cover-preview:hover .gs-cover-preview-actions > *, .gs-cover-preview:focus-within .gs-cover-preview-actions > *, .gs-cover-preview.is-empty .gs-cover-preview-actions > * { opacity: 1; }
+.gs-cover-preview-folder svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.gs-cover-preview-folder:hover, .gs-cover-preview-folder:focus-visible { border-color: var(--accent); }
+#cover-folder-save:disabled { cursor: not-allowed; }
+
+/* Reveal controls over a soft edge while keeping stars visually unframed. */
+.gs-grid:not(.list-view) .gs-card-actions { justify-content: center; padding: 0 2.8rem; border: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--icon-background) 96%, transparent) 0%, color-mix(in srgb, var(--icon-background) 86%, transparent) 62%, transparent 100%); }
+.gs-grid:not(.list-view) .gs-card .gs-favorite-star { top: 11px; left: 10px; background: transparent; transform: translateY(-58px); transition: transform .22s ease, opacity .22s ease, color .15s ease; }
+.gs-favorite-stars-only:not(.gs-hide-favorite-stars) .gs-grid:not(.list-view) .gs-card[data-favorite="false"] .gs-favorite-star { display: grid; opacity: 0; pointer-events: none; }
+.gs-favorite-stars-only:not(.gs-hide-favorite-stars) .gs-grid:not(.list-view) .gs-card[data-favorite="false"]:hover .gs-favorite-star, .gs-favorite-stars-only:not(.gs-hide-favorite-stars) .gs-grid:not(.list-view) .gs-card[data-favorite="false"]:focus-within .gs-favorite-star { opacity: 1; pointer-events: auto; }
+.gs-grid:not(.list-view) .gs-card:not(.gs-hover-suppressed):hover .gs-favorite-star, .gs-grid:not(.list-view) .gs-card:focus-within .gs-favorite-star, .gs-grid:not(.list-view) .gs-card[data-favorite="true"] .gs-favorite-star { transform: translateY(0); }
+.gs-favorite-star, .gs-grid.list-view .gs-favorite-star { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.gs-card[data-favorite="true"] .gs-favorite-star, .gs-favorite-star.is-favorite, :root[data-theme="light"] .gs-card[data-favorite="true"] .gs-favorite-star, :root[data-theme="light"] .gs-favorite-star.is-favorite { background: transparent; color: #f9b234; }
+.gs-favorite-star:hover, .gs-favorite-star:focus-visible { background: transparent; color: var(--accent); }
+.gs-card-cart.is-added { position: relative; }
+.gs-card-cart.is-added::after { inset: 0; display: grid; place-items: center; font-size: 1rem; }
+#game-details-cart.is-added::before { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.1rem; }
+#game-details-cart.is-added::after { content: attr(data-tooltip); }
+#game-details-cart.gs-has-tooltip::after { inset: auto 0 calc(100% + 14px) auto; display: block; font-size: .75rem; }
+
+.gs-grid.list-view .gs-card-cover { align-self: stretch; height: 100%; }
+.gs-grid.list-view .gs-card-actions { position: relative; align-self: stretch; height: 100%; padding: 0 .4rem; background: transparent; transform: none; overflow: visible; isolation: isolate; }
+.gs-grid.list-view .gs-card-actions::before { content: ''; position: absolute; z-index: -1; inset: 0 -4px 0 -52px; background: linear-gradient(to right, transparent, color-mix(in srgb, var(--icon-background) 88%, transparent) 27%, var(--icon-background) 100%); transform: scaleX(0); transform-origin: right; transition: transform .24s cubic-bezier(.22,.7,.2,1); }
+.gs-grid.list-view .gs-card:not(.gs-hover-suppressed):hover .gs-card-actions::before, .gs-grid.list-view .gs-card:focus-within .gs-card-actions::before { transform: scaleX(1); }
+.gs-show-list-images:not(.gs-show-placeholders) .gs-grid.list-view .gs-no-cover .gs-card-body::before { content: ''; flex: 0 0 34px; width: 34px; height: 48px; }
+
+/* Settings mode and compact cover preview motion. */
+#settings-dialog { transition: width .24s ease, max-height .24s ease; }
+#settings-dialog[data-settings-level="advanced"] [data-setting-level="advanced"] { animation: gs-setting-enter .22s ease-out both; }
+@keyframes gs-setting-enter { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+#settings-dialog[data-settings-level="basic"] #logs-setting .gs-settings-dual-actions { width: auto; margin-left: auto; }
+#settings-dialog[data-settings-level="advanced"] #logs-setting .gs-settings-dual-actions { flex-direction: column; align-items: flex-end; width: 112px; margin-left: auto; }
+.gs-list-image-dialog { padding: 0; border: 0; border-radius: 10px; background: transparent; overflow: hidden; box-shadow: var(--shadow-soft); animation: gs-setting-enter .2s ease-out; cursor: zoom-out; }
+.gs-list-image-dialog::backdrop { background: rgba(0,0,0,.78); }
+.gs-list-image-dialog img { display: block; width: min(380px, 80vw); max-height: 80vh; object-fit: contain; }
+.gs-expand-list-image.gs-show-list-images .gs-grid.list-view .gs-list-image { cursor: zoom-in; }
+
+/* A single reveal makes the final dice result settle without a second scale pop. */
+.gs-card.gs-spotlight-enter { animation: gs-spotlight-reveal .26s ease-out both; }
+@keyframes gs-spotlight-reveal { from { opacity: .4; filter: brightness(.8); } to { opacity: 1; filter: brightness(1); } }
+.gs-random.is-rolling svg { animation: gs-dice-smooth var(--dice-roll-duration, 600ms) cubic-bezier(.18,.72,.25,1) both; transform-origin: center; }
+@keyframes gs-dice-smooth { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(165deg) scale(.94); } 85% { transform: rotate(345deg) scale(1.04); } 100% { transform: rotate(360deg) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .gs-random.is-rolling svg, .gs-card.gs-spotlight-enter, #settings-dialog[data-settings-level="advanced"] [data-setting-level="advanced"] { animation: none; } }

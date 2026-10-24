@@ -107,6 +107,7 @@ func main() {
 	mux.HandleFunc("/api/favorite/", handleFavorite)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
+	mux.HandleFunc("/api/server-settings/reset", handleResetServerSettings)
 	mux.HandleFunc("/api/logs", handleLogs)
 	mux.HandleFunc("/download/", handleDownload)
 	mux.HandleFunc("/download-cart", handleDownloadCart)
@@ -149,13 +150,13 @@ func loggingMiddleware(next http.Handler) http.Handler {
 func refreshInterval() time.Duration {
 	value := os.Getenv("GAMESHELF_REFRESH_INTERVAL")
 	if value == "" {
-		return 12 * time.Hour
+		return 168 * time.Hour
 	}
 
 	dur, err := time.ParseDuration(value)
 	if err != nil {
-		logEvent("errors", "invalid GAMESHELF_REFRESH_INTERVAL %q, using default 12h", value)
-		return 12 * time.Hour
+		logEvent("errors", "invalid GAMESHELF_REFRESH_INTERVAL %q, using default 168h", value)
+		return 168 * time.Hour
 	}
 
 	if dur <= 0 {
@@ -168,7 +169,7 @@ func refreshInterval() time.Duration {
 func configuredRefreshInterval(value string) time.Duration {
 	if value == "0" { return 0 }
 	interval, err := time.ParseDuration(value)
-	if err != nil || interval < 0 { return 12 * time.Hour }
+	if err != nil || interval < 0 { return 168 * time.Hour }
 	return interval
 }
 
@@ -1586,7 +1587,7 @@ func defaultServerSettings() serverSettings {
 	data := os.Getenv("GAMESHELF_DATA_DIR")
 	if data == "" { data = "/data" }
 	interval := os.Getenv("GAMESHELF_REFRESH_INTERVAL")
-	if interval == "" { interval = "12h" }
+	if interval == "" { interval = "168h" }
 	return serverSettings{RootDir: root, DataDir: data, RefreshInterval: interval, LogOptions: defaultLogOptions()}
 }
 
@@ -1617,7 +1618,7 @@ func validateServerSettings(value serverSettings) error {
 	if !pathInside(settingsHome, value.DataDir) {
 		return errors.New("paths must stay within the configured library and data mounts")
 	}
-	if !validRefreshInterval(value.RefreshInterval) { return errors.New("refresh interval must be a positive duration or 0") }
+	if !validRefreshInterval(value.RefreshInterval) { return errors.New("refresh interval must be a positive number of hours or 0") }
 	for i, directory := range roots {
 		if !filepath.IsAbs(directory) || !filepath.IsLocal(filepath.Base(directory)) || !pathInside(allowedLibraryRoot, directory) { return errors.New("library paths must stay within the configured library mount") }
 		for j := 0; j < i; j++ {
@@ -1700,6 +1701,14 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func handleResetServerSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	defaults := defaultServerSettings()
+	if err := saveServerSettings(defaults); err != nil { http.Error(w, "could not reset settings", http.StatusServiceUnavailable); return }
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{true})
 }
 
 func handleLogs(w http.ResponseWriter, r *http.Request) {

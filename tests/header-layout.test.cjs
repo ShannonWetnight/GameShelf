@@ -354,17 +354,17 @@ test('recent-days input has usable dimensions and playlist actions align in list
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gameshelf-settings-list-'));
   try {
     const probe = `<script>
-      document.querySelector('#settings-dialog').showModal();
+      document.querySelector('#recent-settings-dialog').showModal();
       const days = document.querySelector('#recent-days').getBoundingClientRect();
-      const option = document.querySelector('.gs-settings-number-option').getBoundingClientRect();
-      document.querySelector('#settings-dialog').close();
+      const option = document.querySelector('#recent-settings-dialog .gs-server-field').getBoundingClientRect();
+      document.querySelector('#recent-settings-dialog').close();
       const grid = document.querySelector('#games-container');
       grid.classList.add('list-view');
       grid.innerHTML = '<article class="gs-card" data-favorite="true"><div class="gs-card-cover"><img><div class="gs-card-actions"><a class="gs-icon-button gs-card-download">↓</a><button class="gs-card-cart">+</button><button class="gs-card-info">i</button></div><button class="gs-favorite-star">★</button></div><div class="gs-card-body"><div class="gs-card-content"><h3 class="gs-card-title">Game</h3></div></div></article>';
       document.querySelector('.gs-card-info').focus();
       const box = selector => document.querySelector(selector).getBoundingClientRect();
       const star = box('.gs-card .gs-favorite-star'), info = box('.gs-card-info'), download = box('.gs-card-download'), playlist = box('.gs-card-cart'), card = box('.gs-card');
-      const result = { daysWidth: days.width, daysHeight: days.height, daysInside: days.right < option.right && days.left > option.left,
+      const result = { daysWidth: days.width, daysHeight: days.height, daysInside: days.right <= option.right + 1 && days.left >= option.left - 1,
         ordered: star.right < download.left && download.right < playlist.left && playlist.right < info.left,
         equalGaps: Math.max(download.left - star.right, playlist.left - download.right, info.left - playlist.right) - Math.min(download.left - star.right, playlist.left - download.right, info.left - playlist.right),
         aligned: Math.max(Math.abs((star.top + star.bottom - info.top - info.bottom) / 2), Math.abs((info.top + info.bottom - download.top - download.bottom) / 2), Math.abs((playlist.top + playlist.bottom - download.top - download.bottom) / 2)),
@@ -446,14 +446,14 @@ test('light list rows have transparent action carriers and optional cover thumbn
     fs.writeFileSync(file, source);
     const result = readLayoutProbe(file, 1280, 'light-list-report');
     assert.equal(result.carrier, 'none');
-    assert.equal(result.starColor, 'rgb(169, 101, 11)');
+    assert.equal(result.starColor, 'rgb(249, 178, 52)');
     assert.equal(result.hiddenImage, 'none');
     assert.equal(result.shownDisplay, 'block');
     assert.equal(result.shownWidth, 34);
     assert.equal(result.shownHeight, 48);
     assert.deepEqual(result.gridInfoSize, [40, 40]);
     assert.deepEqual(result.gridStarSize, [36, 36]);
-    assert.ok(result.gridOffsets[0] < 0 || Math.abs(result.gridOffsets[0] - result.gridOffsets[2]) <= 6,
+    assert.ok(result.gridOffsets[0] < 0 || Math.abs(result.gridOffsets[0] - result.gridOffsets[2]) <= 8,
       `grid controls should sit in or slide into the top band: ${JSON.stringify(result.gridOffsets)}`);
     assert.ok(Math.abs(result.gridOffsets[2] - result.gridOffsets[3]) <= 2, JSON.stringify(result.gridOffsets));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

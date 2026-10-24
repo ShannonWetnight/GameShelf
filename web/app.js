@@ -18,6 +18,7 @@ localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
 let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
+let expandListImage = localStorage.getItem('gameshelf:expand-list-image') === 'true';
 let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') !== 'false';
 let favoritePending = null;
 let serverSettings = null;
@@ -336,6 +337,7 @@ function renderCart() {
     ? `${selected.length} game${selected.length === 1 ? '' : 's'} · ${formatSize(selected.reduce((total, game) => total + game.sizeBytes, 0))} estimated before ZIP packaging`
     : 'Your download playlist is empty.';
   document.getElementById('cart-checkout').disabled = selected.length === 0;
+  document.getElementById('cart-clear').disabled = selected.length === 0;
 }
 
 function animateControl(button) {
@@ -504,6 +506,14 @@ function createGameCard(game) {
   const listImage = document.createElement('img');
   listImage.className = 'gs-list-image';
   listImage.src = game.hasCover === false ? '/placeholder.png' : img.src;
+  listImage.addEventListener('dblclick', event => {
+    if (!expandListImage || !showListImages || !document.getElementById('games-container').classList.contains('list-view')) return;
+    event.preventDefault(); event.stopPropagation();
+    const expanded = document.getElementById('list-image-expanded');
+    expanded.src = listImage.src;
+    expanded.alt = `${game.name} cover`;
+    openModal(document.getElementById('list-image-dialog'));
+  });
   listImage.alt = '';
   listImage.loading = 'lazy';
   body.appendChild(listImage);
@@ -1033,12 +1043,15 @@ function suggestRandomGame() {
     shuffleGameId = null;
     isShuffling = false;
     suggestedGameId = game.id;
-    card.classList.add('gs-random-selected', 'gs-spotlight-enter');
-    card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
+    card.classList.add('gs-random-selected');
     diceButton.disabled = false;
     diceButton.dataset.tooltip = 'Suggest a random game';
     applyViewMode();
     applySearchFilter();
+    if (!disableEffects) {
+      card.classList.add('gs-spotlight-enter');
+      card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
+    }
     card.scrollIntoView?.({ block: 'center' });
     const returnActions = document.getElementById('spotlight-actions');
     const spotlightDownload = document.getElementById('spotlight-download');
@@ -1377,9 +1390,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   applySettingsLevel();
   for (const level of ['basic', 'advanced']) document.getElementById(`settings-${level}`).addEventListener('click', () => {
+    const before = settingsDialog.getBoundingClientRect?.().height;
     settingsLevel = level;
     localStorage.setItem('gameshelf:settings-level', level);
     applySettingsLevel();
+    const after = settingsDialog.getBoundingClientRect?.().height;
+    if (!disableEffects && before && after && before !== after) settingsDialog.animate?.(
+      [{ height: `${before}px`, overflow: 'hidden' }, { height: `${after}px`, overflow: 'hidden' }],
+      { duration: 240, easing: 'cubic-bezier(.22,.7,.2,1)' }
+    );
   });
   disableEffectsInput.addEventListener('change', () => {
     disableEffects = disableEffectsInput.checked;
@@ -1533,7 +1552,42 @@ document.addEventListener('DOMContentLoaded', () => {
   starsOnlyInput.addEventListener('change', event => { favoriteStarsOnly = event.target.checked; localStorage.setItem('gameshelf:favorite-stars-only', String(favoriteStarsOnly)); syncStarSettings(); });
   const daysInput = document.getElementById('recent-days');
   daysInput.value = String(recentDays);
-  daysInput.addEventListener('change', () => { recentDays = Math.max(1, Math.min(3650, Number(daysInput.value) || 7)); daysInput.value = String(recentDays); localStorage.setItem('gameshelf:recent-days', String(recentDays)); applySearchFilter(); });
+  const recentDialog = document.getElementById('recent-settings-dialog');
+  document.getElementById('open-recent-settings').addEventListener('click', () => { daysInput.value = String(recentDays); openModal(recentDialog); });
+  for (const id of ['recent-settings-close', 'recent-settings-cancel']) document.getElementById(id).addEventListener('click', () => recentDialog.close());
+  closeOnBackdropClick(recentDialog);
+  document.getElementById('recent-settings-save').addEventListener('click', () => {
+    recentDays = Math.max(1, Math.min(3650, Number(daysInput.value) || 7));
+    daysInput.value = String(recentDays);
+    localStorage.setItem('gameshelf:recent-days', String(recentDays));
+    applySearchFilter(); recentDialog.close(); showNotification('Recently Added range saved.');
+  });
+  const expandInput = document.getElementById('expand-list-image');
+  expandInput.checked = expandListImage;
+  document.body.classList.toggle('gs-expand-list-image', expandListImage);
+  expandInput.addEventListener('change', () => { expandListImage = expandInput.checked; localStorage.setItem('gameshelf:expand-list-image', String(expandListImage)); document.body.classList.toggle('gs-expand-list-image', expandListImage); });
+  const listImageDialog = document.getElementById('list-image-dialog');
+  listImageDialog.addEventListener('click', () => listImageDialog.close());
+  const resetSettingsDialog = document.getElementById('reset-settings-dialog');
+  document.getElementById('open-reset-settings').addEventListener('click', () => { document.getElementById('reset-settings-status').textContent = ''; openModal(resetSettingsDialog); });
+  for (const id of ['reset-settings-close', 'reset-settings-cancel']) document.getElementById(id).addEventListener('click', () => resetSettingsDialog.close());
+  closeOnBackdropClick(resetSettingsDialog);
+  document.getElementById('reset-settings-confirm').addEventListener('click', async () => {
+    const button = document.getElementById('reset-settings-confirm');
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/server-settings/reset', { method: 'POST' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      for (const key of Object.keys(localStorage)) if (key.startsWith('gameshelf:')) localStorage.removeItem(key);
+      resetSettingsDialog.close();
+      showNotification('All settings reset. Reloading GameShelf…');
+      setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      document.getElementById('reset-settings-status').textContent = `Could not reset settings: ${error.message}`;
+      button.disabled = false;
+    }
+  });
   const serverDialog = document.getElementById('server-settings-dialog');
   document.getElementById('open-server-settings').addEventListener('click', () => {
     if (!serverSettings) { document.getElementById('settings-save-status').textContent = 'Server settings are unavailable. Try refreshing.'; return; }
@@ -1562,7 +1616,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshDialog = document.getElementById('refresh-settings-dialog');
   document.getElementById('open-refresh-settings').addEventListener('click', () => {
     if (!serverSettings) return;
-    document.getElementById('server-refresh-interval').value = serverSettings.refreshInterval;
+    const interval = serverSettings.refreshInterval;
+    const legacyMinutes = /^([0-9]+)m$/.exec(interval);
+    document.getElementById('server-refresh-interval').value = interval === '0' ? '0' : String(legacyMinutes ? Math.ceil(Number(legacyMinutes[1]) / 60) : (Number.parseInt(interval, 10) || 168));
     document.getElementById('refresh-settings-status').textContent = '';
     openModal(refreshDialog);
   });
@@ -1573,7 +1629,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.getElementById('refresh-settings-save');
     button.disabled = true;
     try {
-      await saveServerSettings({ ...serverSettings, refreshInterval:document.getElementById('server-refresh-interval').value.trim() });
+      const hours = Number(document.getElementById('server-refresh-interval').value);
+      if (!Number.isInteger(hours) || hours < 0 || hours > 8760) throw new Error('Choose 0–8760 whole hours.');
+      await saveServerSettings({ ...serverSettings, refreshInterval:hours === 0 ? '0' : `${hours}h` });
       refreshDialog.close();
       showNotification('Refresh interval saved.');
     } catch (error) { document.getElementById('refresh-settings-status').textContent = `Could not save interval: ${error.message}`; }
