@@ -16,7 +16,6 @@ let recentDays = !legacyRecentRange && Number.isInteger(storedRecentDays) && sto
 if (legacyRecentRange) localStorage.setItem('gameshelf:recent-days', '7');
 localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
-let showFavoriteStars = localStorage.getItem('gameshelf:favorite-stars') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
 const storedImageClick = localStorage.getItem('gameshelf:list-image-click');
 let listImageClick = ['single', 'double', 'disabled'].includes(storedImageClick) ? storedImageClick : localStorage.getItem('gameshelf:expand-list-image') === 'false' ? 'disabled' : 'single';
@@ -28,6 +27,7 @@ let suggestedGameId = null;
 let shuffleGameId = null;
 let isShuffling = false;
 let shuffleTimers = [];
+let shuffleDeck = null;
 let slowAnimations = localStorage.getItem('gameshelf:slow-animations') === 'true';
 let disableEffects = localStorage.getItem('gameshelf:disable-effects') === 'true';
 let animateTiles = localStorage.getItem('gameshelf:animate-tiles') !== 'false';
@@ -83,7 +83,7 @@ function openModal(dialog) {
       motion = dialog.animate([{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(10px) scale(.97)' }], { duration: 160, easing: 'ease-in', fill: 'forwards' });
       closeTimer = setTimeout(() => { nativeClose(value); motion.cancel(); closing = false; delete dialog.dataset.closing; }, 160);
     };
-    dialog.addEventListener('cancel', event => { event.preventDefault(); dialog.close(); });
+    dialog.addEventListener('cancel', event => { if (event.target !== dialog) return; event.preventDefault(); dialog.close(); });
     dialog._cancelMotion = () => { clearTimeout(closeTimer); motion?.cancel(); dialog._openingMotion?.cancel(); closing = false; delete dialog.dataset.closing; };
     observedDialogs.add(dialog);
   }
@@ -244,6 +244,7 @@ async function saveFavorite() {
     document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
     document.getElementById('game-details-favorite').classList.toggle('is-favorite', game.favorite);
     document.getElementById('game-details-favorite-mobile').classList.toggle('is-favorite', game.favorite);
+    card.classList.add('gs-hover-suppressed');
     applySort();
     applySearchFilter();
     if (document.getElementById('favorite-dialog').open) document.getElementById('favorite-dialog').close();
@@ -466,7 +467,7 @@ function createGameCard(game) {
   star.textContent = game.favorite ? '★' : '☆';
   star.setAttribute('aria-label', game.favorite ? `Remove ${game.name} from favorites` : `Add ${game.name} to favorites`);
   star.title = game.favorite ? 'Remove from favorites' : 'Add to favorites';
-  star.addEventListener('click', event => { event.stopPropagation(); openFavoriteConfirm(game); });
+  star.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); star.blur(); card.classList.add('gs-hover-suppressed'); openFavoriteConfirm(game); });
 
   if (game.hasCover === false) {
     const coverTitle = document.createElement('span');
@@ -834,6 +835,7 @@ function bindCoverEditor() {
     updateCoverReadouts();
     drawCoverEditor();
   });
+  document.getElementById('cover-editor-file').addEventListener('cancel', event => event.stopPropagation());
   document.getElementById('cover-editor-file').addEventListener('change', event => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1022,8 +1024,11 @@ function clearSuggestion() {
   if (!suggestedGameId && !isShuffling) return;
   shuffleTimers.forEach(clearTimeout);
   shuffleTimers = [];
+  shuffleDeck?.remove();
+  shuffleDeck = null;
+  for (const card of cardMap.values()) card.classList.remove('gs-shuffle-anchor');
+  document.getElementById('random-game').classList.remove('is-rolling');
   cardMap.get(suggestedGameId)?.classList.remove('gs-random-selected', 'gs-spotlight-enter');
-  cardMap.get(shuffleGameId)?.classList.remove('gs-shuffle-preview', 'gs-shuffle-reverse');
   suggestedGameId = null;
   shuffleGameId = null;
   isShuffling = false;
@@ -1052,9 +1057,6 @@ function suggestRandomGame() {
   if (!card) return;
 
   const diceButton = document.getElementById('random-game');
-  diceButton.classList.remove('is-rolling');
-  void diceButton.offsetWidth;
-  diceButton.classList.add('is-rolling');
 
   clearSuggestion();
   if (currentSearch) clearSearch();
@@ -1063,7 +1065,10 @@ function suggestRandomGame() {
 
   function showFinalGame() {
     shuffleTimers = [];
-    cardMap.get(shuffleGameId)?.classList.remove('gs-shuffle-preview', 'gs-shuffle-reverse');
+    shuffleDeck?.remove();
+    shuffleDeck = null;
+    card.classList.remove('gs-shuffle-anchor');
+    diceButton.classList.remove('is-rolling');
     shuffleGameId = null;
     isShuffling = false;
     suggestedGameId = game.id;
@@ -1072,10 +1077,7 @@ function suggestRandomGame() {
     diceButton.dataset.tooltip = 'Suggest a random game';
     applyViewMode();
     applySearchFilter();
-    if (!disableEffects) {
-      card.classList.add('gs-spotlight-enter');
-      card.addEventListener('animationend', () => card.classList.remove('gs-spotlight-enter'), { once: true });
-    }
+
     card.scrollIntoView?.({ block: 'center' });
     const returnActions = document.getElementById('spotlight-actions');
     const spotlightDownload = document.getElementById('spotlight-download');
@@ -1096,30 +1098,33 @@ function suggestRandomGame() {
   }
 
   isShuffling = true;
+  shuffleGameId = game.id;
   diceButton.disabled = true;
   diceButton.dataset.tooltip = 'Choosing a game…';
+  const duration = slowAnimations ? 2400 : 1200;
+  diceButton.style.setProperty?.('--dice-roll-duration', duration + 'ms');
+  const container = document.getElementById('games-container');
+  container.style.setProperty?.('--shuffle-duration', duration + 'ms');
   applyViewMode();
-  const frames = Math.min(4, alternatives.length * 2);
-  const frameDelay = slowAnimations ? 640 : 400;
-  let lastId = null;
-  for (let step = 0; step < frames; step++) {
-    const options = alternatives.filter(candidate => candidate.id !== lastId);
-    const preview = (options.length ? options : alternatives)[
-      Math.floor(Math.random() * (options.length || alternatives.length))
-    ];
-    lastId = preview.id;
-    const showPreview = () => {
-      cardMap.get(shuffleGameId)?.classList.remove('gs-shuffle-preview', 'gs-shuffle-reverse');
-      shuffleGameId = preview.id;
-      const previewCard = cardMap.get(preview.id);
-      if (!previewCard) return;
-      previewCard.classList.add('gs-shuffle-preview');
-      applySearchFilter();
-    };
-    if (step === 0) showPreview();
-    else shuffleTimers.push(setTimeout(showPreview, step * frameDelay));
+  applySearchFilter();
+  card.classList.add('gs-shuffle-anchor');
+  const deck = document.createElement('div');
+  deck.className = 'gs-shuffle-deck';
+  deck.setAttribute('aria-hidden', 'true');
+  const firstPreview = alternatives[Math.floor(Math.random() * alternatives.length)];
+  const previews = [firstPreview, alternatives.find(candidate => candidate.id !== firstPreview.id) || firstPreview, game];
+  for (const preview of previews) {
+    const face = document.createElement('img');
+    face.className = 'gs-shuffle-face';
+    face.src = cardMap.get(preview.id).querySelector('.gs-card-cover').querySelector('img').src;
+    face.alt = '';
+    deck.appendChild(face);
   }
-  shuffleTimers.push(setTimeout(showFinalGame, frames * frameDelay));
+  container.appendChild(deck);
+  shuffleDeck = deck;
+  void diceButton.offsetWidth;
+  diceButton.classList.add('is-rolling');
+  shuffleTimers.push(setTimeout(showFinalGame, duration));
 }
 
 function clearSearch() {
@@ -1221,8 +1226,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme();
   themeMedia.addEventListener?.('change', () => { if (themePreference === 'system') applyTheme(); });
   themeSelect.addEventListener('change', () => { themePreference = themeSelect.value; localStorage.setItem('gameshelf:theme', themePreference); applyTheme(); });
-  document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars);
-  document.body.classList.toggle('gs-favorite-stars-only', favoriteStarsOnly);
+  document.body.classList.toggle('gs-pin-favorite-stars', favoriteStarsOnly);
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
   document.body.classList.toggle('gs-show-game-titles', showGameTitles);
   document.body.classList.toggle('gs-show-placeholders', showPlaceholderImages);
@@ -1563,7 +1567,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('favorite-confirm').addEventListener('click', saveFavorite);
   for (const id of ['favorite-close', 'favorite-cancel']) document.getElementById(id).addEventListener('click', () => favoriteDialog.close());
   closeOnBackdropClick(favoriteDialog);
-  const starsInput = document.getElementById('show-favorite-stars');
+  favoriteDialog.addEventListener('close', () => {
+    const card = favoritePending && cardMap.get(favoritePending.id);
+    card?.querySelector('.gs-favorite-star')?.blur();
+    card?.classList.add('gs-hover-suppressed');
+  });
   const favoritesFirstInput = document.getElementById('favorites-first');
   favoritesFirstInput.checked = favoritesFirst;
   favoritesFirstInput.addEventListener('change', () => {
@@ -1573,15 +1581,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const starsOnlyInput = document.getElementById('favorite-stars-only');
   function syncStarSettings() {
-    starsInput.checked = showFavoriteStars;
     starsOnlyInput.checked = favoriteStarsOnly;
-    starsOnlyInput.disabled = !showFavoriteStars;
-    document.getElementById('favorite-only-option').classList.toggle('gs-disabled', !showFavoriteStars);
-    document.body.classList.toggle('gs-hide-favorite-stars', !showFavoriteStars);
-    document.body.classList.toggle('gs-favorite-stars-only', favoriteStarsOnly);
+    document.body.classList.toggle('gs-pin-favorite-stars', favoriteStarsOnly);
   }
   syncStarSettings();
-  starsInput.addEventListener('change', event => { showFavoriteStars = event.target.checked; localStorage.setItem('gameshelf:favorite-stars', String(showFavoriteStars)); syncStarSettings(); });
   starsOnlyInput.addEventListener('change', event => { favoriteStarsOnly = event.target.checked; localStorage.setItem('gameshelf:favorite-stars-only', String(favoriteStarsOnly)); syncStarSettings(); });
   const daysInput = document.getElementById('recent-days');
   daysInput.value = String(recentDays);

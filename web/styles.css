@@ -956,38 +956,6 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
   flex: 0 0 auto;
 }
 
-.gs-grid.gs-slow-animations {
-  --shuffle-duration: 260ms;
-}
-
-.gs-card.gs-shuffle-preview {
-  animation: gs-card-shuffle var(--shuffle-duration, 163ms) ease-out both;
-}
-
-.gs-card.gs-shuffle-preview.gs-shuffle-reverse {
-  animation-name: gs-card-shuffle-reverse;
-}
-
-@keyframes gs-card-shuffle {
-  from { opacity: 0.5; transform: translateX(-35px) rotate(-5deg) scale(0.94); }
-  to { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
-}
-
-@keyframes gs-card-shuffle-reverse {
-  from { opacity: 0.5; transform: translateX(35px) rotate(5deg) scale(0.94); }
-  to { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
-}
-
-.gs-card.gs-spotlight-enter {
-  animation: gs-spotlight-bounce 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@keyframes gs-spotlight-bounce {
-  0% { opacity: 0.5; transform: translateY(20px) scale(0.94); }
-  65% { opacity: 1; transform: translateY(-8px) scale(1.03); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
 .gs-card-cover {
   position: relative;
   aspect-ratio: 2 / 3;
@@ -1425,7 +1393,7 @@ input[type="checkbox"]:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .gs-random.is-rolling svg,
   .gs-card.gs-spotlight-enter,
-  .gs-card.gs-shuffle-preview,
+  .gs-card.gs-shuffle-anchor,
   .gs-spotlight-actions.gs-return-visible {
     animation: none;
   }
@@ -1757,7 +1725,6 @@ html:has(#sort-menu:not(.hidden)), body:has(#sort-menu:not(.hidden)) { overflow:
 .gs-cart-items li button { flex: none; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: .4rem .6rem; background: transparent; color: var(--text); cursor: pointer; }
 .gs-cart-total { font-weight: 700; }
 #loading-state { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-.gs-card.gs-tile-fill:not(.gs-shuffle-preview):not(.gs-spotlight-enter) { animation: gs-tile-fill .32s ease-out both; }
 @keyframes gs-tile-fill { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .gs-no-animations *, .gs-no-animations *::before, .gs-no-animations *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 .gs-export-section { margin: 0 0 .75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--section-background); overflow: hidden; }
@@ -1963,12 +1930,9 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 .gs-list-image-dialog img { display: block; width: min(380px, 80vw); max-height: 80vh; object-fit: contain; }
 .gs-expand-list-image.gs-show-list-images .gs-grid.list-view .gs-list-image { cursor: zoom-in; }
 
-/* A single reveal makes the final dice result settle without a second scale pop. */
-.gs-card.gs-spotlight-enter { animation: gs-spotlight-reveal .26s ease-out both; }
-@keyframes gs-spotlight-reveal { from { opacity: .4; filter: brightness(.8); } to { opacity: 1; filter: brightness(1); } }
 .gs-random.is-rolling svg { animation: gs-dice-smooth var(--dice-roll-duration, 600ms) cubic-bezier(.18,.72,.25,1) both; transform-origin: center; }
 @keyframes gs-dice-smooth { 0% { transform: rotate(0) scale(1); } 45% { transform: rotate(165deg) scale(.94); } 85% { transform: rotate(345deg) scale(1.04); } 100% { transform: rotate(360deg) scale(1); } }
-@media (prefers-reduced-motion: reduce) { .gs-random.is-rolling svg, .gs-card.gs-spotlight-enter, #settings-dialog[data-settings-level="advanced"] [data-setting-level="advanced"] { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .gs-random.is-rolling svg, #settings-dialog[data-settings-level="advanced"] [data-setting-level="advanced"] { animation: none; } }
 /* Shared action trays: reserve the outer controls and center the primary pair. */
 #settings-dialog #logs-setting { flex-wrap: nowrap; align-items: flex-start; }
 #settings-dialog #logs-setting > span { flex: 1; }
@@ -1987,9 +1951,7 @@ button:disabled, button:disabled:hover, .gs-button:disabled, .gs-settings-backup
 .gs-grid.list-view .gs-card[data-favorite="false"] .gs-favorite-star { display: grid; opacity: 0; pointer-events: none; transform: translateX(18px); transition: transform .24s ease, opacity .24s ease; }
 .gs-grid.list-view .gs-card[data-favorite="false"]:not(.gs-hover-suppressed):hover .gs-favorite-star,
 .gs-grid.list-view .gs-card[data-favorite="false"]:focus-within .gs-favorite-star { opacity: 1; pointer-events: auto; transform: translateX(0); }
-.gs-card.gs-shuffle-preview, .gs-card.gs-shuffle-preview.gs-shuffle-reverse { animation: gs-shuffle-dissolve var(--shuffle-duration, 300ms) ease-in-out both; }
-.gs-grid.gs-slow-animations { --shuffle-duration: 480ms; }
-@keyframes gs-shuffle-dissolve { 0% { opacity: .3; } 30%, 75% { opacity: 1; } 100% { opacity: .3; } }
+
 @media (hover: none) { .gs-grid .gs-card[data-favorite="false"] .gs-favorite-star { opacity: 1; pointer-events: auto; transform: none; } }
 /* Shared menu motion is driven by openModal, including native Escape dismissal. */
 dialog.gs-settings-dialog, dialog.gs-list-image-dialog { animation: none; }
@@ -2002,14 +1964,49 @@ dialog.gs-settings-dialog, dialog.gs-list-image-dialog { animation: none; }
 .gs-grid .gs-card .gs-card-actions > * { backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 6px; }
 .gs-grid.list-view .gs-card .gs-card-actions > * { width: 40px; height: 40px; }
 .gs-grid.list-view .gs-card[data-favorite="false"] .gs-favorite-star { transform: none; transition: opacity .22s ease, color .15s ease; }
-.gs-grid.list-view .gs-card-actions::before { --tray-color: color-mix(in srgb, var(--icon-background) 90%, white); background: linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--tray-color) 20%, transparent) 12%, color-mix(in srgb, var(--tray-color) 65%, transparent) 28%, var(--tray-color) 48%); }
+.gs-grid.list-view .gs-card-actions::before { --tray-color: color-mix(in srgb, var(--icon-background) 97%, var(--text-muted)); background: linear-gradient(to right, transparent 0%, color-mix(in srgb, var(--tray-color) 20%, transparent) 12%, color-mix(in srgb, var(--tray-color) 65%, transparent) 28%, var(--tray-color) 48%); }
 .gs-cover-preview-actions > * { background: var(--input-background); color: var(--text); }
-/* Deal each preview over two offset game cases, then settle the selected case. */
-.gs-grid.gs-spotlight:has(.gs-shuffle-preview) { position: relative; isolation: isolate; perspective: 1000px; }
-.gs-grid.gs-spotlight:has(.gs-shuffle-preview)::before, .gs-grid.gs-spotlight:has(.gs-shuffle-preview)::after { content: ''; position: absolute; z-index: -1; width: min(100%, 320px); height: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--card-background); box-shadow: var(--shadow-soft); transform: translate(10px, 7px) rotate(3deg); }
-.gs-grid.gs-spotlight:has(.gs-shuffle-preview)::after { transform: translate(19px, 13px) rotate(6deg); z-index: -2; }
-.gs-card.gs-shuffle-preview, .gs-card.gs-shuffle-preview.gs-shuffle-reverse { animation: gs-stack-deal var(--shuffle-duration, 400ms) cubic-bezier(.25,.6,.3,1) both; transform-origin: center 75%; }
-.gs-grid.gs-slow-animations { --shuffle-duration: 640ms; }
-@keyframes gs-stack-deal { 0% { opacity: .3; transform: translate(26px, 10px) rotate(6deg) scale(.97); } 30%, 55% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); } 100% { opacity: 0; transform: translate(-105px, -12px) rotate(-12deg) scale(1.02); } }
+
 .gs-no-animations .gs-sort-menu { transition: none; }
 @media (prefers-reduced-motion: reduce) { .gs-sort-menu { transition: none; } }
+
+/* Icon-only controls keep their hit areas and signal interaction through color. */
+:is(.gs-icon-button, .gs-card-info, .gs-card-cart, .gs-favorite-star, .gs-view-toggle, .gs-sort-button, .gs-settings-close, .gs-log-icon, .gs-search-clear, .gs-home-trigger, .gs-cover-preview-folder, .gs-cover-preview-upload, .gs-scroll-to-top, :where(#reroll-game)):not(.gs-title-save) {
+  background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none; color: var(--text-muted) !important; transition: color .15s ease, opacity .18s ease, transform .16s ease;
+}
+:is(.gs-icon-button, .gs-card-info, .gs-card-cart, .gs-favorite-star, .gs-view-toggle, .gs-sort-button, .gs-settings-close, .gs-log-icon, .gs-search-clear, .gs-home-trigger, .gs-cover-preview-folder, .gs-cover-preview-upload, .gs-scroll-to-top, :where(#reroll-game)):not(.gs-title-save):not(:disabled):is(:hover, :focus-visible, :focus) { color: var(--accent) !important; background: transparent !important; box-shadow: none !important; }
+.gs-view-toggle svg, .gs-sort-button svg { fill: currentColor; transition: transform .16s ease; }
+.gs-random svg, .gs-cart-toggle svg, #open-cart svg { fill: none; }
+.gs-sort :is(.gs-view-toggle, .gs-sort-button):not(:disabled):is(:hover, :focus-visible) svg { transform: scale(1.1); }
+.gs-card-actions > :is(:hover, :focus-visible) { background: transparent !important; }
+.gs-card[data-favorite="true"] .gs-favorite-star, .gs-favorite-star.is-favorite { color: #f9b234 !important; }
+.gs-grid .gs-card .gs-favorite-star { display: grid; opacity: 0; pointer-events: none; }
+.gs-grid:not(.list-view) .gs-card .gs-favorite-star { transform: translateY(-94px); }
+.gs-pin-favorite-stars .gs-grid .gs-card[data-favorite="true"] .gs-favorite-star,
+.gs-grid .gs-card:not(.gs-hover-suppressed):hover .gs-favorite-star,
+.gs-grid .gs-card:not(.gs-hover-suppressed):focus-within .gs-favorite-star { opacity: 1; pointer-events: auto; transform: none; }
+#expand-list-image { order: 0; }
+#settings-dialog .gs-theme-option select { box-sizing: border-box; height: 38px; padding-block: 0; line-height: 36px; }
+#edit-game-cover { background: var(--input-background); border-color: var(--border-subtle); color: var(--text); }
+#edit-game-cover:is(:hover, :focus-visible) { background: var(--input-background); border-color: var(--accent); color: var(--text); }
+.gs-show-placeholders .gs-grid:not(.list-view) .gs-no-cover .gs-card-cover img { object-fit: fill; }
+/* One continuous deck animation; the real result card never changes layout. */
+.gs-grid.gs-spotlight { position: relative; isolation: isolate; }
+.gs-shuffle-deck { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; pointer-events: none; perspective: 1000px; }
+.gs-shuffle-face { position: absolute; width: min(100%, 320px); height: 100%; object-fit: fill; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-soft); will-change: transform, opacity; animation: gs-deck-cut var(--shuffle-duration) ease-in-out both; }
+.gs-shuffle-face:nth-child(2) { animation-name: gs-deck-return; }
+.gs-shuffle-face:nth-child(3) { animation-name: gs-deck-settle; }
+.gs-card.gs-shuffle-anchor { animation: gs-deck-reveal var(--shuffle-duration) linear both; pointer-events: none; }
+@keyframes gs-deck-cut { 0% { z-index: 3; opacity: 1; transform: translate(0,0) rotate(0); } 30% { z-index: 3; opacity: 1; transform: translate(-65%,-5%) rotate(-14deg); } 55% { z-index: 1; opacity: 1; transform: translate(10px,8px) rotate(4deg); } 80%,100% { z-index: 1; opacity: 0; transform: translate(0,0) rotate(0); } }
+@keyframes gs-deck-return { 0% { z-index: 2; opacity: 1; transform: translate(10px,8px) rotate(4deg); } 30% { z-index: 2; opacity: 1; transform: translate(0,0) rotate(0); } 60% { z-index: 3; opacity: 1; transform: translate(65%,-5%) rotate(14deg); } 85%,100% { z-index: 1; opacity: 0; transform: translate(0,0) rotate(0); } }
+@keyframes gs-deck-settle { 0% { z-index: 1; opacity: 1; transform: translate(-10px,12px) rotate(-4deg); } 60% { z-index: 2; opacity: 1; transform: translate(0,0) rotate(0); } 80% { z-index: 4; opacity: 1; transform: none; } 100% { z-index: 4; opacity: 0; transform: none; } }
+@keyframes gs-deck-reveal { 0%,75% { opacity: 0; } 90%,100% { opacity: 1; } }
+@media (hover: none) { .gs-grid .gs-card .gs-favorite-star { opacity: 1; pointer-events: auto; transform: none; } }
+
+.gs-sort-button svg.gs-sort-symbol { fill: none; stroke: currentColor; }
+.gs-random svg, .gs-reroll-button svg { color: inherit; }
+.gs-home-trigger img { transition: transform .16s ease; }
+.gs-home-trigger:is(:hover, :focus-visible) img { transform: scale(1.1); }
+.gs-card-actions > :is(:hover, :focus-visible) { transform: none; }
+
+.gs-card.gs-tile-fill:not(.gs-shuffle-anchor) { animation: gs-tile-fill .32s ease-out both; }

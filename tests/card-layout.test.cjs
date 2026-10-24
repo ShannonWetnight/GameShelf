@@ -157,6 +157,9 @@ test('cover editor crops artwork and updates the card after upload', () => {
         document.querySelector('#edit-game-cover').click();
         const editor = document.querySelector('#cover-editor-dialog');
         const emptyUploadVisible = getComputedStyle(document.querySelector('.gs-cover-preview-upload')).opacity === '1';
+        document.querySelector('#cover-editor-file').dispatchEvent(new Event('cancel', {bubbles:true}));
+        await new Promise(resolve => setTimeout(resolve, 220));
+        const pickerCancelKeepsEditor = editor.open;
         document.querySelector('#cover-editor-cancel').click();
         await new Promise(resolve => setTimeout(resolve, 220));
         const returnedToDetails = document.querySelector('#game-details-dialog').open && !editor.open;
@@ -195,7 +198,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
             report.id = 'cover-editor-report';
             report.textContent = JSON.stringify({
               editorOpened:editor.open === false,
-              emptyUploadVisible,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,
+              emptyUploadVisible,pickerCancelKeepsEditor,returnedToDetails,gridDuringEdit,zoomReadout,tiltReadout,
               resetZoom,resetTilt,resetSaveDisabled,
               previewIsPNG:preview.startsWith('data:image/png;base64,'),
               uploaded:window.coverUpload,
@@ -226,6 +229,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
     const result = JSON.parse(match[1]);
     assert.equal(result.editorOpened, true, JSON.stringify(result));
     assert.equal(result.emptyUploadVisible, true);
+    assert.equal(result.pickerCancelKeepsEditor, true);
     assert.equal(result.returnedToDetails, true);
     assert.equal(result.gridDuringEdit, true);
     assert.equal(result.zoomReadout, '125%');
