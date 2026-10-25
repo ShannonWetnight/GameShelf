@@ -33,11 +33,12 @@
   $('source-remove-dialog').addEventListener('close',()=>{pendingRemoval=null;});closeOnBackdropClick($('source-remove-dialog'));
   function render(owner) {
     const list = $(owner === 'setup' ? 'setup-source-list' : 'server-source-list'); list.replaceChildren();
-    const addCard = (title, location, badge, icon, edit, remove, offline) => {
+    const addCard = (title, location, badge, icon, edit, remove, state) => {
+ const offline=state==="offline";
       const card = document.createElement('article'); card.className = 'gs-source-card';
       const symbol = document.createElement('span'); symbol.className = 'gs-source-symbol'; symbol.innerHTML = icon;
       const content = document.createElement('div'); content.className = 'gs-source-card-content';
-      const heading = document.createElement('strong'); heading.textContent = title;
+      const heading = document.createElement('strong'); heading.textContent = title;if(badge!=='Folder'){const dot=document.createElement('i');dot.className='gs-health-dot';dot.dataset.state=state==='offline'?'critical':(state==='healthy'||state==='ready')?'healthy':state==='degraded'?'degraded':'unknown';dot.dataset.tooltip=(state==='healthy'||state==='ready')?'Connected':state==='offline'?'Offline':state==='degraded'?'Connection needs attention':'Not checked yet';heading.prepend(dot);}
       const address = document.createElement('span'); address.textContent = location; address.title = location;
       const label = document.createElement('small'); label.textContent = offline ? 'Offline — check connection' : badge; if (offline) label.className = 'gs-source-offline';
       content.append(heading, address, label); const actions = document.createElement('div'); actions.className = 'gs-source-card-actions';
@@ -47,9 +48,9 @@
     roots(owner).forEach((path, index) => addCard(path.split('/').filter(Boolean).pop() || path, path, 'Folder', folderIcon,
       () => openFolder(owner, path), () => { const next = roots(owner); next.splice(index, 1); rootsInput(owner).value = next.join('\n'); render(owner); }));
     drafts[owner].forEach((source, index) => addCard(source.name || source.url, source.url, source.protocol === 'webdav' ? 'WebDAV' : source.protocol.toUpperCase(), networkIcon,
-      () => openNetwork(owner, index), () => { drafts[owner].splice(index, 1); render(owner); }, lastStates.find(state => state.id === source.id)?.state === 'offline'));
+      () => openNetwork(owner, index), () => { drafts[owner].splice(index, 1); render(owner); }, lastStates.find(state => state.id === source.id)?.state));
     $(owner === 'setup' ? 'setup-source-empty' : 'server-source-empty').hidden = sourceCount(owner) > 0;
-    if(owner==='setup')$('setup-status').textContent='';
+    if(owner==='setup'){$('setup-status').textContent='';$('setup-next').disabled=sourceCount(owner)===0;$('setup-next').dataset.tooltip=sourceCount(owner)?'Continue to Your Shelf':'Add at least one folder or network location before continuing.';}
   }
   function populate(owner, value) {
     rootsInput(owner).value = rootsOf(value).join('\n'); drafts[owner] = (value.sources || []).map(source => ({ ...source })); render(owner);
@@ -84,7 +85,7 @@
     try {
       const state = await jsonRequest('/api/source-status', { cache: 'no-store' });
       if (!Array.isArray(state.sources)) return null;
-      lastStates = state.sources;
+      lastStates = state.sources;for(const owner of ['setup','settings'])render(owner);
       const offline = state.sources.filter(source => source.state === 'offline');
       const alert = $('source-alert'); alert.hidden = !state.busy && !offline.length;
       $('source-alert-text').textContent = state.busy ? state.message || 'Connecting to your libraries…' : `${offline.length} location${offline.length === 1 ? ' is' : 's are'} offline. Cached games remain visible; downloads require a connection and refresh.`;
@@ -138,7 +139,7 @@
     if (animate && !disableEffects && !matchMedia('(prefers-reduced-motion: reduce)').matches) $(step === 1 ? 'setup-libraries-panel' : 'setup-finish-panel').animate?.([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: motionDuration(220), easing: 'ease-out' });
   }
   function validateSelection() {
-    if (!sourceCount('setup')) { $('setup-status').textContent = 'Add at least one folder or network location.'; return false; }
+    if (!sourceCount('setup')) return false;
     if (sourceCount('setup') > 16) { $('setup-status').textContent = 'Choose up to 16 locations.'; return false; }
     $('setup-status').textContent = ''; return true;
   }
@@ -159,10 +160,10 @@
     try {
       const result = await jsonRequest('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) });
       serverSettings = result.settings || value; drafts.setup = []; $('setup-roots').value = ''; current.required = false;
-      $('setup-page').hidden = true; document.body.classList.remove('gs-needs-setup'); syncSetupHeader(false);await loadGames(); showNotification('Your shelf is ready. Welcome to GameShelf!'); watchScan();
+      if(tour)window.GameShelfTour?.prepare();$('setup-page').hidden = true; document.body.classList.remove('gs-needs-setup'); syncSetupHeader(false);await loadGames(); showNotification('Your shelf is ready. Welcome to GameShelf!'); watchScan();
       if (tour) window.GameShelfTour?.offer();
     } catch (error) { $('setup-status').textContent = error.message; }
-    finally { clearInterval(progress); controls.forEach(control => control.disabled = false); }
+    finally { clearInterval(progress); controls.forEach(control => control.disabled = false);$('setup-next').disabled=sourceCount('setup')===0; }
   });
 
   function editorSource() {
@@ -171,7 +172,7 @@
       password: nfs ? '' : $('network-password').value, hasPassword: nfs ? false : editorHasPassword, domain: nfs ? '' : $('network-domain').value, hostKey: editorHostKey, nfsVersion: Number($('network-nfs-version').value), uid: Number($('network-uid').value), gid: Number($('network-gid').value) };
   }
   function signature(source = editorSource()) { const { name, ...connection } = source; return JSON.stringify(connection); }
-  function invalidateTest() { tested = ''; saveAfterTrust=false;$('network-use').disabled = testing || !$('network-url').value.trim(); $('network-editor-status').textContent = ''; delete $('network-editor-status').dataset.state; }
+  function invalidateTest() { tested = ''; saveAfterTrust=false;$('network-use').disabled = testing || !$('network-url').value.trim();   }
   function updateProtocol() {
     const protocol = $('network-protocol').value;
     $('network-signin').hidden = protocol === 'nfs'; $('network-domain-field').hidden = protocol !== 'smb'; $('network-nfs-options').hidden = protocol !== 'nfs'; $('network-key-options').hidden = protocol !== 'sftp';
@@ -194,25 +195,25 @@
     $('network-advanced').open = false; invalidateTest(); updateProtocol(); openModal($('network-editor-dialog'));
   }
   async function testConnection(save = false) {
-    if (testing) return; const version = editorVersion; networkController = new AbortController(); testing = true; $('network-test').disabled = true;$('network-test').setAttribute('aria-busy','true');animateControl($('network-test')); $('network-use').disabled = true;
-    const status = $('network-editor-status'); status.textContent = 'Testing connection…'; status.dataset.state = 'testing';
+    if (testing) return; const version = editorVersion;let failed=false; networkController = new AbortController(); testing = true; $('network-test').disabled = true;$('network-test').setAttribute('aria-busy','true');animateControl($('network-test')); $('network-use').disabled = true;
+
     try {
       const source = editorSource();const requested=signature(source); const result = await jsonRequest('/api/network-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(source), signal: networkController.signal });
       if (version !== editorVersion || !$('network-editor-dialog').open || requested!==signature()) return;
-      if (result.requiresTrust) { saveAfterTrust=save;pendingTrust = result.hostKey; $('network-fingerprint').textContent = result.fingerprint; status.textContent = 'Verify the server key to continue.'; openModal($('network-trust-dialog')); return; }
+      if (result.requiresTrust) { saveAfterTrust=save;pendingTrust = result.hostKey; $('network-fingerprint').textContent = result.fingerprint;  openModal($('network-trust-dialog')); return; }
       const normalized = result.source || source; editorID = normalized.id; editorHasPassword = !!normalized.hasPassword;
       $('network-url').value = normalized.url; if (!$('network-name').value) $('network-name').value = normalized.name || '';
-      tested = signature(); $('network-use').disabled = false; status.dataset.state = 'ready'; status.textContent = result.folders ? `Connected · ${result.folders} game folder${result.folders === 1 ? '' : 's'} found` : 'Connected · Ready for game folders';
+      tested = signature(); $('network-use').disabled = false; lastStates=lastStates.filter(item=>item.id!==editorID);lastStates.push({id:editorID,state:'healthy'});if(!save)showNotification(result.folders ? 'Connected — '+result.folders+' game folder'+(result.folders===1?'':'s')+' found.' : 'Connected. Ready for game folders.');
       if(!save)showSaveFeedback($('network-test'));if(save)commitNetwork();
-    } catch (error) { if (version === editorVersion && error.name !== 'AbortError') { tested = ''; $('network-use').disabled=true;status.dataset.state = 'error'; status.textContent = error.message; } }
+    } catch (error) { if (version === editorVersion && error.name !== 'AbortError') { failed=true;tested = ''; $('network-use').disabled=true;showNotification(error.message,'error'); } }
     finally { if (version === editorVersion) { testing = false; $('network-test').disabled = false;$('network-test').removeAttribute('aria-busy');
-      if (!tested && status.dataset.state !== 'error') $('network-use').disabled = !$('network-url').value.trim();
+      if (!tested&&!failed) $('network-use').disabled = !$('network-url').value.trim();
     } }
   }
   $('network-test').addEventListener('click', () => testConnection(false));
   function commitNetwork() {
     const source = editorSource(); const duplicate = drafts[panel].findIndex(item => item.url === source.url);
-    if (duplicate !== -1 && duplicate !== editing) { $('network-editor-status').textContent = 'This location is already in your library.'; return; }
+    if (duplicate !== -1 && duplicate !== editing) { showNotification('This location is already in your library.','error'); return; }
     if (editing === null) drafts[panel].push(source); else drafts[panel][editing] = source;
     const edited=editing!==null;render(panel); closeNetwork(); showNotification(edited?'Location edits saved. '+(panel==='setup'?'Continue setup to apply them.':'Save your library to apply them.'):'Network location added. Save to apply your choices.');
   }
@@ -279,7 +280,7 @@
  function layoutSetupArt(){
    if(!document.body.classList.contains('gs-needs-setup'))return;
    const mobile=matchMedia('(pointer:coarse)').matches;
-   const zoom=mobile?1:Math.max(.25,Math.min(5,window.outerWidth>0?window.outerWidth/innerWidth:1));
+   const zoom=(mobile?1:Math.max(.25,Math.min(5,window.outerWidth>0?window.outerWidth/innerWidth:1)))*(typeof uiScale==='number'?uiScale:1);
    layer.style.inset='auto';layer.style.left='0';layer.style.top='0';layer.style.width=innerWidth*zoom+'px';layer.style.height=innerHeight*zoom+'px';layer.style.transformOrigin='top left';layer.style.transform='scale('+(1/zoom)+')';
    const w=innerWidth*zoom,h=innerHeight*zoom,box=document.querySelector('#setup-form').getBoundingClientRect();
    const size=mobile?88:Math.min(156,Math.max(110,w*.085));

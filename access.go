@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
@@ -27,25 +28,37 @@ type accessRule struct {
 	Hidden bool   `json:"hidden"`
 	Level  string `json:"level,omitempty"`
 }
+type pinRemembrance struct {
+	Enabled bool `json:"enabled"`
+	Minutes int  `json:"minutes"`
+}
 type accessPolicy struct {
-	Rules map[string]accessRule `json:"rules"`
+	Rules    map[string]accessRule `json:"rules"`
+	Remember *pinRemembrance       `json:"remember,omitempty"`
+}
+
+func remembrance(value *pinRemembrance) pinRemembrance {
+	if value == nil {
+		return pinRemembrance{Enabled: true, Minutes: 5}
+	}
+	return *value
 }
 
 var accessActions = map[string]string{
 	"admin": "Family Controls", "settings": "Settings menu", "advanced": "Advanced settings tab", "libraryManager": "Library Manager", "sources": "Library Sources", "storage": "Saved data location", "refresh": "Refresh Interval", "logging": "Logging configuration", "logs": "View and export logs", "health": "Configure health monitoring", "healthView": "View Library Health", "export": "Export Data", "restore": "Restore Data", "wipe": "Wipe Settings", "setup": "First-Time Setup", "covers": "Edit covers and fit", "titles": "Edit game titles", "favoriteAdd": "Add favorites", "favoriteRemove": "Remove favorites", "metadata": "Reset Metadata", "playlistAdd": "Add to Playlist", "playlistRemove": "Remove or clear Playlist", "downloads": "Downloads",
 }
 
-var preferenceActions = map[string]string{"theme": "theme", "animation-speed": "motion", "animate-tiles": "tileAnimation", "show-hover-text": "buttonHints", "show-game-titles": "staticTitles", "show-placeholder-images": "placeholderArt", "card-depth": "cardDepth", "playlist-enabled": "playlistFeature", "show-list-images": "listImages", "favorites-first": "favoritesFirst", "favorite-stars-only": "pinnedStars", "hover-game-titles": "hoverNames", "list-opacity": "listOpacity", "recent-days": "recentRange", "recent-days-v2": "recentRange", "list-image-click": "imageExpand", "stretch-covers": "stretchDefault"}
+var preferenceActions = map[string]string{"theme": "theme", "animation-speed": "motion", "ui-scale": "uiScale", "animate-tiles": "tileAnimation", "show-hover-text": "buttonHints", "show-game-titles": "staticTitles", "show-placeholder-images": "placeholderArt", "card-depth": "cardDepth", "playlist-enabled": "playlistFeature", "show-list-images": "listImages", "favorites-first": "favoritesFirst", "favorite-stars-only": "pinnedStars", "hover-game-titles": "hoverNames", "list-opacity": "listOpacity", "recent-days": "recentRange", "recent-days-v2": "recentRange", "list-image-click": "imageExpand", "stretch-covers": "stretchDefault"}
 
 func init() {
-	for action, label := range map[string]string{"theme": "Theme", "motion": "Animation speed", "tileAnimation": "Loaded tile animation", "buttonHints": "Button hints", "staticTitles": "Static game titles", "placeholderArt": "Placeholder artwork", "cardDepth": "Card depth", "playlistFeature": "Enable Playlist downloads", "listImages": "List cover images", "favoritesFirst": "Favorites first", "pinnedStars": "Pinned favorite stars", "hoverNames": "Hover game names", "listOpacity": "List tile opacity", "recentRange": "Recently Added range", "imageExpand": "List image expansion", "stretchDefault": "Default cover stretching"} {
+	for action, label := range map[string]string{"theme": "Theme", "motion": "Animation speed", "uiScale": "UI scale", "tileAnimation": "Loaded tile animation", "buttonHints": "Button hints", "staticTitles": "Static game titles", "placeholderArt": "Placeholder artwork", "cardDepth": "Card depth", "playlistFeature": "Enable Playlist downloads", "listImages": "List cover images", "favoritesFirst": "Favorites first", "pinnedStars": "Pinned favorite stars", "hoverNames": "Hover game names", "listOpacity": "List tile opacity", "recentRange": "Recently Added range", "imageExpand": "List image expansion", "stretchDefault": "Default cover stretching"} {
 		accessActions[action] = label
 	}
 }
 
 var accessDefaultLevels = map[string]string{
 	"theme": "basic", "buttonHints": "basic", "staticTitles": "basic", "placeholderArt": "basic", "playlistFeature": "basic", "listImages": "basic", "favoritesFirst": "basic", "pinnedStars": "basic", "export": "basic", "restore": "basic", "logs": "basic", "setup": "basic",
-	"motion": "advanced", "tileAnimation": "advanced", "cardDepth": "advanced", "stretchDefault": "advanced", "hoverNames": "advanced", "listOpacity": "advanced", "recentRange": "advanced", "imageExpand": "advanced", "libraryManager": "advanced", "logging": "advanced", "wipe": "advanced", "admin": "advanced",
+	"uiScale": "advanced", "motion": "advanced", "tileAnimation": "advanced", "cardDepth": "advanced", "stretchDefault": "advanced", "hoverNames": "advanced", "listOpacity": "advanced", "recentRange": "advanced", "imageExpand": "advanced", "libraryManager": "advanced", "logging": "advanced", "wipe": "advanced", "admin": "advanced",
 }
 
 func accessLevel(policy *accessPolicy, action string) string {
@@ -58,7 +71,7 @@ func accessGroup(action string) string {
 	switch action {
 	case "settings", "advanced":
 		return "Settings access"
-	case "theme", "motion", "tileAnimation", "buttonHints", "staticTitles", "placeholderArt", "cardDepth":
+	case "theme", "uiScale", "motion", "tileAnimation", "buttonHints", "staticTitles", "placeholderArt", "cardDepth":
 		return "Appearance"
 	case "stretchDefault", "playlistFeature", "listImages", "favoritesFirst", "pinnedStars", "hoverNames", "listOpacity", "recentRange", "imageExpand":
 		return "Library View"
@@ -101,7 +114,6 @@ func resetAccessActions() []string {
 // The private record is authoritative even if ordinary settings are reset or corrupt.
 // PBKDF2 parameters follow OWASP's SHA-256 guidance. No secret enters ZIP exports.
 const pinIterations = 600000
-const pinGrantDuration = 2 * time.Minute
 
 type pinRecord struct {
 	Version    int                   `json:"version"`
@@ -109,11 +121,24 @@ type pinRecord struct {
 	Hash       string                `json:"hash"`
 	Iterations int                   `json:"iterations"`
 	Rules      map[string]accessRule `json:"rules"`
+	Remember   *pinRemembrance       `json:"remember,omitempty"`
 }
 type pinSession struct {
 	Home    string
 	Expires time.Time
 	Grants  map[string]time.Time
+	Epoch   uint64
+	Permits map[string]pinPermit
+}
+type pinPermit struct {
+	Actions map[string]bool
+	Expires time.Time
+}
+type pinRequestKey struct{}
+type pinApproval struct {
+	Session *pinSession
+	Epoch   uint64
+	Actions map[string]bool
 }
 type pinBudget struct {
 	Window   time.Time
@@ -140,6 +165,9 @@ func validPIN(pin string) bool {
 func validateAccessPolicy(policy *accessPolicy) error {
 	if policy == nil {
 		return nil
+	}
+	if policy.Remember != nil && (policy.Remember.Minutes < 1 || policy.Remember.Minutes > 60) {
+		return errors.New("PIN remembrance must be 1-60 minutes")
 	}
 	if len(policy.Rules) > len(accessActions) {
 		return errors.New("too many family-control rules")
@@ -177,7 +205,7 @@ func readPINRecord() (*pinRecord, error) {
 		return nil, errors.New("PIN storage unavailable")
 	}
 	var record pinRecord
-	if json.Unmarshal(contents, &record) != nil || record.Version != 1 || record.Iterations != pinIterations || validateAccessPolicy(&accessPolicy{record.Rules}) != nil {
+	if json.Unmarshal(contents, &record) != nil || record.Version != 1 || record.Iterations != pinIterations || validateAccessPolicy(&accessPolicy{Rules: record.Rules, Remember: record.Remember}) != nil {
 		return nil, errors.New("PIN storage unavailable")
 	}
 	salt, e1 := base64.StdEncoding.DecodeString(record.Salt)
@@ -217,7 +245,7 @@ func currentAccessPolicy() (*accessPolicy, bool, error) {
 		return nil, true, err
 	}
 	if record != nil {
-		return &accessPolicy{record.Rules}, true, nil
+		return &accessPolicy{Rules: record.Rules, Remember: record.Remember}, true, nil
 	}
 	settingsMu.RLock()
 	value := configuredSettings.Access
@@ -227,7 +255,7 @@ func currentAccessPolicy() (*accessPolicy, bool, error) {
 func publicAccessPolicy(fallback *accessPolicy) *accessPolicy {
 	record, err := readPINRecord()
 	if err == nil && record != nil {
-		return &accessPolicy{record.Rules}
+		return &accessPolicy{Rules: record.Rules, Remember: record.Remember}
 	}
 	return fallback
 }
@@ -268,7 +296,7 @@ func ensurePINSession(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 	id = hex.EncodeToString(data)
-	accessSessions[id] = &pinSession{settingsHome, now.Add(4 * time.Hour), map[string]time.Time{}}
+	accessSessions[id] = &pinSession{Home: settingsHome, Expires: now.Add(4 * time.Hour), Grants: map[string]time.Time{}, Permits: map[string]pinPermit{}}
 	http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: id, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode})
 	return id
 }
@@ -277,6 +305,51 @@ func hasPINGrant(r *http.Request, action string) bool {
 	defer accessMu.Unlock()
 	session := accessSessions[pinCookie(r)]
 	return session != nil && session.Home == settingsHome && time.Now().Before(session.Expires) && time.Now().Before(session.Grants[action])
+}
+func usePINPermit(w http.ResponseWriter, r *http.Request, actions []string) bool {
+	if approved, ok := r.Context().Value(pinRequestKey{}).(pinApproval); ok {
+		accessMu.Lock()
+		defer accessMu.Unlock()
+		session := accessSessions[pinCookie(r)]
+		if session != approved.Session || session == nil || session.Epoch != approved.Epoch || time.Now().After(session.Expires) {
+			return false
+		}
+		for _, action := range actions {
+			if !approved.Actions[action] {
+				return false
+			}
+		}
+		return true
+	}
+	token := r.Header.Get("X-GameShelf-PIN")
+	if token == "" {
+		if cookie, e := r.Cookie("gameshelf-once"); e == nil {
+			token = cookie.Value
+		}
+	}
+	if len(token) != 64 {
+		return false
+	}
+	accessMu.Lock()
+	defer accessMu.Unlock()
+	session := accessSessions[pinCookie(r)]
+	if session == nil || session.Home != settingsHome || time.Now().After(session.Expires) {
+		return false
+	}
+	permit, ok := session.Permits[token]
+	if !ok || time.Now().After(permit.Expires) {
+		return false
+	}
+	for _, action := range actions {
+		if !permit.Actions[action] {
+			return false
+		}
+	}
+	delete(session.Permits, token)
+	*r = *r.WithContext(context.WithValue(r.Context(), pinRequestKey{}, pinApproval{session, session.Epoch, permit.Actions}))
+	w.Header().Set("X-GameShelf-PIN-Consumed", "true")
+	http.SetCookie(w, &http.Cookie{Name: "gameshelf-once", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode})
+	return true
 }
 func writeAccessError(w http.ResponseWriter, status int, code string, actions []string, message string) {
 	w.Header().Set("Content-Type", "application/json")
@@ -311,6 +384,9 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 		if mode == "pin" && !hasPINGrant(r, action) {
 			required = append(required, action)
 		}
+	}
+	if len(required) > 0 && hasPIN && usePINPermit(w, r, required) {
+		return true
 	}
 	if len(required) > 0 {
 		if !hasPIN {
@@ -537,8 +613,9 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		PIN     string   `json:"pin"`
-		Actions []string `json:"actions"`
+		PIN      string   `json:"pin"`
+		Actions  []string `json:"actions"`
+		Remember bool     `json:"remember"`
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2048))
 	decoder.DisallowUnknownFields()
@@ -581,14 +658,46 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not unlock this action.", 503)
 		return
 	}
-	until := time.Now().Add(pinGrantDuration)
+	options := remembrance(record.Remember)
+	until := time.Now().Add(time.Duration(options.Minutes) * time.Minute)
+	remembered := request.Remember && options.Enabled
+	token := ""
 	accessMu.Lock()
-	for _, action := range request.Actions {
-		accessSessions[id].Grants[action] = until
+	if remembered {
+		for _, action := range request.Actions {
+			accessSessions[id].Grants[action] = until
+		}
+	} else {
+		data := make([]byte, 32)
+		if _, err := rand.Read(data); err != nil {
+			accessMu.Unlock()
+			http.Error(w, "Could not unlock this action.", 503)
+			return
+		}
+		token = hex.EncodeToString(data)
+		http.SetCookie(w, &http.Cookie{Name: "gameshelf-once", Value: token, Path: "/", MaxAge: 60, HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode})
+		until = time.Now().Add(time.Minute)
+		session := accessSessions[id]
+		if session.Permits == nil {
+			session.Permits = map[string]pinPermit{}
+		}
+		for key, permit := range session.Permits {
+			if time.Now().After(permit.Expires) {
+				delete(session.Permits, key)
+			}
+		}
+		if len(session.Permits) >= 32 {
+			session.Permits = map[string]pinPermit{}
+		}
+		actions := map[string]bool{}
+		for _, action := range request.Actions {
+			actions[action] = true
+		}
+		session.Permits[token] = pinPermit{Actions: actions, Expires: until}
 	}
 	accessMu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"unlocked": request.Actions, "expiresAt": until})
+	json.NewEncoder(w).Encode(map[string]any{"unlocked": request.Actions, "expiresAt": until, "remembered": remembered, "token": token})
 	logEvent("system", "Family PIN accepted for %d action(s)", len(request.Actions))
 }
 func handleAccess(w http.ResponseWriter, r *http.Request) {
@@ -699,6 +808,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		record.Hash = base64.StdEncoding.EncodeToString(hash)
 	}
 	record.Rules = request.Policy.Rules
+	record.Remember = request.Policy.Remember
 	if err := savePrivateJSON(pinPath(), record); err != nil {
 		http.Error(w, "Could not save family controls.", 503)
 		return
@@ -713,16 +823,16 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not save family controls.", 503)
 		return
 	}
-	id := ensurePINSession(w, r)
+	ensurePINSession(w, r)
 	accessMu.Lock()
 	for _, session := range accessSessions {
 		session.Grants = map[string]time.Time{}
+		session.Permits = map[string]pinPermit{}
+		session.Epoch++
 	}
 	if oldRecord != nil && request.NewPIN != "" {
 		accessSessions = map[string]*pinSession{}
 		http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
-	} else if session := accessSessions[id]; session != nil {
-		session.Grants["admin"] = time.Now().Add(pinGrantDuration)
 	}
 	accessMu.Unlock()
 	logEvent("system", "Family-control policy saved")
@@ -749,7 +859,11 @@ func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&value) != nil || (value.Action != "settings" && value.Action != "advanced" && value.Action != "libraryManager") {
+	if decoder.Decode(&value) != nil {
+		http.Error(w, "unknown menu", 400)
+		return
+	}
+	if _, known := accessActions[value.Action]; !known {
 		http.Error(w, "unknown menu", 400)
 		return
 	}

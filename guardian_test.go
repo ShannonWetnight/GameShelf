@@ -69,8 +69,8 @@ func TestGuardianMenuGatesAndCategoryPersistence(t *testing.T) {
 func TestGuardianPINRotationDeauthenticatesEveryBrowser(t *testing.T) {
 	setupFreshServer(t)
 	cookie := familyCreate(t, map[string]accessRule{"settings": {"pin", false, ""}})
-	familyUnlock(t, "7392", []string{"settings"}, cookie)
-	result := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "6248", "policy": accessPolicy{map[string]accessRule{"settings": {"pin", false, ""}}}}, cookie)
+	familyUnlock(t, "7392", []string{"settings", "admin"}, cookie)
+	result := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "6248", "policy": accessPolicy{Rules: map[string]accessRule{"settings": {"pin", false, ""}}}}, cookie)
 	if result.Code != 200 {
 		t.Fatal(result.Code, result.Body.String())
 	}
@@ -94,7 +94,7 @@ func TestGuardianPINRotationDeauthenticatesEveryBrowser(t *testing.T) {
 func TestGuardianMenuRulesCannotHideOrDisableRecovery(t *testing.T) {
 	for _, action := range []string{"settings", "advanced", "admin"} {
 		for _, rule := range []accessRule{{Mode: "disable"}, {Mode: "pin", Hidden: true}, {Mode: "allow", Level: "other"}} {
-			if validateAccessPolicy(&accessPolicy{map[string]accessRule{action: rule}}) == nil {
+			if validateAccessPolicy(&accessPolicy{Rules: map[string]accessRule{action: rule}}) == nil {
 				t.Fatal("invalid gate/recovery rule accepted", action, rule)
 			}
 		}

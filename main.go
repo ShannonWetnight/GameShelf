@@ -1594,7 +1594,7 @@ type logOptions struct {
 	Days int `json:"days"`
 }
 
-func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, Health:true, HealthConfigured:true, SizeMB:10, Days:0} }
+func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, Health:true, Requests:true, Downloads:true, Scans:true, HealthConfigured:true, SizeMB:10, Days:0} }
 
 func normalizeLogOptions(value *logOptions) *logOptions {
 	if value == nil { return defaultLogOptions() }
@@ -1692,7 +1692,7 @@ func defaultServerSettings() serverSettings {
 	if data == "" { data = "/data" }
 	interval := os.Getenv("GAMESHELF_REFRESH_INTERVAL")
 	if interval == "" { interval = "168h" }
-	return serverSettings{RootDir: root, DataDir: data, RefreshInterval: interval, LogOptions: defaultLogOptions()}
+	return serverSettings{RootDir: root, DataDir: data, RefreshInterval: interval, Verbose:true, LogOptions: defaultLogOptions()}
 }
 
 func settingsFile() string { return filepath.Join(settingsHome, "server-settings.json") }

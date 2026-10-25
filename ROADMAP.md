@@ -147,3 +147,10 @@ Security is an ongoing product requirement, including server-enforced access rul
 * [x] List thumbnail expansion with Single-click, Double-click, and Disabled choices.
 * [x] Advanced list opacity, card depth, hover names, matching animation controls, and theme transitions.
 * [x] Automated browser/layout checks, real fixtures for six network protocols, restricted-container tests, and builder/runtime vulnerability gates.
+
+### Family profiles and sharing
+- [ ] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
+- [ ] Starter permission roles (Child, Adult, Administrator, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
+- [ ] Assign libraries and individual games to profiles/groups; retain each profile's preferences.
+- [ ] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Design authenticated/encrypted backup handling and explicit owner approval before restoring security authority.
+- [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.

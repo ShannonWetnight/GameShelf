@@ -1,13 +1,18 @@
-const preferenceKeys = ['theme','stretch-covers','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
+const preferenceKeys = ['ui-scale','theme','stretch-covers','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
 const hasSavedPreferences = preferenceKeys.some(key=>localStorage.getItem('gameshelf:'+key)!==null);
 function capturePreferences(){
-  const values = {theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
+  const values = {'ui-scale':uiScale,theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
   return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,String(value)]));
 }
 function importPreferences(values){for(const key of preferenceKeys)if(typeof values?.[key]==='string')localStorage.setItem('gameshelf:'+key,values[key]);}
 /* =============================
    Global State
    ============================= */
+const savedUIScale=Number(localStorage.getItem('gameshelf:ui-scale'));
+let uiScale=Number.isFinite(savedUIScale)&&savedUIScale>=.75&&savedUIScale<=1.5?savedUIScale:1.25;
+function applyUIScale(){document.documentElement?.style?.setProperty('--ui-scale',String(uiScale));window.GameShelfMotion?.reset();}
+applyUIScale();
+let manualRefreshUntil=0;
 let gamesCache = [];
 const coverVersions = new Map();
 let refreshGeneration = 0;
@@ -65,6 +70,7 @@ let editorPan = { x: 0, y: 0 };
 let editorLoadVersion = 0;
 let editorOpenVersion = 0;
 let editorGridTimer;
+let editorSnap=true;
 
 const cardMap = new Map(); // game.id -> card element
 const openDialogs = new Set();
@@ -134,7 +140,7 @@ function openModal(dialog) {
 
 function showNotification(message, variant = 'success') {
   const banner = document.getElementById('notification-banner');
-  banner.classList.toggle('gs-notification-error',variant==='error');banner.setAttribute('role',variant==='error'?'alert':'status');banner.querySelector?.('.gs-notification-check')?.replaceChildren?.(document.createTextNode(variant==='error'?'×':'✓'));
+  banner.classList.toggle('gs-notification-warning',variant==='warning');banner.classList.toggle('gs-notification-error',variant==='error');banner.setAttribute('role',variant==='error'||variant==='warning'?'alert':'status');banner.querySelector?.('.gs-notification-check')?.replaceChildren?.(document.createTextNode(variant==='error'?'×':variant==='warning'?'!':'✓'));
   const visibleDialog = [...openDialogs].filter(dialog => dialog.open && !dialog.dataset.closing).at(-1);
   (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;
@@ -312,7 +318,7 @@ async function fetchGames(isRefresh = false) {
   try {
     const url = isRefresh ? '/api/games?forceRefresh=1' : '/api/games';
     const res = await fetch(url, { signal: controller.signal });
-    if(res.status===429){showNotification('Please wait '+(res.headers.get('Retry-After')||'a few')+' seconds before refreshing again.');return null;}
+    if(res.status===429){const seconds=Math.max(1,Math.min(60,Number(res.headers.get('Retry-After'))||10));manualRefreshUntil=Date.now()+seconds*1000;showNotification('Please wait '+seconds+' seconds before refreshing again.','warning');document.getElementById('gs-refresh-trigger').classList.add('gs-refresh-limited');setTimeout(()=>document.getElementById('gs-refresh-trigger').classList.remove('gs-refresh-limited'),700);return null;}
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const games = await res.json();
     if (!Array.isArray(games) || games.some(game =>
@@ -863,8 +869,8 @@ function openCoverEditor(game) {
 }
 
 function updateCoverReadouts() {
-  document.getElementById('cover-zoom-value').textContent = `${Math.round(Number(document.getElementById('cover-zoom').value) * 100)}%`;
-  document.getElementById('cover-tilt-value').textContent = `${Number(document.getElementById('cover-tilt').value)}°`;
+  document.getElementById('cover-zoom').dataset.tooltip = 'Zoom: '+ `${Math.round(Number(document.getElementById('cover-zoom').value) * 100)}%`;
+  document.getElementById('cover-tilt').dataset.tooltip = 'Tilt: '+ `${Number(document.getElementById('cover-tilt').value)}°`;
 }
 
 function showCoverGrid() {
@@ -1013,18 +1019,27 @@ function bindCoverEditor() {
   document.getElementById('cover-rotate-left').addEventListener('click', () => { editorRotation -= 90;animateControl(document.getElementById('cover-rotate-left')); updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
   document.getElementById('cover-mirror').addEventListener('click',()=>{editorMirrored=!editorMirrored;animateControl(document.getElementById('cover-mirror'));showCoverGrid();drawCoverEditor();});
   for (const id of ['cover-zoom', 'cover-tilt']) document.getElementById(id).addEventListener('input', () => { updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
+  const snapButton=document.getElementById('cover-snap');
+  snapButton.addEventListener('click',()=>{editorSnap=!editorSnap;snapButton.setAttribute('aria-pressed',String(editorSnap));snapButton.dataset.tooltip=editorSnap?'Disable edge snapping':'Enable edge snapping';snapButton.setAttribute('aria-label',snapButton.dataset.tooltip);animateControl(snapButton);});
   let pointer = null;
   canvas.addEventListener('pointerdown', event => {
     if (!editorImage) return;
-    pointer = { x: event.clientX, y: event.clientY };
+    pointer = { x:event.clientX,y:event.clientY,panX:editorPan.x,panY:editorPan.y };
     showCoverGrid();
     canvas.setPointerCapture(event.pointerId);
   });
   canvas.addEventListener('pointermove', event => {
     if (!pointer) return;
-    editorPan.x += (event.clientX - pointer.x) * canvas.width / canvas.clientWidth;
-    editorPan.y += (event.clientY - pointer.y) * canvas.height / canvas.clientHeight;
-    pointer = { x: event.clientX, y: event.clientY };
+    editorPan.x = pointer.panX + (event.clientX - pointer.x) * canvas.width / canvas.getBoundingClientRect().width;
+    editorPan.y = pointer.panY + (event.clientY - pointer.y) * canvas.height / canvas.getBoundingClientRect().height;
+    if(editorSnap){
+      const angle=(editorRotation+Number(document.getElementById('cover-tilt').value))*Math.PI/180,c=Math.abs(Math.cos(angle)),n=Math.abs(Math.sin(angle));
+      const scale=Math.max((canvas.width*c+canvas.height*n)/editorImage.width,(canvas.width*n+canvas.height*c)/editorImage.height)*Number(document.getElementById('cover-zoom').value);
+      const width=(editorImage.width*c+editorImage.height*n)*scale,height=(editorImage.width*n+editorImage.height*c)*scale;
+      const threshold=8*canvas.width/canvas.getBoundingClientRect().width;
+      const snap=(value,extent,bounds)=>{const points=[0,(extent-bounds)/2,(bounds-extent)/2];const nearest=points.reduce((a,b)=>Math.abs(b-value)<Math.abs(a-value)?b:a);return Math.abs(nearest-value)<threshold?nearest:value;};
+      editorPan.x=snap(editorPan.x,width,canvas.width);editorPan.y=snap(editorPan.y,height,canvas.height);
+    }
     showCoverGrid();
     drawCoverEditor();
   });
@@ -1441,6 +1456,11 @@ document.addEventListener('DOMContentLoaded', () => {
   trigger.addEventListener('blur', () => { if (!refreshLock && !refreshFeedbackTimer) logoText.textContent = originalText; });
 
   async function runRefresh(isRefresh = true) {
+    if(isRefresh&&Date.now()<manualRefreshUntil){
+      clearTimeout(refreshFeedbackTimer);refreshFeedbackTimer=null;logoText.textContent='REFRESH';logoText.classList.remove('bounce');trigger.classList.remove('gs-refresh-limited');void trigger.offsetWidth;trigger.classList.add('gs-refresh-limited');setTimeout(()=>trigger.classList.remove('gs-refresh-limited'),700);
+      showNotification('Please wait '+Math.ceil((manualRefreshUntil-Date.now())/1000)+' seconds before refreshing again.','warning');return;
+    }
+    trigger.classList.remove('gs-refresh-limited');
     if (refreshLock || isLoading) return;
 
     clearTimeout(refreshFeedbackTimer);
@@ -1451,6 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!disableEffects) stage.classList.add('gs-refreshing');
 
     const succeeded = await loadGames(isRefresh);
+    if(isRefresh&&succeeded===true)manualRefreshUntil=Date.now()+10000;
     stage.classList.remove('gs-refreshing');
     if(succeeded===null){refreshLock=false;logoText.textContent=refreshHovered?'REFRESH':originalText;return;}
     if (succeeded && !isRefresh) {
@@ -1562,6 +1583,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsButton = document.getElementById('build-info');
   const settingsDialog = document.getElementById('settings-dialog');
   const detailsDialog = document.getElementById('game-details-dialog');
+  const scaleInput=document.getElementById('ui-scale');scaleInput.value=String(uiScale);document.getElementById('ui-scale-value').textContent=Math.round(uiScale*100)+'%';
+  scaleInput.addEventListener('input',()=>{uiScale=Math.max(.75,Math.min(1.5,Number(scaleInput.value)));document.getElementById('ui-scale-value').textContent=Math.round(uiScale*100)+'%';localStorage.setItem('gameshelf:ui-scale',String(uiScale));applyUIScale();});
+  document.addEventListener('wheel',event=>{if(event.ctrlKey||event.metaKey)event.preventDefault();},{passive:false});
+  document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&['+','=','-','0'].includes(event.key))event.preventDefault();});
   const speedInput = document.getElementById('animation-speed');
   const hoverTextInput = document.getElementById('show-hover-text');
   const gameTitlesInput = document.getElementById('show-game-titles');
@@ -1576,7 +1601,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const placeholderInput = document.getElementById('show-placeholder-images');
   const listImagesInput = document.getElementById('show-list-images');
   const instantPreferences = {
-    'theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
+    'ui-scale':'UI scale','theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
     'animate-tiles': 'Loaded game tile animation', 'show-hover-text': 'Button hints', 'show-game-titles': 'Game titles',
     'show-placeholder-images': 'Placeholder images', 'hover-game-titles': 'Hover game titles', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
     'stretch-covers':'Cover stretching', 'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'

@@ -5,6 +5,7 @@
   const definitions = [
     ['.gs-card', 'Everything within reach', 'Hover over a game for favorites, download, Playlist, and details. The details panel also lets you edit its title and cover.'],
     ['#gs-home-trigger', 'Always a way home', 'Click the GameShelf console logo to return to your full shelf in grid view at any time.'],
+    ['#gs-refresh-trigger','Keep your shelf current','Click the GameShelf text to check your libraries for new or changed games. The console icon returns home; the text refreshes your shelf.'],
     ['#search-input', 'Find your next game', 'Search by title. Clear the search to bring your full shelf back.'],
     ['#sort-button', 'Your shelf, your order', 'Sort by title, size, favorites, or recently added games.'],
     ['#view-toggle', 'See it your way', 'Switch between cover cards and a compact list. Your preference is remembered.'],
@@ -17,13 +18,14 @@
   const visible=element=>element&&getComputedStyle(element).display!=='none'&&element.getBoundingClientRect().width>0;
   function place(){
     frame=null;if(!dialog.open||!highlighted)return;
+    const scale=typeof uiScale==='number'?uiScale:1;
     const rect=highlighted.getBoundingClientRect(),spotlight=$('tour-spotlight');
-    spotlight.style.left=Math.max(2,Math.min(innerWidth-rect.width-14,rect.left-7))+'px';spotlight.style.top=Math.max(2,rect.top-6)+'px';
-    spotlight.style.width=Math.min(innerWidth-4,rect.width+14)+'px';spotlight.style.height=Math.min(innerHeight-4,rect.height+12)+'px';
+    spotlight.style.left=(Math.max(2,Math.min(innerWidth-rect.width-14,rect.left-7)))/scale+'px';spotlight.style.top=(Math.max(2,rect.top-6))/scale+'px';
+    spotlight.style.width=(Math.min(innerWidth-4,rect.width+14))/scale+'px';spotlight.style.height=(Math.min(innerHeight-4,rect.height+12))/scale+'px';
     const box=tooltip.getBoundingClientRect();let left,top;
     if(rect.height>120&&rect.right+box.width+24<innerWidth){left=rect.right+20;top=rect.top+(rect.height-box.height)/2;}
     else{left=rect.left+rect.width/2-box.width/2;top=rect.bottom+20;if(top+box.height>innerHeight-16)top=rect.top-box.height-20;}
-    tooltip.style.left=Math.max(16,Math.min(innerWidth-box.width-16,left))+'px';tooltip.style.top=Math.max(16,Math.min(innerHeight-box.height-16,top))+'px';
+    tooltip.style.left=(Math.max(16,Math.min(innerWidth-box.width-16,left)))/scale+'px';tooltip.style.top=(Math.max(16,Math.min(innerHeight-box.height-16,top)))/scale+'px';
   }
   function schedulePlace(){if(dialog.open&&!frame)frame=requestAnimationFrame(place);}
   function showStep(next){
@@ -57,12 +59,12 @@
   function setReadOnlyNote(show){$('tour-readonly-note').hidden=!show;$('tour-readonly-info').setAttribute('aria-expanded',String(show));}
   const info=$('tour-readonly-info');info.addEventListener('mouseenter',()=>setReadOnlyNote(true));info.addEventListener('mouseleave',()=>setReadOnlyNote(false));info.addEventListener('focus',()=>setReadOnlyNote(true));info.addEventListener('blur',()=>setReadOnlyNote(false));info.addEventListener('click',()=>setReadOnlyNote($('tour-readonly-note').hidden));
   const intro=$('tour-intro-dialog');
-  $('tour-intro-start').addEventListener('click',()=>{intro.close();setTimeout(start,reduced()?0:motionDuration(175));});
+  $('tour-intro-start').addEventListener('click',()=>{start();intro.close();});
   for(const id of ['tour-intro-close','tour-intro-skip'])$(id).addEventListener('click',()=>{localStorage.setItem('gameshelf:tour-seen','true');intro.close();});closeOnBackdropClick(intro);
   $('show-tour').addEventListener('click',()=>{
     // Put the tour in the top layer before Settings leaves, retaining scroll lock
     // and the existing page/theme instead of exposing an intermediate backdrop.
     start();$('settings-dialog').close();
   });
-  window.GameShelfTour={offer(){openModal(intro);},start};
+  window.GameShelfTour={prepare(){openModal(intro);intro.classList.add('gs-tour-preparing');},offer(){intro.classList.remove('gs-tour-preparing');intro.focus({preventScroll:true});if(!intro.open)openModal(intro);},start};
 })();

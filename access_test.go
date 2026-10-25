@@ -31,7 +31,7 @@ func familyCall(t *testing.T, handler http.HandlerFunc, method, path string, val
 }
 func familyCreate(t *testing.T, rules map[string]accessRule) *http.Cookie {
 	t.Helper()
-	result := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "7392", "policy": accessPolicy{rules}}, nil)
+	result := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "7392", "policy": accessPolicy{Rules: rules}}, nil)
 	if result.Code != 200 {
 		t.Fatalf("create: %d %s", result.Code, result.Body.String())
 	}
@@ -39,7 +39,7 @@ func familyCreate(t *testing.T, rules map[string]accessRule) *http.Cookie {
 }
 func familyUnlock(t *testing.T, pin string, actions []string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
-	return familyCall(t, handleAccessUnlock, "POST", "/api/access/unlock", map[string]any{"pin": pin, "actions": actions}, cookie)
+	return familyCall(t, handleAccessUnlock, "POST", "/api/access/unlock", map[string]any{"pin": pin, "actions": actions, "remember": true}, cookie)
 }
 func familyGate(t *testing.T, path, method string, body any, cookie *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
@@ -135,7 +135,7 @@ func TestFamilyPreventsResetRestoreAndPreferenceDeletionBypass(t *testing.T) {
 	}
 	// Ordinary PUT and Wipe must not replace the authoritative private policy.
 	value.Preferences = nil
-	value.Access = &accessPolicy{map[string]accessRule{}}
+	value.Access = &accessPolicy{Rules: map[string]accessRule{}}
 	if r := familyCall(t, handleServerSettings, "PUT", "/api/server-settings", value, cookie); r.Code != 200 {
 		t.Fatal(r.Code, r.Body.String())
 	}
@@ -222,7 +222,7 @@ func TestFamilyInitialCreationRaceAndPINChangeInvalidateOtherSessions(t *testing
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			results <- familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "7392", "policy": accessPolicy{map[string]accessRule{"downloads": {"pin", false, ""}}}}, nil)
+			results <- familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "7392", "policy": accessPolicy{Rules: map[string]accessRule{"downloads": {"pin", false, ""}}}}, nil)
 		}()
 	}
 	wait.Wait()
@@ -245,7 +245,7 @@ func TestFamilyInitialCreationRaceAndPINChangeInvalidateOtherSessions(t *testing
 	second := familyCall(t, handleAccess, "GET", "/api/access", nil, nil).Result().Cookies()[0]
 	familyUnlock(t, "7392", []string{"downloads"}, second)
 	familyUnlock(t, "7392", []string{"admin"}, cookie)
-	if r := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "6248", "policy": accessPolicy{map[string]accessRule{"downloads": {"pin", false, ""}}}}, cookie); r.Code != 200 {
+	if r := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "6248", "policy": accessPolicy{Rules: map[string]accessRule{"downloads": {"pin", false, ""}}}}, cookie); r.Code != 200 {
 		t.Fatal(r.Code, r.Body.String())
 	}
 	if r := familyGate(t, "/download/game", "GET", nil, second); r.Code != 423 {
