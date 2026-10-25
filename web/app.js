@@ -180,7 +180,6 @@ async function loadServerSettings() {
     const response = await fetch('/api/server-settings', { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     serverSettings = await response.json();
-    window.GameShelfSetup?.initialize(serverSettings);
   } catch {
     document.getElementById('settings-save-status').textContent = 'Could not load server settings.';
   }
@@ -190,7 +189,8 @@ async function saveServerSettings(settings) {
   const response = await fetch('/api/server-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
   if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
   const result = await response.json();
-  serverSettings = settings;
+  serverSettings = result.settings || settings;
+  window.GameShelfSetup?.savedSettings(serverSettings);
   return result;
 }
 
@@ -680,7 +680,7 @@ function openGameDetails(game, trigger, card) {
   setCoverImage(document.getElementById('game-details-image'), document.querySelector?.('.gs-details-art-frame') || document.getElementById('game-details-art'), `/covers/${encodeURIComponent(game.id)}${imageVersion ? `?v=${imageVersion}` : ''}`, game.name);
   document.getElementById('game-details-image-title').textContent = game.name;
   document.getElementById('game-title-input').value = game.name;
-  document.getElementById('game-details-path').textContent = game.path || '';
+  document.getElementById('game-details-path').textContent = game.location || game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-download').href = `/download/${encodeURIComponent(game.id)}`;
   const fileSummary = Number.isInteger(game.fileCount) ? `${game.fileCount} ${game.fileCount === 1 ? 'file' : 'files'} · ` : '';
@@ -1359,8 +1359,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('gs-show-list-images', showListImages);
   document.body.classList.toggle('gs-no-animations', disableEffects);
   loadVersion();
-  loadServerSettings();
-  loadGames();
+  if (window.GameShelfSetup) window.GameShelfSetup.boot();
+  else { document.body.classList.remove('gs-booting'); loadServerSettings(); loadGames(); }
 
   /* -------- Search -------- */
   const searchInput = document.getElementById('search-input');
@@ -1766,6 +1766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!serverSettings) { document.getElementById('settings-save-status').textContent = 'Server settings are unavailable. Try refreshing.'; return; }
     document.getElementById('server-root-path').value = (serverSettings.rootDirs?.length ? serverSettings.rootDirs : [serverSettings.rootDir]).join('\n');
     document.getElementById('server-data-path').value = serverSettings.dataDir;
+    window.GameShelfSetup?.prepareSettings(serverSettings);
     document.getElementById('server-settings-status').textContent = '';
     openModal(serverDialog);
   });
@@ -1775,17 +1776,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.getElementById('server-settings-save');
     if (!serverSettings || button.disabled) return;
     const roots = document.getElementById('server-root-path').value.split(/\r?\n/).map(path => path.trim()).filter(Boolean);
-    const next = { ...serverSettings, rootDir: roots[0] || '', rootDirs: roots, dataDir: document.getElementById('server-data-path').value.trim() };
+    const next = { ...serverSettings, rootDir: roots[0] || '', rootDirs: roots, dataDir: document.getElementById('server-data-path').value.trim(), sources: window.GameShelfSetup?.settingsSources().sources || serverSettings.sources };
     button.disabled = true;
+    document.getElementById('server-settings-status').textContent = 'Saving your library…';
+    const stopProgress = window.GameShelfSetup?.beginSaveProgress();
     try {
       const result = await saveServerSettings(next);
       document.getElementById('server-settings-status').textContent = '';
       document.getElementById('settings-save-status').textContent = '';
       showSaveFeedback(button);
       serverDialog.close();
-      showNotification(result.restartRequired ? 'Library settings saved. Restart the container to apply changes.' : 'Library settings saved.');
+      showNotification(result.restartRequired ? 'Library settings saved. Restart the container to apply the data location.' : 'Library settings saved.');
+      if (!result.restartRequired) { loadGames(); window.GameShelfSetup?.watchScan(); }
     } catch (error) { document.getElementById('server-settings-status').textContent = `Could not save settings: ${error.message}`; }
-    finally { button.disabled = false; }
+    finally { stopProgress?.(); button.disabled = false; }
   });
   const refreshDialog = document.getElementById('refresh-settings-dialog');
   document.getElementById('open-refresh-settings').addEventListener('click', () => {

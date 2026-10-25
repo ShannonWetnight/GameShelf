@@ -51,7 +51,7 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 		limit := uint64(8 << 20)
 		switch name {
 		case "library-state.json": limit = 4 << 20
-		case "server-settings.json": limit = 16 << 10
+		case "server-settings.json": limit = 512 << 10
 		case "logs.txt": limit = 1 << 20
 		default:
 			parts := strings.Split(name, "/")
@@ -166,7 +166,10 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 	if selection.Settings && len(archive.settings) > 0 {
 		var settings serverSettings
 		json.Unmarshal(archive.settings, &settings)
-		if err := validateServerSettings(settings); err != nil { http.Error(w, "saved server paths are not valid in this container; deselect settings", http.StatusBadRequest); return }
+		if err := validateServerSettings(settings); err != nil { http.Error(w, "saved server sources are not valid in this container; deselect settings", http.StatusBadRequest); return }
+		for i:=range settings.Sources{settings.Sources[i].Password="";settings.Sources[i].PasswordCipher="";settings.Sources[i].HasPassword=false}
+		settings,err=prepareNetworkSecrets(settings);if err!=nil{http.Error(w,"network locations could not be restored",http.StatusBadRequest);return}
+		archive.settings,_=json.MarshalIndent(settings,"","  ")
 	}
 	refreshMu.Lock()
 	files := make([]restoreFile, 0, len(archive.covers)+2)

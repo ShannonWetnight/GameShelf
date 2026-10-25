@@ -1,6 +1,6 @@
 # Build stage
 FROM golang:1.27.3-alpine3.24 AS build
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache && apk add --no-cache rclone openssh-client
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 
-COPY main.go restore.go setup.go ./
+COPY main.go restore.go setup.go network.go ./
 COPY web/ ./web/
 
 ARG GAMESHELF_BUILD_VERSION=Development
@@ -17,17 +17,24 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags "-X main.buildVersion=${GAMESHELF_BUILD_VERSION} -X main.buildChannel=${GAMESHELF_BUILD_CHANNEL}" \
     -o gameshelf .
 
+# Userspace NFS adapter; the app never mounts filesystems or needs extra capabilities.
+FROM alpine:3.24.3 AS network-build
+RUN apk upgrade --no-cache && apk add --no-cache build-base libnfs-dev
+COPY native/network-nfs.c /src/network-nfs.c
+RUN cc -O2 -Wall -Wextra /src/network-nfs.c -lnfs -o /gameshelf-nfs
+
 # Runtime stage
 FROM alpine:3.24.3
 # Apply security fixes published since the base image was built.
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache && apk add --no-cache rclone libnfs openssh-client
 WORKDIR /app
 
 COPY --from=build /app/gameshelf .
+COPY --from=network-build /gameshelf-nfs .
 RUN addgroup -S -g 10001 gameshelf \
     && adduser -S -D -H -u 10001 -G gameshelf -s /sbin/nologin gameshelf \
     && mkdir -p /data && chown 10001:10001 /data \
-    && chmod 0555 /app /app/gameshelf
+    && chmod 0555 /app /app/gameshelf /app/gameshelf-nfs
 
 # Numeric IDs make bind-mount permissions predictable and allow runtime overrides.
 # Keep the executable root-owned; the application only needs read access to games.

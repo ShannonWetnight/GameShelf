@@ -1,0 +1,51 @@
+#!/bin/sh
+set -eu
+cat > /etc/samba/smb.conf <<'CONFIG'
+[global]
+server role = standalone server
+security = user
+map to guest = Never
+server min protocol = SMB2
+disable netbios = yes
+smb ports = 445
+log level = 0
+follow symlinks = no
+[games]
+path = /fixture
+read only = yes
+valid users = reader
+CONFIG
+printf '/fixture (ro,insecure,all_squash,anonuid=10001,anongid=10001)\n' > /etc/exports
+rpcbind -f -w &
+until nc -z 127.0.0.1 111; do sleep .1; done
+unfsd -d -s -e /etc/exports &
+smbd --foreground --no-process-group --configfile=/etc/samba/smb.conf &
+rclone serve sftp /fixture --addr :2022 --user reader --pass fixture-password --read-only --log-level ERROR &
+rclone serve webdav /fixture --addr :8085 --user reader --pass fixture-password --read-only --log-level ERROR &
+rclone serve ftp /fixture --addr :2121 --user reader --pass fixture-password --read-only --passive-port 32000-32010 --log-level ERROR &
+cat > /etc/vsftpd/vsftpd.conf <<'CONFIG'
+listen=YES
+background=NO
+listen_port=990
+anonymous_enable=NO
+local_enable=YES
+write_enable=NO
+local_root=/fixture
+chroot_local_user=YES
+allow_writeable_chroot=YES
+seccomp_sandbox=NO
+ssl_enable=YES
+implicit_ssl=YES
+rsa_cert_file=/tls/server.crt
+rsa_private_key_file=/tls/server.key
+force_local_data_ssl=YES
+force_local_logins_ssl=YES
+pasv_enable=YES
+pasv_min_port=31000
+pasv_max_port=31010
+pasv_addr_resolve=YES
+pasv_address=network-fixture
+userlist_enable=NO
+CONFIG
+vsftpd /etc/vsftpd/vsftpd.conf &
+wait

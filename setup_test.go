@@ -46,7 +46,7 @@ func TestFirstSetupValidatesSavesAndIndexesWithoutRestart(t *testing.T) {
     if setupRequired.Load() || rootDir!=root || len(gamesMap)!=1 || lastIndexedAt.IsZero(){t.Fatal("setup did not activate/index library")}
     contents,err:=os.ReadFile(settingsFile());if err!=nil{t.Fatal(err)};var saved serverSettings;if err=json.Unmarshal(contents,&saved);err!=nil || saved.RootDir!=root{t.Fatal("setup did not persist")}
     if w:=send(value);w.Code!=http.StatusConflict{t.Fatal("setup overwrote a configured library")}
-    value.RefreshInterval="24h";body,_:=json.Marshal(value);w:=httptest.NewRecorder();handleServerSettings(w,httptest.NewRequest(http.MethodPut,"/api/server-settings",strings.NewReader(string(body))));if w.Code!=200 || strings.Contains(w.Body.String(),"true"){t.Fatalf("interval should apply without restart: %s",w.Body.String())}
+    value.RefreshInterval="24h";body,_:=json.Marshal(value);w:=httptest.NewRecorder();handleServerSettings(w,httptest.NewRequest(http.MethodPut,"/api/server-settings",strings.NewReader(string(body))));var result struct{RestartRequired bool `json:"restartRequired"`};if err:=json.Unmarshal(w.Body.Bytes(),&result);err!=nil||w.Code!=200||result.RestartRequired{t.Fatalf("interval should apply without restart: %s",w.Body.String())}
 }
 
 func TestLibraryFolderPickerStaysInsideMountedDirectories(t *testing.T) {
