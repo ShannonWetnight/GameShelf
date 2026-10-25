@@ -81,3 +81,11 @@ test('rain draws visible splashes on a separate bottom-edge layer and removes bo
  for(let i=0;i<100;i++){now+=16;const callbacks=[...frames.values()];frames.clear();for(const callback of callbacks)callback(now);}
  const splashes=canvases.find(canvas=>canvas.className==='gs-rain-splash-canvas');assert.ok(splashes.strokes>0,'splash arcs must be drawn');assert.equal(splashes.parentElement,cover,'splashes must sit above the title tray, outside the dim ambience');assert.equal(splashes.height,70);effect.stop();assert.ok(canvases.every(canvas=>canvas.removed));assert.equal(frames.size,0);
 });
+
+test('permission changes preserve offline downloads and completed native loading states',()=>{
+ const r=fullUI(`
+ const link=document.querySelector('.gs-card-download');link.dataset.unavailable='true';link.setAttribute('aria-disabled','true');link.removeAttribute('href');
+ accessState.policy.rules={downloads:{mode:'disable',hidden:false},logs:{mode:'disable',hidden:false}};await GameShelfAccess.refresh();result.inert=link.inert;result.blockedCopy=$('logs-copy').disabled;
+ $('logs-copy').disabled=false;accessState.policy.rules={};await GameShelfAccess.refresh();result.stillOffline=link.getAttribute('aria-disabled');result.noHref=!link.hasAttribute('href');result.inertCleared=!link.inert;result.readyCopy=!$('logs-copy').disabled;
+ `);assert.equal(r.inert,true);assert.equal(r.blockedCopy,true);assert.equal(r.stillOffline,'true');assert.equal(r.noHref,true);assert.equal(r.inertCleared,true);assert.equal(r.readyCopy,true);
+});

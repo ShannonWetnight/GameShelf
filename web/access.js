@@ -48,7 +48,17 @@
   for(const element of document.querySelectorAll('[data-access-action],[data-access-setting]')){
    const action=element.dataset.accessAction||element.dataset.accessSetting,blocked=disabled(action),hidden=rule(action).hidden;
    element.classList.toggle('gs-access-hidden',!!hidden);element.classList.toggle('gs-access-disabled',blocked);element.classList.toggle('gs-access-locked',!blocked&&locked(actionsFor(action)).length>0);
-   for(const control of [element,...element.querySelectorAll('button,input,select,textarea')]){if(blocked){if(!controls.has(control))controls.set(control,control.disabled||false);if('disabled'in control)control.disabled=true;control.setAttribute('aria-disabled','true');}else if(controls.has(control)){if('disabled'in control)control.disabled=controls.get(control);controls.delete(control);control.removeAttribute('aria-disabled');}}
+   for(const control of [element,...element.querySelectorAll('button,input,select,textarea')]){
+    if(blocked){
+     if(!controls.has(control))controls.set(control,{disabled:control.disabled||false,aria:control.getAttribute('aria-disabled'),inert:control.inert});
+     if('disabled'in control)control.disabled=true;control.inert=true;control.setAttribute('aria-disabled','true');
+    }else if(controls.has(control)){
+     const previous=controls.get(control);if('disabled'in control&&control.disabled)control.disabled=previous.disabled;
+     control.inert=previous.inert;controls.delete(control);
+     if(control.dataset.unavailable!==undefined)control.setAttribute('aria-disabled',String(control.dataset.unavailable==='true'));
+     else if(previous.aria===null)control.removeAttribute('aria-disabled');else control.setAttribute('aria-disabled',previous.aria);
+    }
+   }
   }
  }
  function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;refreshUI();});}
@@ -75,7 +85,7 @@
  for(const id of ['pin-close','pin-cancel'])$(id).addEventListener('click',()=>closePrompt(false));$('pin-dialog').addEventListener('cancel',event=>{event.preventDefault();closePrompt(false);});$('pin-dialog').addEventListener('close',()=>{if(promptResolve){const resolve=promptResolve;promptResolve=null;promptPromise=null;resolve(false);}});
  function policyRows(){
   const list=$('family-rules');list.replaceChildren();for(const [action,label]of Object.entries(labels())){
-   const row=document.createElement('label');row.className='gs-family-rule';row.dataset.action=action;const name=document.createElement('span');name.textContent=label;
+   const row=document.createElement('div');row.className='gs-family-rule';row.dataset.action=action;const name=document.createElement('span');name.textContent=label;
    const select=document.createElement('select');select.setAttribute('aria-label',label+' access');for(const [value,text]of [['allow','Allow'],['pin','Require PIN'],['disable','Disable']]){const option=document.createElement('option');option.value=value;option.textContent=text;select.appendChild(option);}select.value=rule(action).mode||'allow';
    const visible=document.createElement('input');visible.type='checkbox';visible.checked=!rule(action).hidden;visible.setAttribute('aria-label','Show '+label+' controls');row.append(name,select,visible);list.appendChild(row);
   }
