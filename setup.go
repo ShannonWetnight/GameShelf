@@ -150,7 +150,7 @@ func setupGate(next http.Handler) http.Handler {
 				return
 			}
 		}
-		configuration := r.URL.Path == "/api/settings-events" || r.URL.Path == "/api/setup/restart" || r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
+		configuration := strings.HasPrefix(r.URL.Path, "/api/access") || strings.HasPrefix(r.URL.Path, "/api/health") || r.URL.Path == "/api/settings-events" || r.URL.Path == "/api/setup/restart" || r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
 		libraryRoute := !configuration && (strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/covers/"))
 		if libraryRoute {
 			// Finish any active library responses before setup replaces runtime paths.
@@ -199,6 +199,9 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			value.RootDir = ""
 			value.RootDirs = nil
 			value.Sources = nil
+			settingsMu.RLock()
+			value.Access = publicAccessPolicy(configuredSettings.Access)
+			settingsMu.RUnlock()
 			value.SetupCompleted = true
 			value.SetupStatus = "skipped"
 			if err := saveServerSettings(value); err != nil {
@@ -236,6 +239,9 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		settingsMu.RLock()
+		value.Access = publicAccessPolicy(configuredSettings.Access)
+		settingsMu.RUnlock()
 		value.SetupCompleted = true
 		value.SetupStatus = "complete"
 		if err := saveServerSettings(value); err != nil {

@@ -14,16 +14,18 @@
       const canvas = document.createElement('canvas');
       canvas.className = viewport ? 'gs-weather-canvas' : 'gs-rain-canvas';
       canvas.setAttribute('aria-hidden', 'true');
+      const splashCanvas=viewport?null:document.createElement('canvas');const splashContext=splashCanvas?.getContext('2d');if(splashCanvas){splashCanvas.className='gs-rain-splash-canvas';splashCanvas.setAttribute('aria-hidden','true');(host.parentElement||host).appendChild(splashCanvas);}
       let width, height;
       const ratio = Math.min(window.devicePixelRatio || 1, viewport ? 1.25 : 1.5);
       const context = canvas.getContext('2d');
-      if (!context) return { move() {}, refresh() {}, stop() {} };
+      if (!context) {splashCanvas?.remove();return { move() {}, refresh() {}, stop() {} };}
       function resize() {
         const bounds = host.getBoundingClientRect();
         width = Math.max(1, viewport ? innerWidth : bounds.width);
         height = Math.max(1, viewport ? innerHeight : bounds.height);
         canvas.width = width * ratio; canvas.height = height * ratio;
         context.scale(ratio, ratio);
+        if(splashContext){splashCanvas.width=width*ratio;splashCanvas.height=Math.min(70,height)*ratio;splashContext.scale(ratio,ratio);}
       }
       resize(); host.appendChild(canvas);
       const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -41,7 +43,7 @@
         if (!host.isConnected) { effect.stop(); return; }
         const rate = motion.matches ? 0 : speed();
         const dt = Math.min(32, last ? now - last : 16) / 1000 * rate;
-        last = now; elapsed += dt; context.clearRect(0, 0, width, height);
+        last = now; elapsed += dt; context.clearRect(0, 0, width, height);splashContext?.clearRect(0,0,width,Math.min(70,height));
         for (const drop of drops) {
           const before = drop.y, vy = velocity * drop.depth, vx = wind * drop.depth + drop.vx;
           drop.y += vy * dt; drop.x += vx * dt;
@@ -56,7 +58,7 @@
             }
           }
           if (before < height - 3 && drop.y >= height - 3 && dt > 0) {
-            splashes.push({x:drop.x,y:height-3,life:viewport ? .22 : .16,size:viewport?2+Math.random()*4:1+Math.random()*1.5,alpha:drop.alpha*(viewport ? .8 : .55),duration:viewport ? .22 : .16});
+            splashes.push({x:drop.x,y:height-3,life:viewport ? .22 : .28,size:viewport?2+Math.random()*4:2+Math.random()*2,alpha:drop.alpha*(viewport ? .8 : 1.1),duration:viewport ? .22 : .28});
             drop.y = -drop.length - Math.random()*40; drop.x = Math.random()*width; drop.vx = 0;
           }
           if (drop.y > height + drop.length) { drop.y = -drop.length; drop.x = Math.random() * width; drop.vx = 0; }
@@ -72,8 +74,8 @@
         for (let i=splashes.length-1;i>=0;i--) {
           const splash=splashes[i];splash.life-=dt;if(splash.life<=0){splashes.splice(i,1);continue;}
           const size=splash.size*(1-splash.life/splash.duration);
-          context.strokeStyle='rgba(192,214,231,'+(splash.alpha*splash.life/splash.duration)+')';context.lineWidth=.65;
-          context.beginPath();context.moveTo(splash.x-size,splash.y-size*.5);context.lineTo(splash.x,splash.y);context.lineTo(splash.x+size,splash.y-size*.5);context.stroke();
+          const ink=splashContext||context,y=splashContext?Math.min(70,height)-8:splash.y;ink.strokeStyle='rgba(192,214,231,'+(splash.alpha*splash.life/splash.duration)+')';ink.lineWidth=.85;
+          ink.beginPath();ink.moveTo(splash.x-size,y-size*.6);ink.lineTo(splash.x,y);ink.lineTo(splash.x+size,y-size*.6);ink.stroke();
         }
         for (const leaf of leaves) {
           leaf.y+=leaf.velocity*dt;leaf.x+=(-8+Math.sin(elapsed*.6+leaf.phase)*7)*dt;
@@ -93,7 +95,7 @@
         refresh() { if (!frame && !stopped) draw(performance.now()); },
         move(x, y) { if (!viewport) pointer = { x, y }; effect.refresh(); },
         stop() {
-          stopped = true; cancelAnimationFrame(frame); canvas.remove(); active.delete(effect);
+          stopped = true; cancelAnimationFrame(frame); canvas.remove(); splashCanvas?.remove();active.delete(effect);
           if (viewport) window.removeEventListener('resize', onResize);
           motion.removeEventListener?.('change', effect.refresh);
         }

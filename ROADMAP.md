@@ -5,7 +5,9 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external se
 ---
 
 ### Recommended Next
-* [ ] Add a Library Health panel with each source’s last successful scan, connection status, and a focused retry action. Keep offline catalogs visible while diagnosing a source.
+* [x] Add a Library Health panel with per-source status, last successful connection check, manual retry, scheduled checks, and exportable history. Keep offline catalogs visible while diagnosing a source.
+* [ ] Add **Library View**: filter by a named library instead of All Sources, with its health indicator beside the source name.
+* [ ] Add authenticated owner/member access and secure first-owner enrollment for deployments that need identities beyond the shared family PIN.
 * [ ] Prioritize the network read-only safeguards review below, including guidance to use dedicated read-only share accounts.
 * [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
 * [x] Add an optional download Playlist for choosing several games, reviewing their estimated size, and creating one ZIP.
@@ -106,6 +108,14 @@ GameShelf currently limits network library access to read operations, but a netw
 * [ ] Document the security boundary: container read-only filesystems and unprivileged execution do not revoke remote SMB account permissions. Server-side read-only credentials remain the strongest enforcement.
 
 ### Administration, Security & LAN
+Security is an ongoing product requirement, including server-enforced access rules, safe storage, read-only boundaries, recovery, and automated vulnerability checks.
+
+* [x] Add Family Controls with a four-digit PIN, individual Allow / Require PIN / Disable policies and visibility, server-side action enforcement, scoped browser unlocks, and attempt limits.
+* [x] Preserve family protection across Wipe/restore, export rules without PIN secrets, and require a new PIN on fresh restores.
+* [x] Add Library Health with readable/degraded/critical states, bounded connection checks, monitor configuration, and backup/restore of recent history.
+* [x] Use one app-themed tooltip system, shared icon feedback, and consistent cover-editor rotate/mirror/stretch controls.
+* [x] Keep skipped setup recovery available in Basic settings, and scatter ten original GameShelf Edition cases below the welcome header.
+
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
 * [x] Add `/api/stats` for UI integrations (read-only counts, total indexed bytes, covered games, and last successful scan time)
 * [x] Detect game ID collisions so similarly named folders cannot hide each other (persist ordinary slugs and deterministic SHA-256 suffixes; preserve folder-based metadata)

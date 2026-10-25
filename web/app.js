@@ -60,6 +60,7 @@ let editorGame = null;
 let editorImage = null;
 let editorInitialImage = null;
 let editorRotation = 0;
+let editorMirrored = false;
 let editorPan = { x: 0, y: 0 };
 let editorLoadVersion = 0;
 let editorOpenVersion = 0;
@@ -230,6 +231,7 @@ async function exportLibraryData() {
     if (input.dataset.kind === 'state') params.set('state', '1');
     else if (input.dataset.kind === 'logs') params.set('logs', '1');
     else if (input.dataset.kind === 'settings') params.set('settings', '1');
+    else if(input.dataset.kind==='health')params.set('health','1');
     else params.append('cover', input.value);
   }
   button.disabled = true;
@@ -815,7 +817,7 @@ function drawCoverEditor() {
   context.save();
   context.translate(canvas.width / 2 + editorPan.x, canvas.height / 2 + editorPan.y);
   context.rotate(angle);
-  context.scale(scale, scale);
+  context.scale(editorMirrored ? -scale : scale, scale);
   context.drawImage(editorImage, -editorImage.width / 2, -editorImage.height / 2);
   context.restore();
 }
@@ -824,12 +826,12 @@ function openCoverEditor(game) {
   const save = document.getElementById('cover-editor-save');
   clearTimeout(saveFeedbackTimers.get(save));
   save.classList.remove('is-saved');
-  editorGame = game;
+  editorGame = game;syncCoverStretchControl(game);
   editorImage = null;
   editorInitialImage = null;
   editorLoadVersion++;
   const openVersion = ++editorOpenVersion;
-  editorRotation = 0;
+  editorRotation = 0;editorMirrored=false;
   editorPan = { x: 0, y: 0 };
   document.getElementById('cover-editor-title').textContent = `Cover Art: ${game.name}`;
   document.getElementById('cover-editor-file').value = '';
@@ -934,7 +936,7 @@ function bindCoverEditor() {
       if (!folderDialog.open || !dialog.open || editorGame?.id !== gameId || loadVersion !== editorLoadVersion) return;
       if (image.width > 8192 || image.height > 8192) { folderStatus.textContent = 'Image dimensions must be 8192 pixels or smaller.'; folderSave.disabled = false; return; }
       editorImage = image;
-      editorRotation = 0;
+      editorRotation = 0;editorMirrored=false;
       editorPan = { x: 0, y: 0 };
       document.getElementById('cover-zoom').value = '1';
       document.getElementById('cover-tilt').value = '0';
@@ -961,7 +963,7 @@ function bindCoverEditor() {
   document.getElementById('cover-editor-reset').addEventListener('click', () => {
     editorLoadVersion++;
     editorImage = editorInitialImage;
-    editorRotation = 0;
+    editorRotation = 0;editorMirrored=false;
     editorPan = { x: 0, y: 0 };
     document.getElementById('cover-editor-file').value = '';
     document.getElementById('cover-zoom').value = '1';
@@ -991,7 +993,7 @@ function bindCoverEditor() {
         return;
       }
       editorImage = image;
-      editorRotation = 0;
+      editorRotation = 0;editorMirrored=false;
       editorPan = { x: 0, y: 0 };
       document.getElementById('cover-zoom').value = '1';
       document.getElementById('cover-tilt').value = '0';
@@ -1006,8 +1008,8 @@ function bindCoverEditor() {
     };
     image.src = url;
   });
-  document.getElementById('cover-rotate-left').addEventListener('click', () => { editorRotation -= 90; updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
-  document.getElementById('cover-rotate-right').addEventListener('click', () => { editorRotation += 90; updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
+  document.getElementById('cover-rotate-left').addEventListener('click', () => { editorRotation -= 90;animateControl(document.getElementById('cover-rotate-left')); updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
+  document.getElementById('cover-mirror').addEventListener('click',()=>{editorMirrored=!editorMirrored;animateControl(document.getElementById('cover-mirror'));showCoverGrid();drawCoverEditor();});
   for (const id of ['cover-zoom', 'cover-tilt']) document.getElementById(id).addEventListener('input', () => { updateCoverReadouts(); showCoverGrid(); drawCoverEditor(); });
   let pointer = null;
   canvas.addEventListener('pointerdown', event => {
@@ -1203,6 +1205,7 @@ function suggestRandomGame() {
   document.getElementById('games-container').classList.add('gs-spotlight');
   document.getElementById('library-stage').classList.add('gs-spotlight-stage');
 
+  let deckWasShown=false;
   function showFinalGame() {
     shuffleTimers = [];
     shuffleDeck?.remove();
@@ -1213,16 +1216,14 @@ function suggestRandomGame() {
     isShuffling = false;
     suggestedGameId = game.id;
     card.classList.add('gs-random-selected');
-    if (!disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      card.classList.add('gs-shuffle-confirm');
-      card.addEventListener('animationend', () => card.classList.remove('gs-shuffle-confirm'), { once:true });
-    }
+    // The deck's final movement now supplies the settle; the real card keeps its geometry.
+    card.classList.remove('gs-shuffle-confirm','gs-tile-fill');
     diceButton.disabled = false;
     diceButton.dataset.tooltip = 'Suggest a random game';
     applyViewMode();
     applySearchFilter();
 
-    card.scrollIntoView?.({ block: 'center' });
+    if(!deckWasShown)card.scrollIntoView?.({ block: 'center',behavior:'instant' });
     const returnActions = document.getElementById('spotlight-actions');
     const spotlightDownload = document.getElementById('spotlight-download');
     spotlightDownload.href = `/download/${encodeURIComponent(game.id)}`;
@@ -1242,7 +1243,7 @@ function suggestRandomGame() {
     return;
   }
 
-  isShuffling = true;
+  isShuffling = true;deckWasShown=true;
   shuffleGameId = game.id;
   diceButton.disabled = true;
   diceButton.dataset.tooltip = 'Choosing a game…';
@@ -1402,8 +1403,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('gs-show-list-images', showListImages);
   document.body.classList.toggle('gs-no-animations', disableEffects);
   loadVersion();
-  if (window.GameShelfSetup) window.GameShelfSetup.boot();
-  else { document.body.classList.remove('gs-booting'); loadServerSettings(); loadGames(); }
+  const begin=()=>{if(window.GameShelfSetup)window.GameShelfSetup.boot();else{document.body.classList.remove('gs-booting');loadServerSettings();loadGames();}};
+  if(window.GameShelfAccess)window.GameShelfAccess.initialize().then(begin).catch(()=>{document.getElementById('boot-message').textContent='Could not load family controls. Reload to try again.';document.getElementById('boot-retry').hidden=false;});else begin();
 
   /* -------- Search -------- */
   const searchInput = document.getElementById('search-input');
@@ -1646,7 +1647,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('export-library-data').addEventListener('click', () => {
     exportOptions.replaceChildren();
     const groups = [
-      { title: 'GameShelf data', items: [{ id: 'state', kind: 'state', name: 'Library state (JSON)' }, { id: 'settings', kind: 'settings', name: 'Server settings (JSON)' }, { id: 'logs', kind: 'logs', name: 'Recent logs (TXT)' }] },
+      { title: 'GameShelf data', items: [{ id: 'state', kind: 'state', name: 'Library state (JSON)' }, { id: 'settings', kind: 'settings', name: 'Server settings (JSON)' }, { id: 'logs', kind: 'logs', name: 'Recent logs (TXT)' },{id:'health',kind:'health',name:'Library health history (JSON)'}] },
       { title: 'Cover image archive', items: gamesCache.filter(game => game.hasCover).sort((a, b) => a.name.localeCompare(b.name)).map(game => ({ id: game.id, kind: 'cover', name: game.name })) }
     ];
     for (const group of groups) {
@@ -1666,6 +1667,7 @@ document.addEventListener('DOMContentLoaded', () => {
         label.className = 'gs-settings-option';
         const input = document.createElement('input');
         input.type = 'checkbox'; input.value = item.id; input.dataset.kind = item.kind; input.checked = true;
+        const action=item.kind==='logs'?'logs':item.kind==='health'?'healthView':null;if(action&&window.GameShelfAccess?.mode(action)==='disable'){input.checked=false;input.disabled=true;}
         input.addEventListener('change', () => { const options = [...exportOptions.querySelectorAll('input')]; exportAll.checked = options.every(option => option.checked); exportAll.indeterminate = !exportAll.checked && options.some(option => option.checked); });
         label.append(input, document.createTextNode(item.name));
         section.appendChild(label);
@@ -1677,7 +1679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('export-credentials-note').hidden = !(serverSettings?.sources || []).some(source => source.protocol !== 'nfs' && (source.hasPassword || source.username));
     openModal(exportDialog);
   });
-  exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { input.checked = exportAll.checked; }); exportAll.indeterminate = false; });
+  exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { if(!input.disabled)input.checked = exportAll.checked; }); exportAll.indeterminate = false; });
   document.getElementById('export-confirm').addEventListener('click', exportLibraryData);
   for (const id of ['export-close', 'export-cancel']) document.getElementById(id).addEventListener('click', () => exportDialog.close());
   closeOnBackdropClick(exportDialog);
@@ -1686,7 +1688,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const restoreApply = document.getElementById('restore-apply');
   const restoreStatus = document.getElementById('restore-status');
   const restorePreviewPanel = document.getElementById('restore-preview');
-  const restoreChoices = ['restore-state', 'restore-covers', 'restore-settings'].map(id => document.getElementById(id));
+  const restoreChoices = ['restore-state', 'restore-covers', 'restore-settings','restore-health'].map(id => document.getElementById(id));
   let restorePreview = null;
   let restoreVersion = 0;
   const updateRestoreButton = () => {
@@ -1704,7 +1706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreDialog.dataset.setupImport=String(setupMode);
     document.getElementById('restore-title').textContent=setupMode?'Import GameShelf Data':'Restore Library Data';
     document.getElementById('restore-intro').textContent=setupMode?'Import a GameShelf backup ZIP to restore your library data, server settings, and appearance choices, then open your shelf without completing setup. Your games stay in their original locations. Share passwords are never included and must be entered again.':'Choose a GameShelf backup ZIP to preview. Restoring replaces selected app data; game folders remain read-only.';
-    document.getElementById('restore-credentials-note').hidden=true;
+    document.getElementById('restore-credentials-note').hidden=true;document.getElementById('restore-family-note').hidden=true;
     openModal(restoreDialog);
   });
   for (const id of ['restore-close', 'restore-cancel']) document.getElementById(id).addEventListener('click', () => restoreDialog.close());
@@ -1728,7 +1730,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (version !== restoreVersion || !restoreDialog.open) return;
       restorePreview = preview;
       document.getElementById('restore-credentials-note').hidden=!preview.requiresLogin;
-      const available = [preview.state, preview.covers > 0, preview.settings];
+      const available = [preview.state, preview.covers > 0, preview.settings,preview.health===true];
+      document.getElementById('restore-family-note').hidden=!preview.requiresPIN;
       restoreChoices.forEach((input, index) => { input.checked = available[index]; input.disabled = !available[index]; });
       document.getElementById('restore-cover-count').textContent = `${preview.covers} uploaded cover${preview.covers === 1 ? '' : 's'} will be replaced or added.`;
       document.getElementById('restore-skipped').textContent = `${preview.folderCoversSkipped} game-folder cover copies and ${preview.logsSkipped ? 'the log snapshot' : 'no log snapshot'} will be skipped; mounted game folders are never changed.`;
@@ -1743,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreApply.disabled = true;
     restoreStatus.textContent = 'Restoring selected data…';
     const selected = new URLSearchParams({ apply: '1' });
-    for (const [index, key] of ['state', 'covers', 'settings'].entries()) if (restoreChoices[index].checked) selected.set(key, '1');
+    for (const [index, key] of ['state', 'covers', 'settings','health'].entries()) if (restoreChoices[index].checked) selected.set(key, '1');
     try {
       const response = await fetch(`/api/library-restore?${selected}`, { method: 'POST', headers: { 'Content-Type': 'application/zip', 'X-Preview-SHA256': restorePreview.sha256 }, body: restoreFile.files[0] });
       if (!response.ok) throw new Error((await response.text()).trim());
@@ -1989,17 +1992,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     catch { logsStatus.textContent = 'Could not copy logs.'; }
   });
-  logsDownload.addEventListener('click', () => {
-    if (!logsContent.textContent) return;
-    const url = URL.createObjectURL(new Blob([logsContent.textContent], { type: 'text/plain' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'gameshelf-logs.txt';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showNotification('Log download started.');
+  logsDownload.addEventListener('click', async () => {
+    if(!logsContent.textContent||logsDownload.disabled)return;logsDownload.disabled=true;
+    try{const response=await fetch('/api/logs?export=1',{cache:'no-store'});if(!response.ok)throw new Error('Could not export logs.');const snapshot=await response.text();const all=snapshot.trimEnd().split('\n'),exportEntry=all.pop();const included=new Set(logFilters.filter(input=>input.checked).map(input=>input.value));const selected=all.filter(line=>included.has((line.match(/\[(system|library|errors|request|scan|download)\]/)||[,'system'])[1]));selected.push(exportEntry);const url=URL.createObjectURL(new Blob([selected.join('\n')+'\n'],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='gameshelf-logs.txt';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);animateControl(logsDownload);}
+    catch{showNotification('Could not export logs. Try again.');}finally{logsDownload.disabled=false;}
   });
   document.getElementById('logs-close').addEventListener('click', () => logsDialog.close());
   logsDialog.addEventListener('close', () => { logsRequestVersion++; });
@@ -2279,14 +2275,14 @@ function setCoverStretch(frame,game){if(frame)frame.dataset.coverFit=effectiveCo
 function syncCoverStretchControl(game){
  const button=document.getElementById('game-cover-stretch');if(!button)return;
  const enabled=effectiveCoverStretch(game);button.setAttribute('aria-pressed',String(enabled));button.title=enabled?'Disable stretch for this game':'Enable stretch for this game';button.setAttribute('aria-label',button.title);button.dataset.tooltip=button.title;
- button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5M9 20H4v-5M4 4l5 5m11-5-5 5m5 11-5-5M4 20l5-5"/>'+(enabled?'<path class="gs-stretch-check" d="m9 12 2 2 4-4"/>':'<path class="gs-stretch-slash" d="M3 3l18 18"/>')+'</svg>';
+ button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5M9 20H4v-5M4 4l5 5m11-5-5 5m5 11-5-5M4 20l5-5"/>'+(enabled?'':'<path class="gs-stretch-slash" d="M3 3l18 18"/>')+'</svg>';
 }
 function refreshCoverFit(game){
  const card=cardMap.get(game.id);for(const frame of card?.querySelectorAll('.gs-card-cover,.gs-list-cover')||[])setCoverStretch(frame,game);
- if(detailsGameId===game.id){setCoverStretch(document.querySelector?.('.gs-details-art-frame'),game);syncCoverStretchControl(game);}
+ if(detailsGameId===game.id){setCoverStretch(document.querySelector?.('.gs-details-art-frame'),game);syncCoverStretchControl(game);}if(editorGame?.id===game.id)syncCoverStretchControl(game);
 }
 async function saveCoverStretch(){
- const game=gamesCache.find(item=>item.id===detailsGameId),button=document.getElementById('game-cover-stretch');if(!game||button.disabled)return;
+ const game=editorGame||gamesCache.find(item=>item.id===detailsGameId),button=document.getElementById('game-cover-stretch');if(!game||button.disabled)return;
  const stretch=!effectiveCoverStretch(game);button.disabled=true;
  try{const response=await fetch('/api/cover-fit/'+encodeURIComponent(game.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({stretch})});if(!response.ok)throw new Error('Could not save cover fit.');const result=await response.json();game.coverStretch=result.coverStretch;refreshCoverFit(game);animateControl(button);showNotification(stretch?'Cover stretch enabled for this game.':'Cover stretch disabled for this game.');}
  catch(error){showNotification(error.message);}finally{button.disabled=false;}

@@ -9,7 +9,7 @@
 
 GameShelf turns a DRM-free collection into a read-only game library for your home network. Browse covers, find a game, and download its folder as a ZIP. Original files stay where they are. Display titles, favorites, edited artwork, and settings live separately in application data.
 
-It is designed for a small LAN, typically 1–10 people, without accounts, game launchers, or a database service. GameShelf does not supply games or bypass DRM. Anyone with access can download files and change shared library settings; control access through your network or reverse proxy.
+It is designed for a small LAN, typically 1–10 people, without accounts, game launchers, or a database service. GameShelf does not supply games or bypass DRM. Optional Family Controls restrict shared settings and actions with a PIN or disable them entirely. Protect access to the app through your network or an authenticated reverse proxy. Security is a core requirement: server-side enforcement, confined read-only library access, protected secrets, and automated security checks are part of the application.
 
 ## Contents
 
@@ -18,6 +18,8 @@ It is designed for a small LAN, typically 1–10 people, without accounts, game 
 - [Choosing library locations](#choosing-library-locations)
 - [Browse, download, and customize](#browse-download-and-customize)
 - [Settings and defaults](#settings-and-defaults)
+- [Family Controls](#family-controls)
+- [Library Health](#library-health)
 - [Themes](#themes)
 - [Backup, import, and recovery](#backup-import-and-recovery)
 - [Permissions and deployment](#permissions-and-deployment)
@@ -75,7 +77,7 @@ The welcome screen appears when no library or completed setup is saved. It waits
 
 Already have a backup? **Import Data** on the first step previews a GameShelf backup ZIP. Restore server settings, library state, and uploaded covers to bypass the setup steps. Passwords are not backed up: sign in to protected shares again afterward. [See recovery details](#backup-import-and-recovery).
 
-Not ready? The header **settings cog → Set Up Later** opens an empty shelf. Add locations later in **Settings → Advanced → Data and Diagnostics → Library Sources**. This choice survives restarts. **Advanced Data and Diagnostics → Finish First-Time Setup** reopens the wizard only when setup was skipped or remains unfinished.
+Not ready? The header **settings cog → Set Up Later** opens an empty shelf. Add locations later in **Settings → Advanced → Data and Diagnostics → Library Sources**. This choice survives restarts. **Basic Data and Diagnostics → Finish First-Time Setup** reopens the wizard only when setup was skipped or remains unfinished.
 
 The optional tour begins with game controls and the Home logo, then covers search, sorting, views, the dice picker, Playlist, and Settings. **Ignore** skips the invitation. Once started, exiting asks for confirmation. Replay it using **Settings → Appearance → Quick tour**. Motion respects animation settings and the device's reduced-motion preference.
 
@@ -159,16 +161,16 @@ Open **Add Cover** or **Edit Cover** in game details. Upload an image or choose 
 
 Edited covers are 600×900 PNGs in application data. They take priority over these automatically detected files at a game's root: `cover.jpg`, `cover.jpeg`, `cover.png`, `folder.jpg`, `folder.jpeg`, `folder.png`. Other supported filenames can be selected through the folder chooser. Missing artwork uses the GameShelf placeholder unless disabled.
 
-A 600×900 poster is a good starting point. Poster (2:3), portrait (3:4), square, landscape (4:3), and widescreen (16:9) covers preserve their proportions within a stable 2:3 frame. Any unused area uses a soft cover-derived backdrop, including unusual poster sizes and list thumbnails. **Stretch covers to fill** fills frames without preserving proportions. The stretch icon beside Edit Cover can enable or disable this for one game, overriding the browser-wide setting; Reset Metadata’s cover option clears this override. Static titles sit below the frame without resizing the image.
+A 600×900 poster is a good starting point. Poster (2:3), portrait (3:4), square, landscape (4:3), and widescreen (16:9) covers preserve their proportions within a stable 2:3 frame. Any unused area uses a soft cover-derived backdrop, including unusual poster sizes and list thumbnails. **Stretch covers to fill** fills frames without preserving proportions. The stretch icon inside Edit Cover can enable or disable this for one game, overriding the browser-wide setting; Reset Metadata’s cover option clears this override. Static titles sit below the frame without resizing the image.
 
 ## Settings and defaults
 
-Open the header cog. **Basic / Advanced** reveals extra controls. Display preferences are stored in this browser; metadata, sources, schedules, and logging are shared by the server. Immediate changes show a confirmation banner. Configuration menus apply changes with the standard save icon.
+Open the header cog. **Basic / Advanced** reveals extra controls. Display preferences are stored in this browser; metadata, sources, schedules, and logging are shared by the server. Immediate changes show a confirmation banner. Configuration menus apply changes with the standard save icon. Family Controls can require a PIN, disable, or hide individual controls.
 
 | Setting | Default | Location / behavior |
 | --- | --- | --- |
 | Theme | System | Appearance; follows the device. A dark system uses GameShelf Classic. |
-| Stretch covers to fill | Off | Advanced Library View; override individual titles with the stretch icon beside Edit Cover. Per-game overrides are shared metadata and included in backups. |
+| Stretch covers to fill | Off | Advanced Library View; override individual titles with the stretch icon inside Edit Cover. Per-game overrides are shared metadata and included in backups. |
 | Animation speed | 1.10× | Advanced Appearance; 0 stops motion, maximum 3.0×. |
 | Animate loaded game tiles | On | Appearance; independent of animation speed. |
 | Show button hints | On | Appearance. |
@@ -178,7 +180,7 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Display prefer
 | Show favorites first | On | Library View. |
 | Show images in list view | On | Library View. |
 | Show favorited game stars on top | On | Library View; otherwise stars show with hover controls. |
-| Card depth | On | Library View; soft shadows and raised edges. |
+| Card depth | On | Advanced Appearance; soft shadows and raised edges. |
 | Recently Added range | 7 days | Advanced Library View → Configure. |
 | Click to expand image in list view | Single-click | Advanced Library View; Single-click, Double-click, or Disabled. Requires list images. |
 | List tile opacity | 80% | Advanced Library View; 0–100%, keeping text and controls visible. |
@@ -186,11 +188,43 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Display prefer
 | Automatic refresh | 168 hours | Advanced Data and Diagnostics → Refresh Interval; 0 for manual only. |
 | Backup selections | All selected | Data and Diagnostics → Export Data. |
 
-**Application Logs** is visible in Basic settings; **Configure** is Advanced. View, filter, copy, or download the process's log snapshot. Without **Customize logging**, system, library, and error events stay enabled. Customization allows individual system, library, error, request, scan, and download categories. Default retention has no age limit and is bounded to 10 MB, with optional age and size overrides. System logging records server and display-setting changes without credential values. Logs are kept in process memory and do not survive a restart.
+**Application Logs** is visible in Basic settings; **Configure** is Advanced. View, filter, copy, or download the process's log snapshot. Without **Customize logging**, system, library, and error events stay enabled. Customization allows individual system, library, error, request, scan, and download categories. Default retention has no age limit and is bounded to 10 MB, with optional age and size overrides. System logging records server and display-setting changes without credential values. Each log download appends its export event as the last line of the downloaded snapshot without resizing the open log window. Logs are kept in process memory and do not survive a restart.
 
-**Reset All Settings → Wipe** asks for confirmation and resets browser preferences and server settings. It does not delete game files, game metadata, or uploaded covers. Restart if resetting changes the saved-data path. Without an initial library, setup is offered again.
+**Reset All Settings → Wipe** asks for confirmation and resets browser preferences and server settings. It does not delete game files, game metadata, or uploaded covers. Restart if resetting changes the saved-data path. Without an initial library, setup is offered again. Family Controls and the PIN are retained; Wipe cannot remove their protection. If setup is skipped afterward, Finish First-Time Setup stays visible in Basic settings.
 
 **Library Sources → Saved data location** selects a writable subdirectory within the original data mount. Changing it does not move existing data: copy metadata and artwork before restarting. Server configuration remains under the original data mount.
+
+## Family Controls
+
+Open **Settings → Advanced → Data and Diagnostics → Lock settings behind PIN → Configure**. Create and confirm a **four-digit PIN**, then choose the access level and visibility of each setting or action:
+
+| Access | Behavior |
+| --- | --- |
+| Allow | Available normally; the default for every action. |
+| Require PIN | Prompts for the family PIN before the action. A successful entry unlocks only the requested actions in that browser for two minutes. |
+| Disable | Greys the controls out. The server also rejects protected API operations; entering the PIN does not override Disable. |
+
+The **Show** checkbox controls whether an action appears. Hiding is a presentation choice; choose Require PIN or Disable as well when restricting it. Configure individual appearance/library settings, sources, storage, refresh, logs, health monitoring, backup/restore, setup, covers, titles, favorites, metadata resets, Playlist actions, and downloads. Display preferences and Playlist selections live in each browser; their controls follow the policy. Server operations enforce the policy independently of the interface. Basic/Advanced navigation and Family Controls remain reachable so an owner can manage the rules.
+
+Once a PIN exists, managing, changing, or removing it requires the current PIN. **Remove PIN** requires confirmation. PIN changes invalidate existing unlocks. Reset and restore operations also check the permissions for the settings and metadata they would replace, so they cannot bypass restrictions.
+
+The PIN is salted and hashed using PBKDF2-HMAC-SHA256 with 600,000 iterations, following [OWASP password-storage guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). It is stored privately in `.family-pin.json` under the original data mount. PINs, hashes, salts, and unlock cookies are never written to logs or backup ZIPs. Attempts are limited to six per minute per connected client address and thirty per minute across the server. Unlock cookies are HttpOnly and SameSite Strict, and Secure on direct HTTPS connections. Rejected attempts and policy changes produce credential-free system/error events. A corrupt private record blocks protected operations instead of silently allowing them.
+
+**Use HTTPS when entering a PIN or share credentials**, and put authentication in front of the app when it is accessible beyond your trusted household network. A four-digit family PIN protects a shared shelf; it does not create individual identities or provide the strength of a full account login. Behind a proxy, attempt limits use the proxy's connected address rather than trusting arbitrary forwarded headers.
+
+Backups contain the rules, never the PIN secret. Restoring onto an already protected server preserves its existing PIN and rules. A fresh restore keeps imported restrictions: Disable remains disabled, and Require PIN actions wait for you to create a new PIN in Family Controls. The setup cog also offers Family Controls. For a complete migration, copy the full data volume securely, including hidden files. If the PIN is forgotten, a server owner with direct data-volume access can stop GameShelf, remove `.family-pin.json` and the `access` field in `server-settings.json`, and restart. This is an offline owner recovery procedure, not an in-app bypass.
+
+## Library Health
+
+Open **Settings → Data and Diagnostics → Library Health → View Status**. Each source shows its last check, last successful connection check, game-folder count, and a status bubble:
+
+- **Green — Healthy:** the location is readable.
+- **Yellow — Degraded:** a previously readable location failed one or two checks, or has not yet been checked.
+- **Red — Critical:** unreadable with no successful check yet, or three consecutive failures.
+
+**Check Now** probes the configured locations without changing files or rebuilding the catalog. A successful check clears the failure count. Offline cached games stay visible. Under **Monitoring options**, enable automatic checks and choose a whole-second interval from 30 seconds to one day; the default is **five minutes**. Checks read folder listings rather than requiring privileged network pings. Connection and mounted-folder probes time out, with bounded work for an unresponsive mounted filesystem.
+
+The newest 500 source check events are saved in `library-health.json`. Export or restore this history independently; monitor options are included in server settings. The UI shows recent checks and the application system log records a summary. Family Controls can protect viewing/checking status separately from changing monitoring options.
 
 ## Themes
 
@@ -214,20 +248,20 @@ Expressive themes recolor the logo. Rain also falls inside hovered covers, parts
 
 ## Backup, import, and recovery
 
-Use **Data and Diagnostics → Export Data**. Choose saved library state, server settings, recent logs, and available covers. These are app backups, **not backups of game installers or original game files**.
+Use **Data and Diagnostics → Export Data**. Choose saved library state, server settings, recent logs, library health history, and available covers. These are app backups, **not backups of game installers or original game files**.
 
-**Server settings** includes locations and stable source IDs, usernames, protocol options, refresh schedule, logging, saved-data configuration, setup state, and the exporting browser's supported appearance/library preferences. A notice appears for shares requiring sign-in: **passwords and the encryption key are never exported**. Treat archives as private because they contain locations, usernames, and possibly logs.
+**Server settings** includes locations and stable source IDs, usernames, protocol options, refresh schedule, logging, health monitoring, family-control rules, saved-data configuration, setup state, and the exporting browser's supported appearance/library preferences. A notice appears for shares requiring sign-in: **passwords, the encryption key, and PIN secrets are never exported**. Treat archives as private because they contain locations, usernames, and possibly logs.
 
 To restore on a fresh container:
 
 1. Attach persistent data storage and start GameShelf.
 2. Select **Import Data** on the welcome screen and choose the ZIP.
-3. Review state, server settings, and uploaded covers; acknowledge replacement of selected app data and restore.
+3. Review state, server settings, health history, and uploaded covers; acknowledge replacement of selected app data and restore.
 4. Open **Advanced Settings → Library Sources**, enter protected shares' passwords, and save. Refresh to rebuild the network index.
 
 Setup imports use this container's current data location, rather than a path on the old server. Local paths from the backup must be mapped at the same container paths. If unavailable, deselect **Server settings**, import state/covers, and add locations manually. Restore network settings when possible to retain source IDs and metadata associations.
 
-On an existing server, **Restore Data** offers the same preview and selective replacement. Uploaded covers restore; detected folder covers and old logs are not written back to game folders or process logs. Appearance preferences apply when Server settings is selected. Source changes apply live; a changed saved-data location requires a restart. Protected shares remain offline until signed in again.
+On an existing server, **Restore Data** offers the same preview and selective replacement. Uploaded covers and selected health history restore; detected folder covers and old logs are not written back to game folders or process logs. Appearance preferences apply when Server settings is selected. Source changes apply live; a changed saved-data location requires a restart. Protected shares remain offline until signed in again.
 
 For a complete storage migration **including encrypted passwords**, stop GameShelf and copy the whole data volume, including hidden files and its private key. Keep that copy secure. Exported ZIPs intentionally do not provide credential recovery.
 
@@ -269,7 +303,7 @@ http:
           - url: "http://gameshelf:8080"
 ```
 
-Restrict access through your network or proxy. Forward-auth integrations such as Authelia, Tinyauth, or Authentik can protect the app. GameShelf has no native accounts, SSO, profiles, or per-user permissions. Setup is not an authentication boundary.
+Restrict access through your network or proxy. Forward-auth integrations such as Authelia, Tinyauth, or Authentik can protect the app. Family Controls enforce shared action policies on the server. GameShelf does not yet provide native accounts, SSO, profiles, or per-user identities; an authenticated proxy controls who can reach the application. Setup does not replace authentication.
 
 ### Local integrations
 

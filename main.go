@@ -18,6 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -92,10 +93,15 @@ func main() {
 		log.Printf("Library unavailable; open GameShelf to update your folders: %v", err)
 	}
 	go runAutoRefresh()
+	go runHealthMonitor()
 
 	mux := http.NewServeMux()
 
 	// API endpoints
+	mux.HandleFunc("/api/access", handleAccess)
+	mux.HandleFunc("/api/access/unlock", handleAccessUnlock)
+	mux.HandleFunc("/api/health", handleHealth)
+	mux.HandleFunc("/api/health/check", handleHealth)
 	mux.HandleFunc("/api/games", handleGames)
 	mux.HandleFunc("/api/stats", handleStats)
 	mux.HandleFunc("/api/game-files/", handleGameFiles)
@@ -107,9 +113,9 @@ func main() {
 	mux.HandleFunc("/api/cover-source/", handleCoverSource)
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/api/favorite/", handleFavorite)
- mux.HandleFunc("/api/cover-fit/", handleCoverFit)
- mux.HandleFunc("/api/settings-events", handleSettingsEvent)
- mux.HandleFunc("/api/setup/restart", handleSetupRestart)
+	mux.HandleFunc("/api/cover-fit/", handleCoverFit)
+	mux.HandleFunc("/api/settings-events", handleSettingsEvent)
+	mux.HandleFunc("/api/setup/restart", handleSetupRestart)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
 	mux.HandleFunc("/api/setup", handleSetup)
 	mux.HandleFunc("/api/network-test", handleNetworkTest)
@@ -135,7 +141,7 @@ func main() {
 	addr := ":8080"
 
 	logEvent("system", "GameShelf serving %s on %s", rootDir, addr)
-	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(mux))); err != nil {
+	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(accessGate(mux)))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -757,13 +763,14 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	includeState := true
 	includeLogs := false
 	includeSettings := false
+	includeHealth := r.URL.Query().Get("health") == "1"
 	if r.URL.Query().Has("select") {
 		includeState = r.URL.Query().Get("state") == "1"
 		includeLogs = r.URL.Query().Get("logs") == "1"
 		includeSettings = r.URL.Query().Get("settings") == "1"
 		selected = make(map[string]bool)
 		for _, id := range r.URL.Query()["cover"] { selected[id] = true }
-		if !includeState && !includeLogs && !includeSettings && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
+		if !includeState && !includeLogs && !includeSettings && !includeHealth && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
 	}
 	var preferences map[string]string
 	if raw := r.Header.Get("X-GameShelf-Preferences"); raw != "" {
@@ -772,7 +779,7 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	file, size, err := prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings, selected, preferences)
+	file, size, err := prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings, selected, preferences, includeHealth)
 	if err != nil {
 		logEvent("errors", "library backup unavailable: %v", err)
 		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
@@ -803,6 +810,11 @@ func prepareLibraryBackupSelection(includeState bool, selected map[string]bool) 
 }
 
 func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences ...map[string]string) (*os.File, int64, error) {
+	var value map[string]string
+	if len(preferences) > 0 { value = preferences[0] }
+	return prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings, selected, value, false)
+}
+func prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences map[string]string, includeHealth bool) (*os.File, int64, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
@@ -821,7 +833,7 @@ func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettin
 			os.Remove(file.Name())
 		}
 	}()
-	if err := writeLibraryBackupSelectionExtra(file, includeState, includeLogs, includeSettings, selected, preferences...); err != nil {
+	if err := writeLibraryBackupWithHealth(file, includeState, includeLogs, includeSettings, selected, preferences, includeHealth); err != nil {
 		return nil, 0, err
 	}
 	info, err := file.Stat()
@@ -878,6 +890,11 @@ func writeLibraryBackupSelection(dst io.Writer, includeState bool, selected map[
 }
 
 func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences ...map[string]string) error {
+	var value map[string]string
+	if len(preferences) > 0 { value = preferences[0] }
+	return writeLibraryBackupWithHealth(dst, includeState, includeLogs, includeSettings, selected, value, false)
+}
+func writeLibraryBackupWithHealth(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences map[string]string, includeHealth bool) error {
 	archive := zip.NewWriter(dst)
 	var err error
 	if includeState {
@@ -893,7 +910,7 @@ func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, 
 		settingsMu.RLock()
 		settings := configuredSettings
 		settingsMu.RUnlock()
-		if len(preferences) > 0 && preferences[0] != nil { settings.Preferences = preferences[0] }
+		if preferences != nil { settings.Preferences = preferences }
 		if err := validatePreferences(settings.Preferences); err != nil { return err }
 		contents, marshalErr := json.MarshalIndent(publicSettings(settings), "", "  ")
 		if marshalErr != nil { err = marshalErr } else {
@@ -903,7 +920,14 @@ func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, 
 	}
 	if err == nil && includeLogs {
 		member, createErr := archive.Create("logs.txt")
-		if createErr != nil { err = createErr } else { _, err = member.Write(applicationLogs.Snapshot()) }
+		if createErr != nil { err = createErr } else { _, err = member.Write(logSnapshotForExport("Application logs included in library backup export")) }
+	}
+	if err == nil && includeHealth {
+		contents, readErr := healthArchiveBytes()
+		if readErr != nil { err = readErr } else {
+			member, createErr := archive.Create("library-health.json")
+			if createErr != nil { err = createErr } else { _, err = member.Write(contents) }
+		}
 	}
 	gamesMu.RLock()
 	covers := make([]gameEntry, 0)
@@ -1529,6 +1553,8 @@ func sanitizeFilename(name string) string {
 }
 
 type serverSettings struct {
+	Access *accessPolicy `json:"access,omitempty"`
+	Health *healthOptions `json:"health,omitempty"`
 	SetupCompleted bool `json:"setupCompleted,omitempty"`
  SetupStatus string `json:"setupStatus,omitempty"`
 	Preferences map[string]string `json:"preferences,omitempty"`
@@ -1678,6 +1704,8 @@ func validRefreshInterval(value string) bool {
 }
 
 func validateServerSettings(value serverSettings) error {
+	if err := validateAccessPolicy(value.Access); err != nil { return err }
+	if err := validateHealthOptions(value.Health); err != nil { return err }
 	if err:=validatePreferences(value.Preferences);err!=nil{return err}
  if value.SetupStatus!="" && value.SetupStatus!="pending" && value.SetupStatus!="skipped" && value.SetupStatus!="complete" {return errors.New("invalid setup status")}
 	if len(libraryRoots(value))+len(value.Sources)>16{return errors.New("choose up to 16 library sources")}
@@ -1776,6 +1804,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		settingsMu.RLock()
 		old := configuredSettings
 		settingsMu.RUnlock()
+		value.Access=publicAccessPolicy(old.Access)
 		if !hasLibrary(value) && !value.SetupCompleted && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
 		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
 		settingsMu.RLock();saved:=configuredSettings;settingsMu.RUnlock()
@@ -1784,6 +1813,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		if libraryChanged&&!restart&&!setupRequired.Load(){if err:=activateLibrary(saved);err!=nil{logEvent("errors","library source scan: %v",err)}}
 		if old.RefreshInterval!=saved.RefreshInterval{notifyRefreshSchedule()}
  logServerSettingsChanges(old,saved)
+	notifyHealthSchedule()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct{RestartRequired bool `json:"restartRequired"`;Settings serverSettings `json:"settings"`}{restart,publicSettings(saved)})
 	default:
@@ -1795,6 +1825,7 @@ func handleResetServerSettings(w http.ResponseWriter, r *http.Request) {
 	setupMu.Lock(); defer setupMu.Unlock()
 	if r.Method != http.MethodPost { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
 	defaults := defaultServerSettings()
+	settingsMu.RLock(); defaults.Access = publicAccessPolicy(configuredSettings.Access); settingsMu.RUnlock()
 	if err := saveServerSettings(defaults); err != nil { http.Error(w, "could not reset settings", http.StatusServiceUnavailable); return }
 	if !hasLibrary(defaults) { setupRequired.Store(true); notifyRefreshSchedule() }
 	w.Header().Set("Content-Type", "application/json")
@@ -1805,7 +1836,11 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write(applicationLogs.Snapshot())
+	if r.URL.Query().Get("export") == "1" {
+		w.Write(logSnapshotForExport("Application logs exported"))
+	} else {
+		w.Write(applicationLogs.Snapshot())
+	}
 }
 
 type metadataResetRequest struct {
@@ -1965,6 +2000,9 @@ func handleSettingsEvent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 func logServerSettingsChanges(old, value serverSettings) {
+	if !reflect.DeepEqual(normalizeHealthOptions(old.Health), normalizeHealthOptions(value.Health)) {
+		logEvent("system", "Library health monitoring settings changed")
+	}
 	// Never log credential values, user names, or full network addresses.
 	if !sourcesEqual(old.Sources, value.Sources) || strings.Join(libraryRoots(old), "\x00") != strings.Join(libraryRoots(value), "\x00") {
 		logEvent("system", "Library locations updated (%d locations)", len(libraryRoots(value))+len(value.Sources))

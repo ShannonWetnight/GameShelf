@@ -172,7 +172,7 @@ test('cover editor crops artwork and updates the card after upload', () => {
         input.files = transfer.files;
         input.dispatchEvent(new Event('change'));
         setTimeout(function() {
-          document.querySelector('#cover-rotate-right').click();
+          document.querySelector('#cover-rotate-left').click();document.querySelector('#cover-mirror').click();
           const tilt = document.querySelector('#cover-tilt');
           tilt.value = '8'; tilt.dispatchEvent(new Event('input'));
           const zoom = document.querySelector('#cover-zoom');

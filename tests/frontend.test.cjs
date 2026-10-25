@@ -403,7 +403,7 @@ test('random suggestion highlights a game without downloading and avoids immedia
   assert.equal(ui.hidden('spotlight-actions'), false);
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   assert.equal(selected()[0], stableCard);
-  assert.equal(selected()[0].classList.contains('gs-shuffle-confirm'), true);
+  assert.equal(selected()[0].classList.contains('gs-shuffle-confirm'), false);
   selected()[0].emit('animationend');
   assert.equal(selected()[0].classList.contains('gs-shuffle-confirm'), false);
   assert.equal(ui.element('games-container').children.filter(child => child.classList.contains('gs-shuffle-deck')).length, 0);
@@ -716,9 +716,10 @@ test('application logs are always available, configurable, filterable, and expor
   assert.equal(ui.element('logs-content').textContent, 'Scan complete\n[request] GET /api/games\n');
   await ui.click('logs-copy');
   assert.deepEqual(ui.copied, ['Scan complete\n[request] GET /api/games\n']);
-  ui.click('logs-download');
-  assert.equal(ui.downloads.length, 1);
-  assert.equal(ui.element('notification-text').textContent, 'Log download started.');
+  const before=ui.element('logs-content').textContent;const downloading=ui.click('logs-download');
+  ui.requests.find(item=>item.url==='/api/logs?export=1').resolve({ok:true,text:async()=>before+'[system] Application logs exported\n'});await downloading;
+  assert.equal(ui.downloads.length,1);
+  assert.equal(ui.element('logs-content').textContent,before,'export must not resize or append to the open log view');
   ui.click('logs-close');
   assert.equal(ui.element('logs-dialog').open, false);
 });
@@ -886,7 +887,7 @@ test('export groups GameShelf data separately from cover images', async () => {
   assert.equal(groups.length, 2);
   assert.equal(groups[0].children[0].textContent, 'GameShelf data');
   assert.equal(groups[1].children[0].textContent, 'Cover image archive');
-  assert.equal(groups[0].querySelectorAll('input').length, 3);
+  assert.equal(groups[0].querySelectorAll('input').length, 4);
   assert.equal(groups[1].querySelectorAll('input').length, 1);
 });
 
@@ -945,9 +946,9 @@ test('backup export waits for the complete response, prevents duplicate requests
   assert.equal(ui.element('export-confirm').disabled, true);
   assert.match(ui.element('export-status').textContent, /Preparing/);
   ui.click('export-confirm');
-  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 1);
+  assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1&health=1').length, 1);
   let finish;
-  ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').resolve({
+  ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1&health=1').resolve({
     ok: true,
     headers: { get: name => name === 'Content-Type' ? 'application/zip' : '123' },
     blob: () => new Promise(resolve => { finish = resolve; })
@@ -975,7 +976,7 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     ui.start();
     ui.click('export-library-data');
     const pending = ui.click('export-confirm');
-    const request = ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1');
+    const request = ui.requests.find(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1&health=1');
     if (failure === 'network') request.reject(new Error('offline'));
     else request.resolve({
       ok: failure !== 'http', status: 503,
@@ -987,7 +988,7 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     assert.equal(ui.element('export-confirm').disabled, false);
     assert.match(ui.element('export-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
     ui.click('export-confirm');
-    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 2);
+    assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1&health=1').length, 2);
   });
 }
 
