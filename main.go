@@ -78,9 +78,11 @@ func main() {
 	dataDir = settings.DataDir
 	setActiveSources(settings.Sources)
 
-	if !hasLibrary(settings) {
+	if !hasLibrary(settings) && !settings.SetupCompleted {
 		setupRequired.Store(true)
 		log.Print("Welcome to GameShelf. Open port 8080 to choose your library folders.")
+	} else if !hasLibrary(settings) {
+		logEvent("system", "Library setup deferred; add locations in Advanced Settings")
 	} else if len(settings.Sources) > 0 {
 		setScanProgress(true, "Connecting to your libraries…")
 		go func(){if err:=refreshGames();err!=nil{logEvent("errors","initial network scan: %v",err)}}()
@@ -755,7 +757,14 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 		for _, id := range r.URL.Query()["cover"] { selected[id] = true }
 		if !includeState && !includeLogs && !includeSettings && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
 	}
-	file, size, err := prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings, selected)
+	var preferences map[string]string
+	if raw := r.Header.Get("X-GameShelf-Preferences"); raw != "" {
+		if len(raw) > 8192 || json.Unmarshal([]byte(raw), &preferences) != nil || validatePreferences(preferences) != nil {
+			http.Error(w, "invalid appearance preferences", http.StatusBadRequest)
+			return
+		}
+	}
+	file, size, err := prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings, selected, preferences)
 	if err != nil {
 		logEvent("errors", "library backup unavailable: %v", err)
 		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
@@ -785,7 +794,7 @@ func prepareLibraryBackupSelection(includeState bool, selected map[string]bool) 
 	return prepareLibraryBackupSelectionExtra(includeState, false, false, selected)
 }
 
-func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings bool, selected map[string]bool) (*os.File, int64, error) {
+func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences ...map[string]string) (*os.File, int64, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
@@ -804,7 +813,7 @@ func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettin
 			os.Remove(file.Name())
 		}
 	}()
-	if err := writeLibraryBackupSelectionExtra(file, includeState, includeLogs, includeSettings, selected); err != nil {
+	if err := writeLibraryBackupSelectionExtra(file, includeState, includeLogs, includeSettings, selected, preferences...); err != nil {
 		return nil, 0, err
 	}
 	info, err := file.Stat()
@@ -860,7 +869,7 @@ func writeLibraryBackupSelection(dst io.Writer, includeState bool, selected map[
 	return writeLibraryBackupSelectionExtra(dst, includeState, false, false, selected)
 }
 
-func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool) error {
+func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences ...map[string]string) error {
 	archive := zip.NewWriter(dst)
 	var err error
 	if includeState {
@@ -876,6 +885,8 @@ func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, 
 		settingsMu.RLock()
 		settings := configuredSettings
 		settingsMu.RUnlock()
+		if len(preferences) > 0 && preferences[0] != nil { settings.Preferences = preferences[0] }
+		if err := validatePreferences(settings.Preferences); err != nil { return err }
 		contents, marshalErr := json.MarshalIndent(publicSettings(settings), "", "  ")
 		if marshalErr != nil { err = marshalErr } else {
 			member, createErr := archive.Create("server-settings.json")
@@ -1510,6 +1521,8 @@ func sanitizeFilename(name string) string {
 }
 
 type serverSettings struct {
+	SetupCompleted bool `json:"setupCompleted,omitempty"`
+	Preferences map[string]string `json:"preferences,omitempty"`
 	RootDir string `json:"rootDir"`
 	RootDirs []string `json:"rootDirs,omitempty"`
 	Sources []networkSource `json:"sources,omitempty"`
@@ -1657,6 +1670,7 @@ func validRefreshInterval(value string) bool {
 }
 
 func validateServerSettings(value serverSettings) error {
+	if err:=validatePreferences(value.Preferences);err!=nil{return err}
 	if len(libraryRoots(value))+len(value.Sources)>16{return errors.New("choose up to 16 library sources")}
 	ids,locations:=map[string]bool{},map[string]bool{}
 	for _,source:=range value.Sources{normalized,err:=normalizeNetworkSource(source);if err!=nil{return err};if normalized.ID!=""&&ids[normalized.ID]{return errors.New("duplicate network source identifier")};if locations[normalized.URL]{return errors.New("this network location is already in the library")};ids[normalized.ID]=true;locations[normalized.URL]=true}
@@ -1710,7 +1724,7 @@ func initializeServerSettings() serverSettings {
 	settingsMu.Unlock()
 	verboseLogging.Store(value.Verbose)
 	applicationLogs.Configure(value.LogOptions)
-	setupRequired.Store(!hasLibrary(value))
+	setupRequired.Store(!hasLibrary(value) && !value.SetupCompleted)
 	return value
 }
 
@@ -1753,7 +1767,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		settingsMu.RLock()
 		old := configuredSettings
 		settingsMu.RUnlock()
-		if !hasLibrary(value) && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
+		if !hasLibrary(value) && !value.SetupCompleted && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
 		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
 		settingsMu.RLock();saved:=configuredSettings;settingsMu.RUnlock()
 		restart:=old.DataDir!=saved.DataDir

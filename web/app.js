@@ -1,3 +1,10 @@
+const preferenceKeys = ['theme','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
+const hasSavedPreferences = preferenceKeys.some(key=>localStorage.getItem('gameshelf:'+key)!==null);
+function capturePreferences(){
+  const values = {theme:themePreference,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
+  return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,String(value)]));
+}
+function importPreferences(values){for(const key of preferenceKeys)if(typeof values?.[key]==='string')localStorage.setItem('gameshelf:'+key,values[key]);}
 /* =============================
    Global State
    ============================= */
@@ -228,7 +235,7 @@ async function exportLibraryData() {
   status.textContent = 'Preparing library backup…';
   let downloadURL;
   try {
-    const res = await fetch(`/api/library-backup?${params}`, { cache: 'no-store' });
+    const res = await fetch(`/api/library-backup?${params}`, { cache: 'no-store', headers: {'X-GameShelf-Preferences': JSON.stringify(capturePreferences())} });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (res.headers.get('Content-Type') !== 'application/zip') throw new Error('Invalid backup response');
     const backup = await res.blob();
@@ -511,7 +518,7 @@ function sizeSettingsSelect(select) {
   const context = document.createElement('canvas').getContext?.('2d');
   if (!option || !context) return;
   context.font = getComputedStyle(select).font;
-  select.style.width = Math.ceil(context.measureText(option.text).width + 40) + 'px';
+  select.style.width = (select.id === 'theme-select' ? 190 : Math.ceil(context.measureText(option.text).width + 40)) + 'px';
   select.style.flexBasis = 'auto';
 }
 
@@ -1616,6 +1623,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   settingsButton.addEventListener('click', () => {
     animateControl(settingsButton);
+    if (document.body.classList.contains('gs-needs-setup')) {window.GameShelfSetup?.openOptions();return;}
     openModal(settingsDialog);
 
   });
@@ -1653,6 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     exportAll.checked = true; exportAll.indeterminate = false;
     document.getElementById('export-status').textContent = '';
+    document.getElementById('export-credentials-note').hidden = !(serverSettings?.sources || []).some(source => source.protocol !== 'nfs' && (source.hasPassword || source.username));
     openModal(exportDialog);
   });
   exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { input.checked = exportAll.checked; }); exportAll.indeterminate = false; });
@@ -1678,6 +1687,11 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreStatus.textContent = '';
     document.getElementById('restore-ack').checked = false;
     updateRestoreButton();
+    const setupMode=document.body.classList.contains('gs-needs-setup');
+    restoreDialog.dataset.setupImport=String(setupMode);
+    document.getElementById('restore-title').textContent=setupMode?'Import GameShelf Data':'Restore Library Data';
+    document.getElementById('restore-intro').textContent=setupMode?'Import a GameShelf backup ZIP to restore your library data, server settings, and appearance choices, then open your shelf without completing setup. Your games stay in their original locations. Share passwords are never included and must be entered again.':'Choose a GameShelf backup ZIP to preview. Restoring replaces selected app data; game folders remain read-only.';
+    document.getElementById('restore-credentials-note').hidden=true;
     openModal(restoreDialog);
   });
   for (const id of ['restore-close', 'restore-cancel']) document.getElementById(id).addEventListener('click', () => restoreDialog.close());
@@ -1700,6 +1714,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const preview = await response.json();
       if (version !== restoreVersion || !restoreDialog.open) return;
       restorePreview = preview;
+      document.getElementById('restore-credentials-note').hidden=!preview.requiresLogin;
       const available = [preview.state, preview.covers > 0, preview.settings];
       restoreChoices.forEach((input, index) => { input.checked = available[index]; input.disabled = !available[index]; });
       document.getElementById('restore-cover-count').textContent = `${preview.covers} uploaded cover${preview.covers === 1 ? '' : 's'} will be replaced or added.`;
@@ -1721,9 +1736,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error((await response.text()).trim());
       const result = await response.json();
       restoreDialog.close();
-      showNotification(result.restartRequired ? 'Library data restored. Restart the container to apply server settings.' : 'Library data restored.');
-      loadServerSettings();
-      loadGames(true);
+      if (restoreChoices[2].checked) importPreferences(result.preferences || restorePreview?.preferences);
+      const message=result.restartRequired?'Library data restored. Restart the container to apply the data location.':result.requiresLogin?'Data restored. Enter share passwords in Advanced Settings → Library Sources.':result.scanWarning||'Library data restored.';
+      if(result.setupComplete || (restoreChoices[2].checked && result.preferences && Object.keys(result.preferences).length)) {
+        localStorage.setItem('gameshelf:restore-notice',message);window.location.reload();return;
+      }
+      showNotification(message);loadServerSettings();loadGames();window.GameShelfSetup?.watchScan();
     } catch (error) { restoreStatus.textContent = `Could not restore backup: ${error.message}`; updateRestoreButton(); }
   });
   const favoriteDialog = document.getElementById('favorite-dialog');
