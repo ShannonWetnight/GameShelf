@@ -55,6 +55,7 @@ type remoteItem struct {
 
 var metadataSlots = make(chan struct{}, 4)
 var transferSlots = make(chan struct{}, 2)
+var connectionTestSlots = make(chan struct{}, 4)
 var rcloneBinary = "rclone"
 var nfsBinary = "/app/gameshelf-nfs"
 var networkSecretMu sync.Mutex
@@ -489,7 +490,15 @@ func remoteCommand(ctx context.Context, source networkSource, operation, relativ
 			return nil, func() {}, err
 		}
 		config["KNOWN_HOSTS_FILE"] = filename
+		// Servers often advertise several host keys. Negotiate the approved key
+		// type, rather than silently selecting another valid but untrusted key.
+		algorithm := strings.Fields(source.HostKey)[0]
+		if algorithm == "ssh-rsa" {
+			algorithm = "rsa-sha2-512 rsa-sha2-256"
+		}
+		config["HOST_KEY_ALGORITHMS"] = algorithm
 		config["DISABLE_HASHCHECK"] = "true"
+		config["SKIP_LINKS"] = "true"
 	}
 	for k, v := range config {
 		if v != "" {
@@ -611,6 +620,13 @@ func handleNetworkTest(w http.ResponseWriter, r *http.Request) {
 	source.PasswordCipher = ""
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
 	defer cancel()
+	select {
+	case connectionTestSlots <- struct{}{}:
+		defer func() { <-connectionTestSlots }()
+	case <-ctx.Done():
+		http.Error(w, "Other connections are still being checked. Try again shortly", http.StatusServiceUnavailable)
+		return
+	}
 	if source.Protocol == "sftp" && source.HostKey == "" {
 		u, _ := url.Parse(source.URL)
 		port := u.Port()

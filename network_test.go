@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -310,7 +312,20 @@ func TestSFTPVerifiesPinnedServerKeyAndStreamsAuthenticatedFiles(t *testing.T) {
 	listener.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server := exec.CommandContext(ctx, binary, "serve", "sftp", root, "--addr", address, "--key", keyFile, "--user", "reader", "--pass", "fixture-password", "--read-only", "--log-level", "ERROR")
+	// Offer a second key type; the client must negotiate the RSA key we pinned.
+	additionalKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedKey, err := x509.MarshalPKCS8PrivateKey(additionalKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	additionalFile := filepath.Join(t.TempDir(), "additional-host-key")
+	if err := os.WriteFile(additionalFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: encodedKey}), 0600); err != nil {
+		t.Fatal(err)
+	}
+	server := exec.CommandContext(ctx, binary, "serve", "sftp", root, "--addr", address, "--key", keyFile, "--key", additionalFile, "--user", "reader", "--pass", "fixture-password", "--read-only", "--log-level", "ERROR")
 	var logs bytes.Buffer
 	server.Stderr = &logs
 	if err = server.Start(); err != nil {

@@ -133,7 +133,7 @@ Choose **Network** in setup or Library Sources. Each location has its own protoc
 | FTP | `ftp://nas:21/games/` | Optional username/password. FTP is unencrypted. |
 | FTPS | `ftps://nas:990/games/` | Implicit TLS with optional username/password. The server certificate must be trusted; explicit STARTTLS on port 21 is not currently supported. |
 
-Network locations connect directly from the GameShelf container; they do not require privileged mode, FUSE, or kernel mounts. The server must be reachable from that container. For NFS, a server may need an export policy allowing unprivileged client ports. SFTP currently supports password authentication. Kerberos, SSH private-key authentication, and client certificate authentication are not configured in the app.
+Network locations connect directly from the GameShelf container; they do not require privileged mode, FUSE, or kernel mounts. The server must be reachable from that container. For NFS, a server may need an export policy allowing unprivileged client ports. Use a server account restricted to the game folders; GameShelf only issues read operations, while server permissions define what that account can access. SFTP listings omit symbolic links and special files. SFTP currently supports password authentication. Kerberos, SSH private-key authentication, and client certificate authentication are not configured in the app.
 
 GameShelf lists file metadata during scans and streams game files only when requested. It does not mirror the collection into `/data`. Detected cover images use a bounded local cache (20 MiB per image, pruned to 256 MiB and seven days). Unavailable sources retain their last known games and show a connection notice; reconnect and refresh to update them.
 
