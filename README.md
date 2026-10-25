@@ -13,6 +13,8 @@
 - [Quick Start](#quick-start)
     + [Docker Run](#docker-run)
     + [Docker Compose](#docker-compose)
+    + [First-time setup](#first-time-setup)
+    + [Network libraries](#network-libraries)
     + [Container User and File Permissions](#container-user-and-file-permissions)
     + [Environment Variables](#environment-variables)
 - [Optional Installation Steps](#optional-installation-steps)
@@ -59,13 +61,14 @@ GameShelf is designed to provide a straightforward, dependable, read-only LAN-ba
 - Preview and restore exported library state, uploaded covers, and compatible server settings from Settings
 - Three-column desktop Settings layout and an always-available application log viewer with type filters, copy, and download controls
 - Configurable system, library, error, request, scan, and download logging, with optional size and age retention limits
-- Multiple local or host-mounted library sources under the configured library mount
+- Multiple local and direct network libraries: SMB, NFS, SFTP, WebDAV, FTP, and FTPS
+- Compact first-time setup with connection testing, an animated welcome screen, and an optional guided tour
 - Read-only `/api/stats` summary for local integrations
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/engine/install/) or
 - [Docker Compose](https://docs.docker.com/compose/install/)
-- A mountable directory for GameShelf to index
+- A games folder shared with the container, or a reachable network file server
 - 10-15 minutes of free time
 
 ## Quick Start
@@ -106,15 +109,37 @@ volumes:
 
 Open **http://your-server:8080** after deployment. GameShelf starts with a welcome page when no library has been configured; no environment variables or mandatory `/games` mount are required. It waits quietly for setup instead of scanning a missing folder or restarting.
 
-1. Use **Browse folders** to choose a directory shared with the container, or enter its container path. Add multiple folders on separate lines. Each game should be in its own subfolder.
-2. Choose automatic refresh in whole hours (default **168**, once a week; **0** disables automatic scans).
-3. Keep saved data at **/data** unless you already provided a different writable data mount. Press the save icon to save setup and open your indexed library immediately.
+1. Add a **Folder** already shared with the container, or choose **Network** and enter your server location. Test the connection, then add it. You can mix up to 16 locations. Each game should have its own subfolder.
+2. Choose a refresh schedule (weekly by default), then use the save icon to open your library. Saved data stays at **/data** unless you choose another writable data location under More options.
 
-If no game folder is shared yet, setup explains how to add a [Docker folder mapping](https://docs.docker.com/engine/storage/bind-mounts/). For example, uncomment the library volume in the compose file and replace the host path with your actual games folder. After recreating the container with that mapping, choose **/library** in setup. A host path or NAS share cannot become accessible merely by typing it into the app; it must be mounted into the container first. The folder browser stays within mounted library directories and excludes container system and saved-data folders.
+For example, choose **Network → SMB** and enter `smb://smb.lab.wetnight.family/games`. Enter a username and password if the share requires them. No game-folder Docker mapping is needed for direct network sources. Alternatively, uncomment the optional library mapping in Compose, replace the host path with your games folder, recreate the container, and choose **/library** under Folder. The folder browser stays within mounted library directories and excludes container system and saved-data folders.
 
-A valid **GAMESHELF_ROOT** supplied with its folder mount skips first-time setup. Existing saved settings are retained when their folders are available. A missing or unreadable configured folder leaves the app running so you can correct it. Setup is remembered in the data volume and is shown again only when a library needs configuration, not on every container recreation. Keep the same named data volume to preserve it.
+Setup offers a short, skippable tour of search, sorting, views, the random picker, Playlist, game details, and Settings. Replay it from **Settings → Appearance → Quick tour**. The welcome background and tour respect the animation settings and your device's reduced-motion preference. The library stays hidden until GameShelf has checked whether setup is complete.
 
-Later, use **Settings → Advanced → Data and Diagnostics → Library Sources** to browse/change game and data folders, and **Refresh Interval** to change the scan schedule. Folder/data changes require a container restart; refresh interval changes apply immediately. The internal listener is always **8080**. To use a different external port, change only the host side of the Docker port mapping, such as **8090:8080**.
+A valid **GAMESHELF_ROOT** supplied with its folder mount skips first-time setup. Existing saved settings are retained. A missing folder or temporarily unavailable server leaves the app running so you can correct the connection. Setup is remembered in the data volume; keep the same volume when recreating the container.
+
+Later, use **Settings → Advanced → Data and Diagnostics → Library Sources** to add, edit, test, or remove locations. Library changes apply immediately. **Refresh Interval** changes the scan schedule in whole hours (default **168**, once a week; **0** means manual refresh). Changing the saved-data location requires a restart and does not move existing data. The internal listener is always **8080**; change only the host side of the port mapping to use another external port, for example **8090:8080**.
+
+### Network libraries
+
+Choose **Network** in setup or Library Sources. Each location has its own protocol, address, and optional credentials. Add a friendly name under More options to distinguish servers.
+
+| Connection | Example | Authentication and options |
+| --- | --- | --- |
+| SMB (SMB 2/3) | `smb://nas/games` | Username/password, optional Windows domain; leave credentials empty for a guest share. UNC paths such as `\\nas\games` and `nas/games` are also accepted. |
+| NFS | `nfs://nas/export/games` | Automatic NFS 4 then NFS 3, or choose a version; user/group IDs default to 10001. The server export must permit this client and its user IDs. |
+| SFTP | `sftp://nas:22/games` | Username/password and an explicitly trusted SSH host key. Check the displayed fingerprint against your server before trusting it. A changed key requires approval again. |
+| WebDAV | `https://nas/games/` | Optional username/password; HTTP and HTTPS are supported. |
+| FTP | `ftp://nas:21/games/` | Optional username/password. FTP is unencrypted. |
+| FTPS | `ftps://nas:990/games/` | Implicit TLS with optional username/password. The server certificate must be trusted; explicit STARTTLS on port 21 is not currently supported. |
+
+Network locations connect directly from the GameShelf container; they do not require privileged mode, FUSE, or kernel mounts. The server must be reachable from that container. For NFS, a server may need an export policy allowing unprivileged client ports. SFTP currently supports password authentication. Kerberos, SSH private-key authentication, and client certificate authentication are not configured in the app.
+
+GameShelf lists file metadata during scans and streams game files only when requested. It does not mirror the collection into `/data`. Detected cover images use a bounded local cache (20 MiB per image, pruned to 256 MiB and seven days). Unavailable sources retain their last known games and show a connection notice; reconnect and refresh to update them.
+
+Passwords are encrypted in saved settings using a private key in the data volume. They are never returned to the browser or included in exported settings. Editing an existing connection with a blank password keeps its saved password; use the explicit clear option to remove it. Copy the **whole data volume, including hidden files**, to migrate saved credentials. A ZIP settings backup omits credentials, so re-enter passwords after restoring it. Existing source IDs in the backup preserve metadata associations.
+
+Direct SMB, SFTP, WebDAV, FTP, and FTPS use [rclone](https://rclone.org/); NFS uses a read-only adapter linked to [libnfs](https://github.com/sahlberg/libnfs). Both are included in the Docker image. For a source build outside Docker, install these runtime connectors as well.
 
 ### Container User and File Permissions
 
@@ -132,13 +157,13 @@ The toolbar Playlist button opens a review of selected games and their estimated
 
 The cover editor can select PNG, JPEG, GIF, or WebP images already inside a game's folder. The selected image opens in the editor for adjustments; saving creates a PNG in application data. Game folders remain read-only.
 
-**Advanced Settings → Library Sources** accepts one container path per line, up to 16 sources. The first path is the primary source; existing game links keep their IDs. Additional sources and duplicate folder names receive separate stable IDs and cover storage. Secondary sources may be mounted beneath the primary path, but must not overlap one another. A directory containing a configured secondary source is treated as a mount container, not a game. Paths must be present within library mounts shared with the container. For a NAS, mount its SMB, NFS, SSHFS, WebDAV, or other supported share on the Docker host and bind it read-only to a container folder such as `/library/nas`, then add that container path in Library Sources. Network addresses and credentials are configured with the host's mount tools; GameShelf does not currently connect to a share URL or store share passwords. Source changes take effect after a container restart. Automatic scan timing is configured separately under **Advanced Settings → Refresh Interval** in whole hours; the default is 168 hours (one week) unless an existing deployment supplies a different value. Enter 0 to disable automatic scans.
+**Advanced Settings → Library Sources** manages up to 16 combined local and network locations. Existing game links keep their IDs. Additional sources and duplicate folder names receive separate stable IDs and cover storage. Local sources must be within folders shared with the container; secondary paths may be below the primary path but must not overlap one another. A directory containing another configured source is treated as a container for that source, not as a game. Network sources use the direct connections described above. Source changes apply immediately. Scan timing is configured separately under **Refresh Interval** in whole hours; the default is 168 hours (one week), and 0 disables automatic scans.
 
-Keep this ZIP with your other backups. To restore it, open **Settings → Restore Data**, choose the exported ZIP, and review its contents. Select library state, uploaded covers, and/or server settings, acknowledge that those selected files will be replaced, then confirm. Game-folder cover copies and logs in the archive are not restored; mounted game folders remain read-only. The ZIP is validated before changes are made, and selected files are staged before replacement. Archives are limited to 64 MiB compressed, 128 MiB expanded, and 500 entries. Server paths in a backup must be valid in the current container before restoring settings; deselect settings if they refer to another deployment. Restoring settings may require a container restart. The game library still needs to be mounted at the same container path for saved dates, favorites, and customized titles to match.
+Keep this ZIP with your other backups. To restore it, open **Settings → Restore Data**, choose the exported ZIP, and review its contents. Select library state, uploaded covers, and/or server settings, acknowledge that those selected files will be replaced, then confirm. Game-folder cover copies and logs in the archive are not restored; mounted game folders remain read-only. The ZIP is validated before changes are made, and selected files are staged before replacement. Archives are limited to 64 MiB compressed, 128 MiB expanded, and 500 entries. Server paths in a backup must be valid in the current container before restoring settings; deselect settings if they refer to another deployment. Restoring settings may require a container restart. Local libraries need the same container paths, and network libraries need their saved source IDs, for dates, favorites, and customized titles to match. Re-enter network passwords after restoring settings; exported backups contain no network passwords or encryption key.
 
 “Date added” means the first successful scan after this feature is enabled, not the folder's filesystem creation date. Games already in the library receive that initial scan date. Removing a game and refreshing removes its stored date; adding it again starts a new date. If `/data` cannot be written, the library still loads and new dates stay blank until storage is fixed. The `/api/games` response includes `idPersisted`: `true` means the current ID is present in saved state or was successfully saved by this scan; `false` means the identity is temporary. Logs report temporary assignments. During one process lifetime, GameShelf retains assignments for absent folders too, preventing their URLs from changing owners during rescans. After a restart without saved assignments, the same folder set produces the same IDs, but adding, removing, or renaming colliding folders can change temporary URLs. If saved state becomes readable again, its assignments take priority over temporary ones, so conflicting temporary URLs can change at recovery. Unreadable or invalid state is never overwritten; restore or repair it to recover saved identities, then rescan. A successful scan with writable storage saves temporary assignments for future restarts.
 
-When upgrading from an older image that ran as root, check access before recreating the container. The runtime identity needs read and search (execute) permission on the mounted collection and every game subdirectory, plus read permission on every game file and cover image. A read-only mount prevents writes but does not grant read access. An inaccessible collection root prevents startup; inaccessible files or subdirectories can cause scan warnings, failed covers, or incomplete ZIP downloads. Check container logs if content is missing.
+When upgrading from an older image that ran as root, check access before recreating the container. The runtime identity needs read and search (execute) permission on the mounted collection and every game subdirectory, plus read permission on every game file and cover image. A read-only mount prevents writes but does not grant read access. An inaccessible collection root leaves GameShelf running with a scan warning; inaccessible files or subdirectories can cause missing covers or incomplete ZIP downloads. Check container logs if content is missing.
 
 Publicly readable collections (directories `0755`, files `0644`) work with the default identity. For a private collection, use its existing non-root owner or a group/ACL that grants read and directory search access. Keep these permissions limited to the intended collection; `chmod 777` is unnecessary.
 
@@ -170,7 +195,7 @@ GameShelf always listens on unprivileged internal port `8080`. To expose host po
 ### Environment Variables
 | Variable                     | Default  | Description                                                                     |
 | ---------------------------- | -------- | ------------------------------------------------------------------------------- |
-| `GAMESHELF_ROOT`             | Unset | Optional initial library folder inside the container. Without it, choose mounted folders in first-time setup. |
+| `GAMESHELF_ROOT`             | Unset | Optional initial library folder inside the container. Without it, choose folders or direct network locations in first-time setup. |
 | `GAMESHELF_DATA_DIR`         | `/data`  | Writable app state for first-seen dates; the image provides Docker-managed storage at this path. |
 
 **After successful installation, navigate to GameShelf's `IP:8080` address to view the indexed content.**
@@ -293,12 +318,12 @@ GameDrive
       cover.png
 ```
 ## Usage
-1. Upload folders to the GameShelf directory (your mounted storage).
+1. Place games in separate folders on one of your configured local or network sources.
 2. Open GameShelf to search or sort the library, switch between grid and list views, or use the dice button to pick a random game. **All** clears the active sort/filter. Favorites and Recently Added are available in the sort/filter menu; Settings controls the Recently Added range and whether favorite stars appear on cards. Card stars are off by default; when enabled, the default suboption shows them only on favorited cards. The GameShelf icon returns to the unfiltered grid; the GameShelf text refreshes the library. Return to the library or reroll from the selected card.
 3. Hover over a game card or list row for its download and information controls. Download retrieves that game's folder as a ZIP and shows a brief download-started notification. The information panel shows its title, location, size, cover status, date added, and file count; on desktop, the cover panel also offers a full-game download. Open the file count to download individual files directly. List cover thumbnails are on by default and can be hidden in Settings.
 4. Edit a GameShelf title or upload and adjust cover art from the information panel. The file count below **Download Game** opens a separate file list with individual downloads. **Reset Metadata** can restore the folder title, folder cover (or placeholder), and unfavorited state after review and confirmation. The original first-seen date is preserved. These changes live in `/data`; they do not modify your mounted game folders. Settings includes an export of saved titles, dates, and real cover images.
 
-Settings also offers appearance themes (**System**, **GameShelf Classic**, **Light**, **Dark**, and **Retro Arcade**), card and list display preferences, **Library Sources**, **Refresh Interval**, and **Application Logs**. The compact Basic/Advanced switch reveals source, refresh, animation, Recently Added range, and list-image expansion controls. System follows the device's light or dark preference; a dark system uses GameShelf Classic. The refresh interval is configured in whole hours, defaults to 168 hours, and accepts 0 to disable automatic scans. Saved path changes take effect after a container restart; interval and log configuration changes take effect immediately. Paths must already exist inside the container and remain within the library mounts available to the container and the original data mount. Changing the data path does not move saved metadata or artwork, so copy them to the new location before restarting. Advanced Settings includes a confirmed **Reset All Settings** action that restores preferences and server settings without deleting game metadata or covers; restart the container if paths changed. Settings are kept in `server-settings.json` under the original data mount, and can be included in Export Data. Saves and exports show a temporary confirmation banner; errors remain visible where the action was started.
+Settings also offers appearance themes (**System**, **GameShelf Classic**, **Light**, **Dark**, and **Retro Arcade**), card and list display preferences, **Library Sources**, **Refresh Interval**, and **Application Logs**. The compact Basic/Advanced switch reveals source, refresh, animation, Recently Added range, and list-image expansion controls. System follows the device's light or dark preference; a dark system uses GameShelf Classic. The refresh interval is configured in whole hours, defaults to 168 hours, and accepts 0 to disable automatic scans. Library source, interval, and log configuration changes take effect immediately. Local paths must exist within the container’s available library mounts; direct network locations are configured in the app. Saved-data paths must remain within the original data mount. Changing the data path does not move saved metadata or artwork, so copy them to the new location before restarting. Advanced Settings includes a confirmed **Reset All Settings** action that restores preferences and server settings without deleting game metadata or covers; restart the container if the saved-data location changed. Settings are kept in `server-settings.json` under the original data mount, and can be included in Export Data. Saves and exports show a temporary confirmation banner; errors remain visible where the action was started.
 
 For local dashboards, `GET /api/stats` returns JSON fields `gameCount`, `fileCount`, `totalSizeBytes`, `coveredGameCount`, and `lastIndexedAt` (UTC RFC 3339). Counts reflect the current indexed game state: library file counts and sizes update on a successful scan, while cover availability also updates after an upload. `fileCount` and `totalSizeBytes` include regular files in indexed game folders, including folder cover files; uploaded covers in `/data` are not counted. `lastIndexedAt` marks the last successful scan and is empty until one succeeds. This endpoint does not expose host filesystem paths.
 

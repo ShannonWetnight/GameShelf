@@ -41,7 +41,8 @@ static int list(struct nfs_context *nfs, const char *directory, int recursive, u
         int is_dir=entry->type==GS_NFS_DIRECTORY;
         char stamp[32]="";time_t seconds=entry->mtime.tv_sec;struct tm tm;
         if(gmtime_r(&seconds,&tm))strftime(stamp,sizeof(stamp),"%Y-%m-%dT%H:%M:%SZ",&tm);
-        if(!first)putchar(',');first=0;
+        if(!first)putchar(',');
+        first=0;
         fputs("{\"Path\":",stdout);quote(name);printf(",\"Size\":%" PRIu64 ",\"IsDir\":%s,\"ModTime\":",is_dir?0:entry->size,is_dir?"true":"false");quote(stamp);putchar('}');
         if(is_dir&&recursive&&list(nfs,name,recursive,depth+1)<0){free(name);nfs_closedir(nfs,dir);return -1;}
         free(name);

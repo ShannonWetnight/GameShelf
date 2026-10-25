@@ -918,6 +918,28 @@ func activateLibrary(value serverSettings) error {
 	refreshMu.Lock()
 	rootDir, rootDirs = value.RootDir, libraryRoots(value)
 	setActiveSources(value.Sources)
+	// Removed locations must disappear even if a new server goes offline before
+	// its first scan. Keep last-known entries only for still-configured sources.
+	ids := make(map[string]bool)
+	for _, source := range value.Sources {
+		ids[source.ID] = true
+	}
+	gamesMu.Lock()
+	for id, entry := range gamesMap {
+		keep := ids[entry.NetworkID]
+		if entry.NetworkID == "" {
+			for _, root := range rootDirs {
+				if entryRootDir(entry) == root {
+					keep = true
+					break
+				}
+			}
+		}
+		if !keep {
+			delete(gamesMap, id)
+		}
+	}
+	gamesMu.Unlock()
 	refreshMu.Unlock()
 	return refreshGames()
 }

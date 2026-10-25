@@ -184,7 +184,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !hasLibrary(value) {
-			http.Error(w, "Choose at least one game library folder.", http.StatusBadRequest)
+			http.Error(w, "Choose at least one folder or network location.", http.StatusBadRequest)
 			return
 		}
 		if err := validateServerSettings(value); err != nil {
@@ -197,7 +197,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Library endpoints are gated until these initial runtime paths and the
-		// first complete index are ready. Later path edits retain restart semantics.
+		// first complete index are ready. Later library edits apply live.
 		libraryRuntimeMu.Lock()
 		defer libraryRuntimeMu.Unlock()
 		settingsMu.RLock()
@@ -208,7 +208,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		setActiveSources(saved.Sources)
 		refreshMu.Unlock()
 		if err := refreshGames(); err != nil {
-			http.Error(w, "Could not read your library. Check the folder mapping and permissions, then try again.", http.StatusBadRequest)
+			http.Error(w, "Could not read your library. Check the location, connection, and permissions, then try again.", http.StatusBadRequest)
 			return
 		}
 		setupRequired.Store(false)

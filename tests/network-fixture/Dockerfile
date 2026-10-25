@@ -9,4 +9,5 @@ RUN apk upgrade --no-cache && apk add --no-cache samba-server unfs3 rpcbind rclo
        -days 2 -subj /CN=network-fixture -addext subjectAltName=DNS:network-fixture \
     && printf 'fixture-only-private-file\n' > /private.txt
 COPY start.sh /start.sh
+RUN sed -i 's/\r$//' /start.sh
 ENTRYPOINT ["/bin/sh", "/start.sh"]

@@ -36,6 +36,7 @@ allow_writeable_chroot=YES
 seccomp_sandbox=NO
 ssl_enable=YES
 implicit_ssl=YES
+require_ssl_reuse=NO
 rsa_cert_file=/tls/server.crt
 rsa_private_key_file=/tls/server.key
 force_local_data_ssl=YES

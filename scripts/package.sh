@@ -22,15 +22,18 @@ pathlib.Path('dist/docker-compose.yml').write_text('''services:
     image: ''' + data['image'] + '''
     ports:
       - "8080:8080"
-    environment:
-      GAMESHELF_ROOT: /games
     volumes:
-      - /path/to/your/library:/games:ro
+      - gameshelf-data:/data
+      # Optional local folder; direct network sources can be added in setup.
+      # - /path/to/your/library:/library:ro
     read_only: true
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+
+volumes:
+  gameshelf-data:
 ''')
 PY
 (cd dist && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)

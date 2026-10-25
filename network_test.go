@@ -349,3 +349,27 @@ func TestSFTPVerifiesPinnedServerKeyAndStreamsAuthenticatedFiles(t *testing.T) {
 		t.Fatalf("changed server key was not rejected: %v", err)
 	}
 }
+
+func TestRemovedNetworkSourceDisappearsWhenReplacementIsOffline(t *testing.T) {
+	_, _ = setupFreshServer(t)
+	oldList, oldSources := networkList, snapshotSources()
+	t.Cleanup(func() { networkList = oldList; setActiveSources(oldSources) })
+	previous := networkSource{ID: newSourceID(), URL: "smb://old/games", Protocol: "smb"}
+	setActiveSources([]networkSource{previous})
+	rootDir = ""
+	rootDirs = nil
+	networkList = func(context.Context, networkSource, bool) ([]remoteItem, error) {
+		return []remoteItem{{Path: "Old Game", IsDir: true}}, nil
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	replacement := networkSource{ID: newSourceID(), URL: "smb://new/games", Protocol: "smb"}
+	networkList = func(context.Context, networkSource, bool) ([]remoteItem, error) { return nil, errors.New("offline") }
+	if err := activateLibrary(serverSettings{Sources: []networkSource{replacement}}); err == nil {
+		t.Fatal("expected offline scan")
+	}
+	if len(gamesMap) != 0 {
+		t.Fatal("removed source left games in the library")
+	}
+}
