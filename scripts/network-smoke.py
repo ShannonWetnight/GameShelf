@@ -133,6 +133,7 @@ def main(image):
                     assert "fixture-password" not in saved_file and "passwordCipher" in saved_file
                 print(f"PASS: direct {protocol}, no game mount, connection test, index, covers, ZIP, range, Playlist, private credentials")
             docker("restart", app)
+            base = "http://" + docker("port", app, "8080/tcp").splitlines()[0]
             for attempt in range(60):
                 try:
                     assert not request("/api/setup")["required"]
