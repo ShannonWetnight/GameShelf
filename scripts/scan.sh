@@ -11,7 +11,7 @@ for target in candidate builder; do
     --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
     --mount "type=bind,src=$PWD/reports,dst=/reports" \
     --mount type=volume,src=gameshelf-trivy-cache,dst=/root/.cache/trivy \
-    "$scanner" image --image-src docker --scanners vuln \
+    "$scanner" image --image-src docker --scanners vuln --detection-priority comprehensive \
     --format json --output "/reports/$target.json" "gameshelf:$target"; then
     blocked=1
   fi
@@ -22,6 +22,9 @@ blocked = False
 with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
     for target in ('candidate', 'builder'):
         data = json.loads(pathlib.Path(f'reports/{target}.json').read_text())
+        if pathlib.Path('network.go').exists():
+            assert any(result.get('Type') == 'gobinary' and result.get('Target', '').endswith('/rclone')
+                       for result in data.get('Results', [])), 'rclone embedded dependencies were not scanned'
         counts = collections.Counter(v['Severity'] for result in data.get('Results', [])
                                      for v in result.get('Vulnerabilities', []))
         summary.write(f'### {target} vulnerability scan\n\n{dict(counts)}\n\n')

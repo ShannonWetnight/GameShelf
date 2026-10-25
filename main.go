@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"embed"
 	"encoding/json"
@@ -40,6 +41,7 @@ type Game struct {
 	FileCount   int    `json:"fileCount"`
 	AddedAt     string `json:"addedAt"`
 	Favorite    bool   `json:"favorite"`
+	Location string `json:"location,omitempty"`
 }
 
 type gameEntry struct {
@@ -48,6 +50,8 @@ type gameEntry struct {
 	RootDir   string // containing library source; empty uses the legacy primary source
 	CoverKey  string // unique storage name for an uploaded cover
 	CoverPath string // absolute path to cover, if any
+	NetworkID string
+	RemoteFiles []remoteItem
 }
 
 var (
@@ -70,10 +74,14 @@ func main() {
 	rootDir = settings.RootDir
 	rootDirs = libraryRoots(settings)
 	dataDir = settings.DataDir
+	setActiveSources(settings.Sources)
 
-	if len(rootDirs) == 0 {
+	if !hasLibrary(settings) {
 		setupRequired.Store(true)
 		log.Print("Welcome to GameShelf. Open port 8080 to choose your library folders.")
+	} else if len(settings.Sources) > 0 {
+		setScanProgress(true, "Connecting to your libraries…")
+		go func(){if err:=refreshGames();err!=nil{logEvent("errors","initial network scan: %v",err)}}()
 	} else if err := refreshGames(); err != nil {
 		setupRequired.Store(true)
 		log.Printf("Library unavailable; open GameShelf to update your folders: %v", err)
@@ -96,6 +104,8 @@ func main() {
 	mux.HandleFunc("/api/favorite/", handleFavorite)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
 	mux.HandleFunc("/api/setup", handleSetup)
+	mux.HandleFunc("/api/network-test", handleNetworkTest)
+	mux.HandleFunc("/api/source-status", handleSourceStatus)
 	mux.HandleFunc("/api/library-folders", handleLibraryFolders)
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
 	mux.HandleFunc("/api/server-settings/reset", handleResetServerSettings)
@@ -351,6 +361,8 @@ func assignGameIDs(entries []os.DirEntry, saved map[string]string) (map[string]s
 func refreshGames() error {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
+	setScanProgress(true,"Scanning your games…")
+	defer setScanProgress(false,"")
 
 	nextGames := make(map[string]*gameEntry)
 	state, stateErr := readLibraryMetadata()
@@ -361,11 +373,11 @@ func refreshGames() error {
 	nextFirstSeen := make(map[string]string)
 	stateChanged := false
 
-	primaryEntries, err := os.ReadDir(rootDir)
-	if err != nil { return fmt.Errorf("reading library source %s: %w", rootDir, err) }
+	var primaryEntries []os.DirEntry
+	if rootDir!=""{var err error;primaryEntries,err=os.ReadDir(rootDir);if err!=nil{return fmt.Errorf("reading library source %s: %w",rootDir,err)}}
 	scanRoots := rootDirs
-	if len(scanRoots) == 0 { scanRoots = []string{rootDir} }
-	type sourceFolder struct { source, name, key string }
+	if len(scanRoots) == 0 && rootDir!="" { scanRoots = []string{rootDir} }
+	type sourceFolder struct { source, name, key string; network *networkFolder }
 	folders := make([]sourceFolder, 0)
 	// A share mounted below /games is a source container, not a game in /games.
 	isSourceContainer := func(source, name string) bool {
@@ -379,17 +391,20 @@ func refreshGames() error {
 	for _, e := range primaryEntries {
 		if e.IsDir() && !isSourceContainer(rootDir, e.Name()) {
 			primaryGameEntries = append(primaryGameEntries, e)
-			folders = append(folders, sourceFolder{rootDir, e.Name(), e.Name()})
+			folders = append(folders, sourceFolder{rootDir, e.Name(), e.Name(),nil})
 		}
 	}
 	for _, source := range scanRoots {
 		if source == rootDir { continue }
 		entries, err := os.ReadDir(source)
 		if err != nil { return fmt.Errorf("reading library source %s: %w", source, err) }
-		for _, e := range entries { if e.IsDir() && !isSourceContainer(source, e.Name()) { folders = append(folders, sourceFolder{source, e.Name(), filepath.Join(source, e.Name())}) } }
+		for _, e := range entries { if e.IsDir() && !isSourceContainer(source, e.Name()) { folders = append(folders, sourceFolder{source, e.Name(), filepath.Join(source, e.Name()),nil}) } }
 	}
+	networkFolders,retained,networkErr:=collectNetworkFolders();if networkErr!=nil{return networkErr}
+	for i:=range networkFolders{folder:=&networkFolders[i];folders=append(folders,sourceFolder{folder.Source,folder.Name,filepath.Join(folder.Source,folder.Name),folder})}
 	// A different library/storage pair must not inherit process-local assignments.
 	rootSignature := strings.Join(scanRoots, "\x00")
+	for _,source:=range snapshotSources(){rootSignature+="\x00"+source.ID}
 	if cachedIDRoot != rootSignature || cachedIDData != dataDir {
 		cachedIDs = nil
 	}
@@ -440,7 +455,8 @@ func refreshGames() error {
 		id := ids[folder.key]
 		absPath := filepath.Join(folder.source, dirName)
 
-		size, fileCount, err := dirStats(absPath)
+		var size int64;var fileCount int;var err error
+		if folder.network!=nil{size,fileCount=folder.network.Size,len(folder.network.Files)}else{size,fileCount,err=dirStats(absPath)}
 		if err != nil {
 			return fmt.Errorf("scanning game %q: %w", dirName, err)
 		}
@@ -451,7 +467,7 @@ func refreshGames() error {
 		if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
 			cover = legacyCustomCoverPath(coverKey)
 			if info, err := os.Lstat(cover); err != nil || !info.Mode().IsRegular() {
-				cover = findCover(absPath)
+				if folder.network!=nil{temp:=&gameEntry{RemoteFiles:folder.network.Files};if relative:=remoteCoverName(temp);relative!=""{cover=filepath.Join(absPath,relative)}else{cover=""}}else{cover = findCover(absPath)}
 				coverSource = "folder"
 			}
 		}
@@ -496,8 +512,10 @@ func refreshGames() error {
 			CoverPath: cover,
 		}
 
+		if folder.network!=nil{entry.NetworkID=folder.network.NetworkID;entry.RemoteFiles=folder.network.Files;entry.Game.Location=folder.network.Location}
 		nextGames[id] = entry
 	}
+	for _,entry:=range retained{nextGames[entry.Game.ID]=entry;nextFirstSeen[entry.Game.Path]=entry.Game.AddedAt}
 	if stateErr == nil {
 		if len(nextFirstSeen) != len(firstSeen) {
 			stateChanged = true
@@ -610,6 +628,7 @@ func openChildRoot(parent *os.Root, name string) (*os.Root, error) {
 }
 
 func openGameRoot(entry *gameEntry) (*os.Root, error) {
+	if entry.NetworkID!=""{return nil,errors.New("network games use the read-only network connector")}
 	if !filepath.IsLocal(entry.DirName) || filepath.Base(entry.DirName) != entry.DirName {
 		return nil, fmt.Errorf("invalid game directory")
 	}
@@ -790,6 +809,7 @@ func openUploadedCoverForBackup(dirName, coverPath string) (*os.File, error) {
 }
 
 func openFolderCoverForBackup(entry gameEntry) (*os.File, error) {
+	if entry.NetworkID!=""{return remoteCoverFile(context.Background(),&entry,remoteCoverName(&entry))}
 	root, err := openGameRoot(&entry)
 	if err != nil {
 		return nil, err
@@ -828,7 +848,7 @@ func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, 
 		settingsMu.RLock()
 		settings := configuredSettings
 		settingsMu.RUnlock()
-		contents, marshalErr := json.MarshalIndent(settings, "", "  ")
+		contents, marshalErr := json.MarshalIndent(publicSettings(settings), "", "  ")
 		if marshalErr != nil { err = marshalErr } else {
 			member, createErr := archive.Create("server-settings.json")
 			if createErr != nil { err = createErr } else { _, err = member.Write(append(contents, '\n')) }
@@ -975,6 +995,7 @@ func handleCoverSource(w http.ResponseWriter, r *http.Request) {
 	if entry == nil || !filepath.IsLocal(rel) || rel == "." || strings.Contains(rel, "\\") || (ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".gif" && ext != ".webp") {
 		http.NotFound(w, r); return
 	}
+	if entry.NetworkID!=""{serveNetworkCover(w,r,entry,rel,true);return}
 	root, err := openGameRoot(entry)
 	if err != nil { http.NotFound(w, r); return }
 	defer root.Close()
@@ -1146,6 +1167,7 @@ func handleGameFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if entry.NetworkID!=""{handleRemoteFiles(w,r,entry);return}
 	dirPath := filepath.Join(entryRootDir(entry), entry.DirName)
 	files := make([]gameFile, 0)
 	const maxFiles = 2000
@@ -1201,6 +1223,7 @@ func handleGameFileDownload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if entry.NetworkID!=""{serveRemoteFile(w,r,entry,rel);return}
 	root, err := openGameRoot(entry)
 	if err != nil {
 		http.NotFound(w, r)
@@ -1238,6 +1261,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if entry.NetworkID!=""{downloadRemoteGame(w,r,entry);return}
 	root, err := openGameRoot(entry)
 	if err != nil {
 		http.Error(w, "Unable to read game directory.", http.StatusServiceUnavailable)
@@ -1336,18 +1360,19 @@ func handleDownloadCart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
 	ids := r.URL.Query()["game"]
 	if len(ids) == 0 || len(ids) > 50 { http.Error(w, "select 1 to 50 games", http.StatusBadRequest); return }
-	type item struct { id string; root *os.Root }
+	type item struct { id string; root *os.Root; entry *gameEntry }
 	items := make([]item, 0, len(ids))
-	defer func() { for _, selected := range items { selected.root.Close() } }()
+	defer func() { for _, selected := range items { if selected.root!=nil{selected.root.Close()} } }()
 	seen := make(map[string]bool)
 	for _, id := range ids {
 		if id == "" || seen[id] { http.Error(w, "invalid cart selection", http.StatusBadRequest); return }
 		seen[id] = true
 		entry := getGameEntryByID(id)
 		if entry == nil { http.NotFound(w, r); return }
+		if entry.NetworkID!=""{items=append(items,item{id,nil,entry});continue}
 		root, err := openGameRoot(entry)
 		if err != nil { http.Error(w, "Unable to read a selected game.", http.StatusServiceUnavailable); return }
-		items = append(items, item{id, root})
+		items = append(items, item{id, root,entry})
 	}
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="gameshelf-playlist.zip"`)
@@ -1356,7 +1381,8 @@ func handleDownloadCart(w http.ResponseWriter, r *http.Request) {
 	archive := zip.NewWriter(output)
 	for _, selected := range items {
 		if logTypeEnabled("downloads") { log.Printf("[download] playlist game %s", selected.id) }
-		if err := addGameToZIP(archive, selected.root, selected.id); err != nil {
+		var err error;if selected.entry.NetworkID!=""{err=addRemoteGameToZIP(r.Context(),archive,selected.entry,selected.id)}else{err=addGameToZIP(archive,selected.root,selected.id)}
+		if err != nil {
 			logEvent("errors", "playlist zip error: %v", err)
 			if output.started { panic(http.ErrAbortHandler) }
 			http.Error(w, "Unable to package selected games.", http.StatusServiceUnavailable)
@@ -1402,6 +1428,7 @@ func handleCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if entry.NetworkID!=""&&entry.Game.CoverSource!="uploaded"{serveNetworkCover(w,r,entry,remoteCoverName(entry),false);return}
 	var root *os.Root
 	var rel string
 	var err error
@@ -1453,6 +1480,7 @@ func sanitizeFilename(name string) string {
 type serverSettings struct {
 	RootDir string `json:"rootDir"`
 	RootDirs []string `json:"rootDirs,omitempty"`
+	Sources []networkSource `json:"sources,omitempty"`
 	DataDir string `json:"dataDir"`
 	RefreshInterval string `json:"refreshInterval"`
 	Verbose bool `json:"verbose"`
@@ -1597,6 +1625,9 @@ func validRefreshInterval(value string) bool {
 }
 
 func validateServerSettings(value serverSettings) error {
+	if len(libraryRoots(value))+len(value.Sources)>16{return errors.New("choose up to 16 library sources")}
+	ids,locations:=map[string]bool{},map[string]bool{}
+	for _,source:=range value.Sources{normalized,err:=normalizeNetworkSource(source);if err!=nil{return err};if normalized.ID!=""&&ids[normalized.ID]{return errors.New("duplicate network source identifier")};if locations[normalized.URL]{return errors.New("this network location is already in the library")};ids[normalized.ID]=true;locations[normalized.URL]=true}
 	if options := normalizeLogOptions(value.LogOptions); options.SizeMB < 1 || options.SizeMB > 100 || options.Days < 1 || options.Days > 3650 { return errors.New("log retention must be 1–100 MB and 1–3650 days") }
 	roots := libraryRoots(value)
 	if len(roots) > 16 || (len(roots) > 0 && roots[0] != value.RootDir) { return errors.New("choose 1–16 library paths with the primary path first") }
@@ -1647,11 +1678,12 @@ func initializeServerSettings() serverSettings {
 	settingsMu.Unlock()
 	verboseLogging.Store(value.Verbose)
 	applicationLogs.Configure(value.LogOptions)
-	setupRequired.Store(len(libraryRoots(value)) == 0)
+	setupRequired.Store(!hasLibrary(value))
 	return value
 }
 
 func saveServerSettings(value serverSettings) error {
+	var secretsErr error;value,secretsErr=prepareNetworkSecrets(value);if secretsErr!=nil{return secretsErr}
 	value.LogOptions = normalizeLogOptions(value.LogOptions)
 	if err := validateServerSettings(value); err != nil { return err }
 	contents, err := json.MarshalIndent(value, "", "  ")
@@ -1679,21 +1711,25 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		value := configuredSettings
 		settingsMu.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(value)
+		json.NewEncoder(w).Encode(publicSettings(value))
 	case http.MethodPut:
 		setupMu.Lock(); defer setupMu.Unlock()
 		var value serverSettings
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 524288))
 		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&value); err != nil { http.Error(w, "invalid settings", http.StatusBadRequest); return }
 		settingsMu.RLock()
 		old := configuredSettings
 		settingsMu.RUnlock()
-		if len(libraryRoots(value)) == 0 && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
+		if !hasLibrary(value) && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
 		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
-		if old.RefreshInterval != value.RefreshInterval { notifyRefreshSchedule() }
+		settingsMu.RLock();saved:=configuredSettings;settingsMu.RUnlock()
+		restart:=old.DataDir!=saved.DataDir
+		libraryChanged:=old.RootDir!=saved.RootDir||strings.Join(libraryRoots(old),"\x00")!=strings.Join(libraryRoots(saved),"\x00")||!sourcesEqual(old.Sources,saved.Sources)
+		if libraryChanged&&!restart&&!setupRequired.Load(){if err:=activateLibrary(saved);err!=nil{logEvent("errors","library source scan: %v",err)}}
+		if old.RefreshInterval!=saved.RefreshInterval{notifyRefreshSchedule()}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{old.RootDir != value.RootDir || strings.Join(libraryRoots(old), "\x00") != strings.Join(libraryRoots(value), "\x00") || old.DataDir != value.DataDir})
+		json.NewEncoder(w).Encode(struct{RestartRequired bool `json:"restartRequired"`;Settings serverSettings `json:"settings"`}{restart,publicSettings(saved)})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -1704,7 +1740,7 @@ func handleResetServerSettings(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
 	defaults := defaultServerSettings()
 	if err := saveServerSettings(defaults); err != nil { http.Error(w, "could not reset settings", http.StatusServiceUnavailable); return }
-	if len(libraryRoots(defaults)) == 0 { setupRequired.Store(true); notifyRefreshSchedule() }
+	if !hasLibrary(defaults) { setupRequired.Store(true); notifyRefreshSchedule() }
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{true})
 }
@@ -1781,7 +1817,7 @@ func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
 	if request.Title { updated.Game.Name = entry.DirName }
 	if request.Favorite { updated.Game.Favorite = false }
 	if request.Cover {
-		updated.CoverPath = findCover(filepath.Join(entryRootDir(entry), entry.DirName))
+		if entry.NetworkID!=""{relative:=remoteCoverName(entry);updated.CoverPath="";if relative!=""{updated.CoverPath=filepath.Join(entryRootDir(entry),entry.DirName,relative)}}else{updated.CoverPath = findCover(filepath.Join(entryRootDir(entry), entry.DirName))}
 		updated.Game.HasCover = updated.CoverPath != ""
 		updated.Game.CoverSource = "folder"
 		if !updated.Game.HasCover { updated.Game.CoverSource = "placeholder" }

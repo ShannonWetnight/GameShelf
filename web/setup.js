@@ -1,74 +1,240 @@
-/* First-run setup and the shared, mount-confined library folder picker. */
+/* One source editor serves first-run setup and Library Sources. Passwords remain
+   only in unsaved memory; the API returns redacted settings after every save. */
 (() => {
-  const byId = id => document.getElementById(id);
-  let current = null, target = null, browseVersion = 0, folderState = null;
-  const rootsOf = settings => settings.rootDirs?.length ? settings.rootDirs : settings.rootDir ? [settings.rootDir] : [];
+  const $ = id => document.getElementById(id);
+  const drafts = { setup: [], settings: [] };
+  let current = null, step = 1, panel = 'setup', editing = null;
+  let editorID = '', editorHasPassword = false, editorHostKey = '', tested = '', testing = false, pendingTrust = null;
+  let folderOriginal = null, folderPanel = 'setup', pickerTarget = null, folderState = null, browseVersion = 0;
+  let statusTimer, lastStates = [], watchedBusy = false;
+  let editorVersion = 0, networkController = null, folderVersion = 0;
+  const rootsInput = owner => $(owner === 'setup' ? 'setup-roots' : 'server-root-path');
+  const roots = owner => rootsInput(owner).value.split(/\r?\n/).map(path => path.trim()).filter(Boolean);
+  const sourceCount = owner => roots(owner).length + drafts[owner].length;
+  const rootsOf = value => value.rootDirs?.length ? value.rootDirs : value.rootDir ? [value.rootDir] : [];
+  const folderIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h6l2 2h10v12H3z"/></svg>';
+  const networkIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="6" rx="1"/><path d="M12 9v5M4 17v-3h16v3"/><rect x="2" y="17" width="5" height="4" rx="1"/><rect x="17" y="17" width="5" height="4" rx="1"/></svg>';
+  const editIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20H4zM14 6l4 4"/></svg>';
+  const removeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg>';
   async function jsonRequest(url, options) {
     const response = await fetch(url, options);
     if (!response.ok) throw new Error((await response.text()).trim() || 'Could not connect to GameShelf.');
     return response.json();
   }
-  async function initialize(settings) {
+  function iconButton(label, svg, action, danger = false) {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'gs-source-icon' + (danger ? ' gs-source-remove' : '');
+    button.setAttribute('aria-label', label); button.title = label; button.innerHTML = svg; button.addEventListener('click', action); return button;
+  }
+  function render(owner) {
+    const list = $(owner === 'setup' ? 'setup-source-list' : 'server-source-list'); list.replaceChildren();
+    const addCard = (title, location, badge, icon, edit, remove, offline) => {
+      const card = document.createElement('article'); card.className = 'gs-source-card';
+      const symbol = document.createElement('span'); symbol.className = 'gs-source-symbol'; symbol.innerHTML = icon;
+      const content = document.createElement('div'); content.className = 'gs-source-card-content';
+      const heading = document.createElement('strong'); heading.textContent = title;
+      const address = document.createElement('span'); address.textContent = location; address.title = location;
+      const label = document.createElement('small'); label.textContent = offline ? 'Offline — check connection' : badge; if (offline) label.className = 'gs-source-offline';
+      content.append(heading, address, label); const actions = document.createElement('div'); actions.className = 'gs-source-card-actions';
+      actions.append(iconButton('Edit ' + title, editIcon, edit), iconButton('Remove ' + title, removeIcon, remove, true));
+      card.append(symbol, content, actions); list.append(card);
+    };
+    roots(owner).forEach((path, index) => addCard(path.split('/').filter(Boolean).pop() || path, path, 'Folder', folderIcon,
+      () => openFolder(owner, path), () => { const next = roots(owner); next.splice(index, 1); rootsInput(owner).value = next.join('\n'); render(owner); }));
+    drafts[owner].forEach((source, index) => addCard(source.name || source.url, source.url, source.protocol === 'webdav' ? 'WebDAV' : source.protocol.toUpperCase(), networkIcon,
+      () => openNetwork(owner, index), () => { drafts[owner].splice(index, 1); render(owner); }, lastStates.find(state => state.id === source.id)?.state === 'offline'));
+    $(owner === 'setup' ? 'setup-source-empty' : 'server-source-empty').hidden = sourceCount(owner) > 0;
+  }
+  function populate(owner, value) {
+    rootsInput(owner).value = rootsOf(value).join('\n'); drafts[owner] = (value.sources || []).map(source => ({ ...source })); render(owner);
+  }
+  function canAdd(owner) {
+    if (sourceCount(owner) < 16) return true;
+    showNotification('A library can have up to 16 locations.'); return false;
+  }
+  function settingsSources() { return { roots: roots('settings'), sources: drafts.settings.map(source => ({ ...source })) }; }
+  function prepareSettings(value) { populate('settings', value); }
+  function savedSettings(value) { populate('settings', value); }
+
+  async function readStatus() {
     try {
-      current = await jsonRequest('/api/setup', {cache:'no-store'});
-      if (typeof current.required !== 'boolean') throw new Error('Could not read setup options.');
-      byId('setup-page').hidden = !current.required;
-      document.body.classList.toggle('gs-needs-setup', current.required);
-      if (!current.required) return;
-      byId('setup-retry').hidden = true; byId('setup-status').textContent = '';
-      const value = current.settings || settings;
-      serverSettings = value;
-      byId('setup-roots').value = rootsOf(value).join('\n') || (current.mounts.length === 1 ? current.mounts[0] : '');
-      byId('setup-data').value = value.dataDir || '/data';
-      const hours = value.refreshInterval === '0' ? 0 : Number(String(value.refreshInterval).replace(/h$/, ''));
-      byId('setup-refresh').value = Number.isInteger(hours) && hours <= 8760 ? hours : 168;
-      byId('setup-mount-summary').textContent = current.mounts.length ? `${current.mounts.length} mounted folder${current.mounts.length === 1 ? '' : 's'} available.` : 'No readable game folders are available yet.';
-      byId('setup-mapping-help').open = current.mounts.length === 0;
-    } catch (error) {
-      if (!settings.rootDir) {
-        byId('setup-page').hidden = false; document.body.classList.add('gs-needs-setup');
-        byId('setup-status').textContent = error.message; byId('setup-retry').hidden = false;
-      } else showNotification('Could not check first-time setup. Reload to try again.');
+      const state = await jsonRequest('/api/source-status', { cache: 'no-store' });
+      if (!Array.isArray(state.sources)) return null;
+      lastStates = state.sources;
+      const offline = state.sources.filter(source => source.state === 'offline');
+      const alert = $('source-alert'); alert.hidden = !state.busy && !offline.length;
+      $('source-alert-text').textContent = state.busy ? state.message || 'Connecting to your libraries…' : `${offline.length} location${offline.length === 1 ? ' is' : 's are'} offline. Last known games stay on your shelf.`;
+      if (state.busy && !$('setup-page').hidden) $('setup-status').textContent = state.message || 'Finding your games…';
+      if (state.busy && $('server-settings-dialog').open && $('server-settings-save').disabled) $('server-settings-status').textContent = state.message || 'Reading your libraries…';
+      return state;
+    } catch { return null; }
+  }
+  async function watchScan() {
+    clearTimeout(statusTimer); const state = await readStatus();
+    if (state?.busy) { watchedBusy = true; statusTimer = setTimeout(watchScan, 1200); }
+    else if (watchedBusy) { watchedBusy = false; if (!document.body.classList.contains('gs-needs-setup')) await loadGames(); }
+  }
+  async function boot() {
+    $('boot-retry').hidden = true; $('boot-message').textContent = 'Opening GameShelf…'; document.body.classList.add('gs-booting');
+    try {
+      current = await jsonRequest('/api/setup', { cache: 'no-store' });
+      if (typeof current.required !== 'boolean' || !current.settings) throw new Error('GameShelf could not read its setup options.');
+      serverSettings = current.settings;
+      $('setup-page').hidden = !current.required; document.body.classList.toggle('gs-needs-setup', current.required);
+      if (current.required) {
+        const value = { ...serverSettings };
+        if (!rootsOf(value).length && !(value.sources || []).length && current.mounts?.length === 1) value.rootDir = current.mounts[0];
+        populate('setup', value); $('setup-data').value = value.dataDir || '/data';
+        const hours = value.refreshInterval === '0' ? 0 : Number(String(value.refreshInterval).replace(/h$/, ''));
+        $('setup-refresh').value = Number.isInteger(hours) && hours >= 0 && hours <= 8760 ? hours : 168;
+        $('setup-refresh-preset').value = ['168', '24', '0'].includes($('setup-refresh').value) ? $('setup-refresh').value : 'custom';
+        syncRefresh(); setStep(1, false); $('setup-status').textContent = '';
+      }
+      document.body.classList.remove('gs-booting');
+      if (!current.required) { await loadGames(); watchScan(); }
+    } catch {
+      $('boot-message').textContent = 'Could not connect to GameShelf. Try again when the server is ready.'; $('boot-retry').hidden = false;
     }
   }
-  byId('setup-form').addEventListener('submit', async event => {
-    event.preventDefault(); const button = byId('setup-save'); if (button.disabled) return;
-    if (!current || !serverSettings) { byId('setup-status').textContent = 'Use Retry connection before saving setup.'; return; }
-    const roots = byId('setup-roots').value.split(/\r?\n/).map(path=>path.trim()).filter(Boolean);
-    const hours = Number(byId('setup-refresh').value);
-    if (!roots.length) { byId('setup-status').textContent = 'Choose at least one game library folder.'; byId('setup-roots').focus(); return; }
-    if (roots.length > 16 || !Number.isInteger(hours) || hours < 0 || hours > 8760) { byId('setup-status').textContent = 'Choose up to 16 folders and a refresh interval of 0–8760 whole hours.'; return; }
-    const value = {...serverSettings,rootDir:roots[0],rootDirs:roots,dataDir:byId('setup-data').value.trim(),refreshInterval:hours===0?'0':`${hours}h`};
-    button.disabled = true; byId('setup-status').textContent = 'Saving your choices and finding your games…';
+  $('boot-retry').addEventListener('click', boot);
+  function setStep(next, animate = true) {
+    step = next;
+    const apply = () => {
+      $('setup-libraries-panel').hidden = step !== 1; $('setup-finish-panel').hidden = step !== 2;
+      $('setup-back').hidden = step === 1; $('setup-next').hidden = step === 2; $('setup-save').hidden = step !== 2; $('setup-save-label').hidden = step !== 2;
+      $('setup-step-libraries').setAttribute('aria-current', step === 1 ? 'step' : 'false'); $('setup-step-finish').setAttribute('aria-current', step === 2 ? 'step' : 'false');
+      $('setup-summary').textContent = `${sourceCount('setup')} location${sourceCount('setup') === 1 ? '' : 's'} ready for your shelf.`;
+    };
+    apply();
+    if (animate && !disableEffects && !matchMedia('(prefers-reduced-motion: reduce)').matches) $(step === 1 ? 'setup-libraries-panel' : 'setup-finish-panel').animate?.([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: motionDuration(220), easing: 'ease-out' });
+  }
+  function validateSelection() {
+    if (!sourceCount('setup')) { $('setup-status').textContent = 'Add at least one folder or network location.'; return false; }
+    if (sourceCount('setup') > 16) { $('setup-status').textContent = 'Choose up to 16 locations.'; return false; }
+    $('setup-status').textContent = ''; return true;
+  }
+  $('setup-next').addEventListener('click', () => { if (validateSelection()) setStep(2); });
+  $('setup-back').addEventListener('click', () => setStep(1));
+  function syncRefresh() { const preset = $('setup-refresh-preset').value; $('setup-refresh-custom').hidden = preset !== 'custom'; if (preset !== 'custom') $('setup-refresh').value = preset; }
+  $('setup-refresh-preset').addEventListener('change', syncRefresh);
+  $('setup-form').addEventListener('submit', async event => {
+    event.preventDefault(); if (!validateSelection()) return; if (step === 1) { setStep(2); return; }
+    const button = $('setup-save'); if (button.disabled || !serverSettings) return;
+    const hours = Number($('setup-refresh').value);
+    if (!$('setup-refresh').value.trim() || !Number.isInteger(hours) || hours < 0 || hours > 8760) { $('setup-status').textContent = 'Choose 0–8760 whole hours.'; return; }
+    const paths = roots('setup');
+    const value = { ...serverSettings, rootDir: paths[0] || '', rootDirs: paths, sources: drafts.setup, dataDir: $('setup-data').value.trim(), refreshInterval: hours === 0 ? '0' : `${hours}h` };
+    const tour = $('setup-tour').checked; const controls = [...$('setup-form').querySelectorAll('input,select,button')]; controls.forEach(control => control.disabled = true);
+    $('setup-status').textContent = 'Connecting and finding your games…';
+    const progress = setInterval(readStatus, 1200);
     try {
-      await jsonRequest('/api/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
-      serverSettings = value; current.required = false; showSaveFeedback(button);
-      byId('setup-page').hidden = true; document.body.classList.remove('gs-needs-setup');
-      await loadGames(); showNotification('Setup complete. Welcome to GameShelf!');
-    } catch (error) { byId('setup-status').textContent = error.message; }
+      const result = await jsonRequest('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) });
+      serverSettings = result.settings || value; drafts.setup = []; $('setup-roots').value = ''; current.required = false;
+      $('setup-page').hidden = true; document.body.classList.remove('gs-needs-setup'); await loadGames(); showNotification('Your shelf is ready. Welcome to GameShelf!'); watchScan();
+      if (tour) window.GameShelfTour?.offer();
+    } catch (error) { $('setup-status').textContent = error.message; }
+    finally { clearInterval(progress); controls.forEach(control => control.disabled = false); }
+  });
+
+  function editorSource() {
+    const nfs = $('network-protocol').value === 'nfs';
+    return { id: editorID, protocol: $('network-protocol').value, url: $('network-url').value.trim(), name: $('network-name').value.trim(), username: nfs ? '' : $('network-username').value,
+      password: nfs ? '' : $('network-password').value, hasPassword: nfs ? false : editorHasPassword, domain: nfs ? '' : $('network-domain').value, hostKey: editorHostKey, nfsVersion: Number($('network-nfs-version').value), uid: Number($('network-uid').value), gid: Number($('network-gid').value) };
+  }
+  function signature(source = editorSource()) { const { name, ...connection } = source; return JSON.stringify(connection); }
+  function invalidateTest() { tested = ''; $('network-use').disabled = true; $('network-editor-status').textContent = ''; delete $('network-editor-status').dataset.state; }
+  function updateProtocol() {
+    const protocol = $('network-protocol').value;
+    $('network-signin').hidden = protocol === 'nfs'; $('network-domain-field').hidden = protocol !== 'smb'; $('network-nfs-options').hidden = protocol !== 'nfs'; $('network-key-options').hidden = protocol !== 'sftp';
+    const placeholders = { smb: 'smb://server/games', nfs: 'nfs://server/export/games', sftp: 'sftp://server/home/games', webdav: 'https://server/webdav/games', ftp: 'ftp://server/games', ftps: 'ftps://server/games' };
+    $('network-url').placeholder = placeholders[protocol];
+    $('network-address-hint').textContent = protocol === 'smb' ? 'A server name or IP address and share name.' : protocol === 'nfs' ? 'A server name or IP address and exported folder.' : 'Include the folder you want to use.';
+    $('network-key-state').textContent = editorHostKey ? 'A server key is pinned for this connection.' : 'We’ll verify the server on your first connection.';
+  }
+  function openNetwork(owner, index = null) {
+    if (index === null && !canAdd(owner)) return;
+    editorVersion++; networkController?.abort(); testing = false; $('network-test').disabled = false;
+    panel = owner; editing = index; const source = index === null ? {} : drafts[owner][index]; editorID = source.id || ''; editorHasPassword = !!source.hasPassword; editorHostKey = source.hostKey || '';
+    $('network-editor-title').textContent = index === null ? 'Add Network Location' : 'Edit Network Location'; $('network-use').textContent = index === null ? 'Add location' : 'Use changes';
+    $('network-protocol').value = source.protocol || 'smb'; $('network-url').value = source.url || ''; $('network-name').value = source.name || '';
+    $('network-username').value = source.username || ''; $('network-password').value = source.password || ''; $('network-domain').value = source.domain || '';
+    $('network-password').placeholder = editorHasPassword && !source.password ? 'Saved — leave blank to keep' : 'Optional';
+    $('network-clear-password').hidden = !editorHasPassword; $('network-clear-password').textContent = source.password ? 'Clear password' : 'Clear saved password';
+    $('network-nfs-version').value = String(source.nfsVersion || 0); $('network-uid').value = String(source.uid || 10001); $('network-gid').value = String(source.gid || 10001);
+    $('network-advanced').open = false; invalidateTest(); updateProtocol(); openModal($('network-editor-dialog'));
+  }
+  async function testConnection() {
+    if (testing) return; const version = editorVersion; networkController = new AbortController(); testing = true; $('network-test').disabled = true; $('network-use').disabled = true;
+    const status = $('network-editor-status'); status.textContent = 'Testing connection…'; status.dataset.state = 'testing';
+    try {
+      const source = editorSource(); const result = await jsonRequest('/api/network-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(source), signal: networkController.signal });
+      if (version !== editorVersion || !$('network-editor-dialog').open) return;
+      if (result.requiresTrust) { pendingTrust = result.hostKey; $('network-fingerprint').textContent = result.fingerprint; status.textContent = 'Verify the server key to continue.'; openModal($('network-trust-dialog')); return; }
+      const normalized = result.source || source; editorID = normalized.id; editorHasPassword = !!normalized.hasPassword;
+      $('network-url').value = normalized.url; if (!$('network-name').value) $('network-name').value = normalized.name || '';
+      tested = signature(); $('network-use').disabled = false; status.dataset.state = 'ready'; status.textContent = result.folders ? `Connected · ${result.folders} game folder${result.folders === 1 ? '' : 's'} found` : 'Connected · Ready for game folders';
+    } catch (error) { if (version === editorVersion && error.name !== 'AbortError') { tested = ''; status.dataset.state = 'error'; status.textContent = error.message; } }
+    finally { if (version === editorVersion) { testing = false; $('network-test').disabled = false; } }
+  }
+  $('network-test').addEventListener('click', testConnection);
+  $('network-use').addEventListener('click', () => {
+    if (!tested || tested !== signature()) { $('network-editor-status').textContent = 'Test this connection before adding it.'; return; }
+    const source = editorSource(); const duplicate = drafts[panel].findIndex(item => item.url === source.url);
+    if (duplicate !== -1 && duplicate !== editing) { $('network-editor-status').textContent = 'This location is already in your library.'; return; }
+    if (editing === null) drafts[panel].push(source); else drafts[panel][editing] = source;
+    render(panel); closeNetwork(); showNotification('Network location ready. Save to apply your choices.');
+  });
+  for (const id of ['network-url', 'network-username', 'network-password', 'network-domain', 'network-uid', 'network-gid', 'network-nfs-version']) $(id).addEventListener('input', invalidateTest);
+  $('network-url').addEventListener('input', () => { const match = /^([a-z]+):\/\//i.exec($('network-url').value.trim()); const protocol = match ? ({ http: 'webdav', https: 'webdav', webdav: 'webdav', webdavs: 'webdav' }[match[1]] || match[1]) : null; if (['smb', 'nfs', 'sftp', 'webdav', 'ftp', 'ftps'].includes(protocol)) { $('network-protocol').value = protocol; updateProtocol(); } });
+  $('network-protocol').addEventListener('change', () => { const prefix = $('network-protocol').value === 'webdav' ? 'https' : $('network-protocol').value; $('network-url').value = $('network-url').value.replace(/^[a-z]+:\/\//i, prefix + '://'); invalidateTest(); updateProtocol(); });
+  $('network-clear-password').addEventListener('click', () => { editorHasPassword = false; $('network-password').value = ''; $('network-password').placeholder = 'Optional'; $('network-clear-password').hidden = true; invalidateTest(); });
+  $('network-recheck-key').addEventListener('click', () => { editorHostKey = ''; invalidateTest(); updateProtocol(); testConnection(); });
+  $('network-trust-confirm').addEventListener('click', () => { editorHostKey = pendingTrust || ''; pendingTrust = null; $('network-trust-dialog').close(); updateProtocol(); testConnection(); });
+  for (const id of ['network-trust-close', 'network-trust-cancel']) $(id).addEventListener('click', () => { pendingTrust = null; $('network-trust-dialog').close(); });
+  function releaseEditor() { editorVersion++; networkController?.abort(); testing = false; $('network-password').value = ''; }
+  function closeNetwork() { releaseEditor(); $('network-editor-dialog').close(); }
+  for (const id of ['network-editor-close', 'network-editor-cancel']) $(id).addEventListener('click', closeNetwork);
+  $('network-editor-dialog').addEventListener('close', () => { if (!$('network-editor-dialog').open) releaseEditor(); });
+  closeOnBackdropClick($('network-editor-dialog')); closeOnBackdropClick($('network-trust-dialog'));
+
+  function openFolder(owner, original = null) { if (original === null && !canAdd(owner)) return; folderVersion++; folderPanel = owner; folderOriginal = original; $('source-folder-path').value = original || ''; $('source-folder-status').textContent = ''; openModal($('source-folder-dialog')); }
+  $('source-folder-use').addEventListener('click', async () => {
+    const button = $('source-folder-use'); if (button.disabled) return; const version = folderVersion; button.disabled = true;
+    try {
+      const path = $('source-folder-path').value.trim(); if (!path) throw new Error('Choose a folder first.');
+      const result = await jsonRequest('/api/library-folders?path=' + encodeURIComponent(path), { cache: 'no-store' });
+      if (version !== folderVersion || !$('source-folder-dialog').open) return;
+      const paths = roots(folderPanel); const existing = paths.indexOf(folderOriginal);
+      if (paths.includes(result.path) && result.path !== folderOriginal) throw new Error('This folder is already in your library.');
+      if (existing !== -1) paths[existing] = result.path; else paths.push(result.path);
+      rootsInput(folderPanel).value = paths.join('\n'); render(folderPanel); $('source-folder-dialog').close(); showNotification('Folder ready. Save to apply your choices.');
+    } catch (error) { $('source-folder-status').textContent = error.message; }
     finally { button.disabled = false; }
   });
-  byId('setup-retry').addEventListener('click',()=>initialize(serverSettings || {}));
-  const browser = byId('source-browser-dialog');
-  async function browse(directory='') {
-    const version=++browseVersion; byId('source-browser-select').disabled=true; byId('source-browser-status').textContent='Loading folders…';
+  for (const id of ['source-folder-close', 'source-folder-cancel']) $(id).addEventListener('click', () => $('source-folder-dialog').close());
+  $('source-folder-dialog').addEventListener('close', () => { folderVersion++; });
+  closeOnBackdropClick($('source-folder-dialog'));
+  const browser = $('source-browser-dialog');
+  async function browse(directory = '') {
+    const version = ++browseVersion; $('source-browser-select').disabled = true; $('source-browser-status').textContent = 'Loading folders…';
     try {
-      const state=await jsonRequest('/api/library-folders'+(directory?'?path='+encodeURIComponent(directory):''),{cache:'no-store'});
-      if(version!==browseVersion || !browser.open)return;
-      folderState=state; byId('source-browser-path').textContent=state.path || 'Folders shared with GameShelf';
-      byId('source-browser-up').disabled=!state.path; byId('source-browser-select').disabled=!state.path;
-      const list=byId('source-browser-folders');list.replaceChildren();
-      for(const path of state.folders){const button=document.createElement('button');button.type='button';button.className='gs-source-folder';button.textContent=state.path?path.split('/').pop():path;button.addEventListener('click',()=>browse(path));list.appendChild(button);}
-      byId('source-browser-status').textContent=state.folders.length?'':state.path?'No subfolders. You can select this folder.':'No game folders are shared yet. Add a Docker folder mapping, then recreate the container.';
-    } catch(error){if(version===browseVersion)byId('source-browser-status').textContent=error.message;}
+      const state = await jsonRequest('/api/library-folders' + (directory ? '?path=' + encodeURIComponent(directory) : ''), { cache: 'no-store' });
+      if (version !== browseVersion || !browser.open) return;
+      folderState = state; $('source-browser-path').textContent = state.path || 'Folders shared with GameShelf'; $('source-browser-up').disabled = !state.path; $('source-browser-select').disabled = !state.path;
+      const list = $('source-browser-folders'); list.replaceChildren();
+      for (const path of state.folders) { const button = document.createElement('button'); button.type = 'button'; button.className = 'gs-source-folder'; button.textContent = state.path ? path.split('/').pop() : path; button.addEventListener('click', () => browse(path)); list.appendChild(button); }
+      $('source-browser-status').textContent = state.folders.length ? '' : state.path ? 'No subfolders. You can select this folder.' : 'No mounted folders found. You can add a Network location instead, or share a folder through Docker.';
+    } catch (error) { if (version === browseVersion) $('source-browser-status').textContent = error.message; }
   }
-  function openPicker(input){target=input;folderState=null;openModal(browser);browse();}
-  byId('setup-browse').addEventListener('click',()=>openPicker(byId('setup-roots')));
-  byId('server-browse-source').addEventListener('click',()=>openPicker(byId('server-root-path')));
-  byId('source-browser-home').addEventListener('click',()=>browse());
-  byId('source-browser-up').addEventListener('click',()=>browse(folderState?.parent || ''));
-  byId('source-browser-select').addEventListener('click',()=>{if(!folderState?.path || !target)return;const paths=target.value.split(/\r?\n/).map(p=>p.trim()).filter(Boolean);if(!paths.includes(folderState.path))paths.push(folderState.path);target.value=paths.join('\n');browser.close();showNotification('Library folder selected. Save to apply your choices.');});
-  for(const id of ['source-browser-close','source-browser-cancel'])byId(id).addEventListener('click',()=>browser.close());
-  browser.addEventListener('close',()=>{browseVersion++;});closeOnBackdropClick(browser);
-  window.GameShelfSetup={initialize};
+  $('source-folder-browse').addEventListener('click', () => { pickerTarget = $('source-folder-path'); folderState = null; openModal(browser); browse(); });
+  $('source-browser-home').addEventListener('click', () => browse()); $('source-browser-up').addEventListener('click', () => browse(folderState?.parent || ''));
+  $('source-browser-select').addEventListener('click', () => { if (!folderState?.path || !pickerTarget) return; pickerTarget.value = folderState.path; browser.close(); });
+  for (const id of ['source-browser-close', 'source-browser-cancel']) $(id).addEventListener('click', () => browser.close());
+  browser.addEventListener('close', () => { browseVersion++; }); closeOnBackdropClick(browser);
+  for (const owner of ['setup', 'server']) {
+    const draftOwner = owner === 'server' ? 'settings' : 'setup';
+    $(owner + '-add-folder').addEventListener('click', () => openFolder(draftOwner)); $(owner + '-add-network').addEventListener('click', () => openNetwork(draftOwner));
+  }
+  $('source-alert-manage').addEventListener('click', () => { $('build-info').click(); $('settings-advanced').click(); $('open-server-settings').click(); });
+  function beginSaveProgress() { readStatus(); const timer=setInterval(readStatus,1200);return ()=>clearInterval(timer); }
+  window.GameShelfSetup = { beginSaveProgress, boot, initialize: boot, prepareSettings, settingsSources, savedSettings, watchScan };
 })();
