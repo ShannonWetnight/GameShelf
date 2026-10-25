@@ -281,8 +281,9 @@
    layer.style.inset='auto';layer.style.left='0';layer.style.top='0';layer.style.width=innerWidth*zoom+'px';layer.style.height=innerHeight*zoom+'px';layer.style.transformOrigin='top left';layer.style.transform='scale('+(1/zoom)+')';
    const w=innerWidth*zoom,h=innerHeight*zoom,box=document.querySelector('#setup-form').getBoundingClientRect();
    const size=mobile?88:Math.min(156,Math.max(110,w*.085));
-   const spots=[[.08,.22],[.9,.22],[.18,.74],[.88,.74],[.38,.025],[.65,.025],[.015,.46],[.98,.46],[.5,.88]];
-   tiles.forEach((tile,index)=>{const [x,y]=spots[index];tile.style.width=size+'px';tile.style.left=Math.max(8,Math.min(w-size-8,w*x-size/2))+'px';tile.style.top=Math.max(12,Math.min(h-size*1.5-12,h*y))+'px';tile.style.right=tile.style.bottom='auto';const rect=tile.getBoundingClientRect();const overlaps=rect.right>box.left-10&&rect.left<box.right+10&&rect.bottom>box.top-10&&rect.top<box.bottom+10;tile.style.opacity=overlaps?'.16':mobile?'.32':'.5';});
+   const spots=[[.05,.03],[.94,.07],[.10,.78],[.91,.77],[.32,.06],[.68,.08],[.20,.39],[.79,.43],[.35,.82],[.65,.79]];
+   const headerBottom=document.querySelector('.gs-header').getBoundingClientRect().bottom*zoom;const minimumTop=headerBottom+Math.max(30,size*.35);
+   tiles.forEach((tile,index)=>{const [x,y]=spots[index];tile.style.width=size+'px';tile.style.left=Math.max(8,Math.min(w-size-8,w*x-size/2))+'px';tile.style.top=Math.max(minimumTop,Math.min(h-size*1.5-24,minimumTop+(h-minimumTop-size*1.5-24)*y))+'px';tile.style.right=tile.style.bottom='auto';const rect=tile.getBoundingClientRect();const overlaps=rect.right>box.left-10&&rect.left<box.right+10&&rect.bottom>box.top-10&&rect.top<box.bottom+10;tile.style.opacity=overlaps?'.16':mobile?'.32':'.5';});
  }
  new ResizeObserver(layoutSetupArt).observe(document.querySelector('#setup-form'));
  addEventListener('resize',layoutSetupArt);window.visualViewport?.addEventListener('resize',layoutSetupArt);new MutationObserver(layoutSetupArt).observe(document.body,{attributes:true,attributeFilter:['class']});

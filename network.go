@@ -75,6 +75,7 @@ func snapshotSources() []networkSource {
 
 func hasLibrary(value serverSettings) bool { return len(libraryRoots(value))+len(value.Sources) > 0 }
 func publicSettings(value serverSettings) serverSettings {
+	value.Access = publicAccessPolicy(value.Access)
 	value.Sources = append([]networkSource(nil), value.Sources...)
 	for i := range value.Sources {
 		s := &value.Sources[i]

@@ -91,3 +91,10 @@ body.gs-no-animations::before,body.gs-no-animations::after { animation:none !imp
 
 /* Overscan the drifting mist so its rectangular edges never enter the viewport. */
 :root:is([data-theme="rain"],[data-theme="autumn"]) body::after{inset:-18%;width:auto;height:auto;}
+
+/* A single outer clip keeps hover trays and every cover shape inside smooth corners. */
+:root body .gs-grid .gs-card{border-radius:18px;overflow:hidden;isolation:isolate;}
+:root body .gs-grid:not(.list-view) .gs-card-cover{border-radius:17px 17px 0 0;}
+:root body .gs-grid .gs-cover-image{border-radius:0;}
+:root body .gs-grid .gs-card:is(:hover,:focus-within){outline:0;}
+:root[data-theme="cartridge"] #show-all-games{background:var(--input-background);color:var(--text);}

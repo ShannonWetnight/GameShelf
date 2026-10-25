@@ -26,10 +26,11 @@ type restoreArchive struct {
 	settings     []byte
 	covers       map[string][]byte
 	folderCovers int
+	health       []byte
 	logs         bool
 }
 
-type restoreSelection struct{ State, Settings, Covers bool }
+type restoreSelection struct{ State, Settings, Covers, Health bool }
 
 func validRestoreFolder(name string) bool {
 	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, "/\\\x00")
@@ -58,8 +59,10 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 			limit = 4 << 20
 		case "server-settings.json":
 			limit = 512 << 10
+		case "library-health.json":
+			limit = 2 << 20
 		case "logs.txt":
-			limit = 1 << 20
+			limit = 100 << 20
 		default:
 			parts := strings.Split(name, "/")
 			if len(parts) != 3 || !validRestoreFolder(parts[1]) {
@@ -96,6 +99,11 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 				return result, errors.New("invalid server settings")
 			}
 			result.settings = contents
+		case "library-health.json":
+			if _, err := validateHealthArchive(contents); err != nil {
+				return result, err
+			}
+			result.health = contents
 		case "logs.txt":
 			result.logs = true
 		default:
@@ -113,7 +121,7 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 			result.covers[strings.Split(name, "/")[1]] = contents
 		}
 	}
-	if len(result.state) == 0 && len(result.settings) == 0 && len(result.covers) == 0 {
+	if len(result.state) == 0 && len(result.settings) == 0 && len(result.covers) == 0 && len(result.health) == 0 {
 		return result, errors.New("archive has no restorable data")
 	}
 	return result, nil
@@ -248,15 +256,15 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var saved serverSettings
 		json.Unmarshal(archive.settings, &saved)
-		json.NewEncoder(w).Encode(map[string]any{"sha256": sha, "state": len(archive.state) > 0, "settings": len(archive.settings) > 0, "covers": len(archive.covers), "folderCoversSkipped": archive.folderCovers, "logsSkipped": archive.logs, "requiresLogin": sourcesNeedLogin(saved.Sources), "preferences": saved.Preferences})
+		json.NewEncoder(w).Encode(map[string]any{"sha256": sha, "state": len(archive.state) > 0, "settings": len(archive.settings) > 0, "covers": len(archive.covers), "folderCoversSkipped": archive.folderCovers, "logsSkipped": archive.logs, "requiresLogin": sourcesNeedLogin(saved.Sources), "preferences": saved.Preferences, "health": len(archive.health) > 0, "requiresPIN": saved.Access != nil && len(saved.Access.Rules) > 0})
 		return
 	}
 	if r.Header.Get("X-Preview-SHA256") != sha {
 		http.Error(w, "backup changed since preview", http.StatusConflict)
 		return
 	}
-	selection := restoreSelection{r.URL.Query().Get("state") == "1", r.URL.Query().Get("settings") == "1", r.URL.Query().Get("covers") == "1"}
-	if (!selection.State || len(archive.state) == 0) && (!selection.Settings || len(archive.settings) == 0) && (!selection.Covers || len(archive.covers) == 0) {
+	selection := restoreSelection{r.URL.Query().Get("state") == "1", r.URL.Query().Get("settings") == "1", r.URL.Query().Get("covers") == "1", r.URL.Query().Get("health") == "1"}
+	if (!selection.State || len(archive.state) == 0) && (!selection.Settings || len(archive.settings) == 0) && (!selection.Covers || len(archive.covers) == 0) && (!selection.Health || len(archive.health) == 0) {
 		http.Error(w, "select available data to restore", http.StatusBadRequest)
 		return
 	}
@@ -275,6 +283,9 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		var restored serverSettings
 		json.Unmarshal(archive.settings, &restored)
 		effective = restored
+		if record, _ := readPINRecord(); record != nil {
+			effective.Access = &accessPolicy{record.Rules}
+		}
 		if firstSetup {
 			effective.DataDir = dataDir
 		}
@@ -313,6 +324,9 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	if err == nil && writeSettings {
 		err = add(settingsFile(), archive.settings)
+	}
+	if err == nil && selection.Health && len(archive.health) > 0 {
+		err = add(filepath.Join(dataDir, "library-health.json"), archive.health)
 	}
 	if err == nil && selection.Covers {
 		names := make([]string, 0, len(archive.covers))
@@ -356,6 +370,7 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		setupRequired.Store(false)
 	}
 	notifyRefreshSchedule()
+	resetHealthCache()
 	logEvent("system", "Library backup restored (state=%t settings=%t covers=%t)", selection.State, settingsSelected, selection.Covers)
 	scanWarning := ""
 	if !restartRequired {
