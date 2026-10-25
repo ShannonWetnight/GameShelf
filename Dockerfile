@@ -6,6 +6,8 @@ WORKDIR /connector
 COPY connectors/rclone/go.mod connectors/rclone/go.sum ./
 RUN go mod download
 COPY connectors/rclone/*.go ./
+COPY connectors/rclone/notices/ ./notices/
+RUN go run ./notices /out/licenses && cp /usr/local/go/LICENSE /out/licenses/Go.txt
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-X github.com/rclone/rclone/fs.Version=v1.75.2-gameshelf" -o /out/rclone . \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -tags connector_testservers -o /out/rclone-test .
 
@@ -33,7 +35,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 FROM alpine:3.24.3 AS network-build
 RUN apk upgrade --no-cache && apk add --no-cache build-base libnfs-dev
 COPY native/network-nfs.c /src/network-nfs.c
-RUN cc -O2 -Wall -Wextra /src/network-nfs.c -lnfs -o /gameshelf-nfs
+RUN cc -O2 -Wall -Wextra -Werror -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie \
+    /src/network-nfs.c -Wl,-z,relro,-z,now -lnfs -o /gameshelf-nfs
 
 # Runtime stage
 FROM alpine:3.24.3
@@ -44,6 +47,7 @@ WORKDIR /app
 COPY --from=build /app/gameshelf .
 COPY --from=network-build /gameshelf-nfs .
 COPY --from=connector-build /out/rclone /usr/local/bin/rclone
+COPY --from=connector-build /out/licenses /usr/share/licenses/gameshelf-network
 RUN addgroup -S -g 10001 gameshelf \
     && adduser -S -D -H -u 10001 -G gameshelf -s /sbin/nologin gameshelf \
     && mkdir -p /data && chown 10001:10001 /data \

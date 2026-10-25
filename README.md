@@ -139,7 +139,7 @@ GameShelf lists file metadata during scans and streams game files only when requ
 
 Passwords are encrypted in saved settings using a private key in the data volume. They are never returned to the browser or included in exported settings. Editing an existing connection with a blank password keeps its saved password; use the explicit clear option to remove it. Copy the **whole data volume, including hidden files**, to migrate saved credentials. A ZIP settings backup omits credentials, so re-enter passwords after restoring it. Existing source IDs in the backup preserve metadata associations.
 
-Direct SMB, SFTP, WebDAV, FTP, and FTPS use a limited [rclone](https://rclone.org/) build containing only those backends and read commands; NFS uses a read-only adapter linked to [libnfs](https://github.com/sahlberg/libnfs). Both are included in the Docker image. For a source build outside Docker, build `connectors/rclone` with Go 1.27.3 or later and install it as `rclone`, then compile `native/network-nfs.c` with libnfs into `/app/gameshelf-nfs`. The container handles these steps automatically.
+Direct SMB, SFTP, WebDAV, FTP, and FTPS use a limited [rclone](https://rclone.org/) build containing only those backends and read commands; NFS uses a read-only adapter linked to [libnfs](https://github.com/sahlberg/libnfs). Both are included in the Docker image. Connector module versions and their upstream notices are available under `/usr/share/licenses/gameshelf-network`. For a source build outside Docker, build `connectors/rclone` with Go 1.27.3 or later and install it as `rclone`, then compile `native/network-nfs.c` with libnfs into `/app/gameshelf-nfs`. The container handles these steps automatically.
 
 ### Container User and File Permissions
 
