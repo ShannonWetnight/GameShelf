@@ -145,6 +145,93 @@ def main(image):
             else:
                 raise AssertionError("network library did not recover after restart")
             print("PASS: network-only library and encrypted credentials survive a container restart")
+
+            # A cold start with the file server disconnected must restore only
+            # metadata, never advertise downloadable offline game content.
+            selected = request("/api/games")[0]
+            game_id, added_at = selected["id"], selected["addedAt"]
+            request("/api/game-title/" + game_id, {"title": "Offline favorite"}, "PUT")
+            request("/api/favorite/" + game_id, {"favorite": True}, "PUT")
+            docker("network", "disconnect", network, server)
+            offline = request("/api/games?forceRefresh=1")
+            assert len(offline) == 1 and offline[0]["unavailable"], offline
+            docker("restart", app)
+            base = "http://" + docker("port", app, "8080/tcp").splitlines()[0]
+            deadline = time.monotonic() + 150
+            while time.monotonic() < deadline:
+                try:
+                    state = request("/api/source-status")
+                    offline = request("/api/games")
+                    if not state["busy"] and offline:
+                        break
+                except (OSError, urllib.error.URLError):
+                    pass
+                time.sleep(.3)
+            else:
+                raise AssertionError("offline catalog did not survive restart")
+            assert len(offline) == 1, offline
+            cached = offline[0]
+            assert cached["id"] == game_id and cached["idPersisted"] and cached["unavailable"], cached
+            assert cached["name"] == "Offline favorite" and cached["favorite"] and cached["addedAt"] == added_at, cached
+            assert cached["fileCount"] == 2 and cached["sizeBytes"] == len(payload) + len(cover), cached
+            assert any(source["state"] == "offline" for source in state["sources"]), state
+            files = request("/api/game-files/" + game_id)
+            assert files["unavailable"] and {item["path"] for item in files["files"]} == {"game.bin", "cover.png"}, files
+            for path in ["/download/" + game_id, "/api/game-file/" + game_id + "?path=game.bin", "/download-playlist?game=" + game_id]:
+                try:
+                    request(path, raw=True)
+                    raise AssertionError("offline download succeeded: " + path)
+                except urllib.error.HTTPError as error:
+                    assert error.code == 503 and b"offline" in error.read(), path
+            _, picture = request("/covers/" + game_id, raw=True)
+            assert picture == cover, "previously cached cover lost its association"
+            snapshot = docker("exec", app, "cat", "/data/network-index.json")
+            for secret in ["fixture-password", "passwordCipher", "username", "ftps://"]:
+                assert secret not in snapshot, "cached index contains connection material"
+            print("PASS: disconnected source, cold restart, cached catalog/metadata/cover, offline notice, blocked downloads")
+
+            # The same fixture returns with a changed directory listing. A live
+            # scan must replace cached files, including additions and removals.
+            (game / "game.bin").unlink()
+            replacement = b"replacement-content"
+            (game / "replacement.bin").write_bytes(replacement)
+            (game / "replacement.bin").chmod(0o644)
+            second = library / "Second Game"
+            second.mkdir(mode=0o755)
+            (second / "second.bin").write_bytes(b"second")
+            (second / "second.bin").chmod(0o644)
+            docker("network", "connect", "--alias", "network-fixture", network, server)
+            recovered = request("/api/games?forceRefresh=1")
+            assert len(recovered) == 2 and all(not item.get("unavailable") for item in recovered), recovered
+            original = next(item for item in recovered if item["id"] == game_id)
+            assert original["favorite"] and original["name"] == "Offline favorite" and original["addedAt"] == added_at
+            assert original["sizeBytes"] == len(replacement) + len(cover), original
+            files = request("/api/game-files/" + game_id)
+            assert {item["path"] for item in files["files"]} == {"replacement.bin", "cover.png"}, files
+            _, downloaded = request("/download/" + game_id, raw=True)
+            assert zipfile.ZipFile(io.BytesIO(downloaded)).read("replacement.bin") == replacement
+            for child in game.iterdir():
+                child.unlink()
+            game.rmdir()
+            remaining = request("/api/games?forceRefresh=1")
+            assert len(remaining) == 1 and remaining[0]["name"] == "Second Game", remaining
+            docker("network", "disconnect", network, server)
+            docker("restart", app)
+            base = "http://" + docker("port", app, "8080/tcp").splitlines()[0]
+            deadline = time.monotonic() + 150
+            while time.monotonic() < deadline:
+                try:
+                    state = request("/api/source-status")
+                    remaining = request("/api/games")
+                    if not state["busy"] and remaining:
+                        break
+                except (OSError, urllib.error.URLError):
+                    pass
+                time.sleep(.3)
+            else:
+                raise AssertionError("replacement snapshot did not load")
+            assert len(remaining) == 1 and remaining[0]["name"] == "Second Game" and remaining[0]["unavailable"], remaining
+            print("PASS: reconnect, fresh file/index replacement, removed game stays absent on the next offline restart")
         finally:
             for cid in [app, server]:
                 if cid:
