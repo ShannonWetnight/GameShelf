@@ -139,6 +139,10 @@ def main(image):
             for cid in [app, server]:
                 if cid:
                     print(docker("logs", cid))
+                    if cid == server:
+                        diagnostic = subprocess.run(["docker", "exec", cid, "cat", "/var/log/vsftpd.log"], text=True, capture_output=True)
+                        if diagnostic.returncode == 0:
+                            print(diagnostic.stdout)
                     docker("rm", "--force", "--volumes", cid)
             docker("network", "rm", network)
 

@@ -18,7 +18,7 @@ CONFIG
 printf '/fixture (ro,insecure,all_squash,anonuid=10001,anongid=10001)\n' > /etc/exports
 rpcbind -f -w &
 until nc -z 127.0.0.1 111; do sleep .1; done
-unfsd -d -s -e /etc/exports &
+unfsd -d -e /etc/exports &
 smbd --foreground --no-process-group --configfile=/etc/samba/smb.conf &
 rclone serve sftp /fixture --addr :2022 --user reader --pass fixture-password --read-only --log-level ERROR &
 rclone serve webdav /fixture --addr :8085 --user reader --pass fixture-password --read-only --log-level ERROR &
@@ -27,6 +27,10 @@ cat > /etc/vsftpd/vsftpd.conf <<'CONFIG'
 listen=YES
 background=NO
 listen_port=990
+secure_chroot_dir=/var/run/vsftpd/empty
+check_shell=NO
+xferlog_enable=YES
+log_ftp_protocol=YES
 anonymous_enable=NO
 local_enable=YES
 write_enable=NO

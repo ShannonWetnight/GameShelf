@@ -110,7 +110,7 @@ volumes:
 Open **http://your-server:8080** after deployment. GameShelf starts with a welcome page when no library has been configured; no environment variables or mandatory `/games` mount are required. It waits quietly for setup instead of scanning a missing folder or restarting.
 
 1. Add a **Folder** already shared with the container, or choose **Network** and enter your server location. Test the connection, then add it. You can mix up to 16 locations. Each game should have its own subfolder.
-2. Choose a refresh schedule (weekly by default), then use the save icon to open your library. Saved data stays at **/data** unless you choose another writable data location under More options.
+2. Choose a refresh schedule (weekly by default), then use the save icon to open your library. Saved data stays at **/data** unless you choose another writable data location under Saved data.
 
 For example, choose **Network → SMB** and enter `smb://smb.lab.wetnight.family/games`. Enter a username and password if the share requires them. No game-folder Docker mapping is needed for direct network sources. Alternatively, uncomment the optional library mapping in Compose, replace the host path with your games folder, recreate the container, and choose **/library** under Folder. The folder browser stays within mounted library directories and excludes container system and saved-data folders.
 

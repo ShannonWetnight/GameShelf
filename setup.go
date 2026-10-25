@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -135,6 +136,17 @@ func runAutoRefresh() {
 
 func setupGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A page on another website must not change this LAN app's settings or
+		// ask it to connect to a server. Non-browser API clients remain usable.
+		unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
+		if unsafe || r.URL.Query().Has("forceRefresh") {
+			origin := r.Header.Get("Origin")
+			parsed, err := url.Parse(origin)
+			if r.Header.Get("Sec-Fetch-Site") == "cross-site" || (origin != "" && (err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !strings.EqualFold(parsed.Host, r.Host) || parsed.User != nil)) {
+				http.Error(w, "Open GameShelf directly to make this change.", http.StatusForbidden)
+				return
+			}
+		}
 		configuration := r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
 		libraryRoute := !configuration && (strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/covers/"))
 		if libraryRoute {

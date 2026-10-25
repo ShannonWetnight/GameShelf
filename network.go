@@ -498,6 +498,7 @@ func remoteCommand(ctx context.Context, source networkSource, operation, relativ
 		}
 		config["HOST_KEY_ALGORITHMS"] = algorithm
 		config["DISABLE_HASHCHECK"] = "true"
+		config["SHELL_TYPE"] = "none"
 		config["SKIP_LINKS"] = "true"
 	}
 	for k, v := range config {

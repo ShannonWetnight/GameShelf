@@ -35,6 +35,7 @@ runs:
         python3 scripts/docker-smoke.py gameshelf:candidate | tee reports/docker-smoke.log
         python3 scripts/network-smoke.py gameshelf:candidate | tee reports/network-smoke.log
     - name: Scan builder and runtime
+      if: ${{ !cancelled() }}
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}
       run: bash scripts/scan.sh
