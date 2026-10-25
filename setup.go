@@ -150,7 +150,7 @@ func setupGate(next http.Handler) http.Handler {
 				return
 			}
 		}
-		configuration := r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
+		configuration := r.URL.Path == "/api/settings-events" || r.URL.Path == "/api/setup/restart" || r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
 		libraryRoute := !configuration && (strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/covers/"))
 		if libraryRoute {
 			// Finish any active library responses before setup replaces runtime paths.
@@ -179,11 +179,12 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		settingsMu.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
-			Required bool           `json:"required"`
-			Mounts   []string       `json:"mounts"`
-			Port     int            `json:"port"`
-			Settings serverSettings `json:"settings"`
-		}{setupRequired.Load(), readableLibraryMounts(), 8080, publicSettings(value)})
+			Required  bool           `json:"required"`
+			Mounts    []string       `json:"mounts"`
+			Port      int            `json:"port"`
+			CanResume bool           `json:"canResumeSetup"`
+			Settings  serverSettings `json:"settings"`
+		}{setupRequired.Load(), readableLibraryMounts(), 8080, canResumeSetup(value), publicSettings(value)})
 	case http.MethodPost:
 		setupMu.Lock()
 		defer setupMu.Unlock()
@@ -199,6 +200,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			value.RootDirs = nil
 			value.Sources = nil
 			value.SetupCompleted = true
+			value.SetupStatus = "skipped"
 			if err := saveServerSettings(value); err != nil {
 				http.Error(w, "Could not save your choice. Check data storage permissions.", http.StatusServiceUnavailable)
 				return
@@ -235,6 +237,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		value.SetupCompleted = true
+		value.SetupStatus = "complete"
 		if err := saveServerSettings(value); err != nil {
 			logEvent("errors", "first-time setup save: %v", err)
 			http.Error(w, "Could not save setup. Check that the data folder is writable by GameShelf.", http.StatusServiceUnavailable)
@@ -315,7 +318,7 @@ func handleLibraryFolders(w http.ResponseWriter, r *http.Request) {
 // Backups may carry only display preferences, never arbitrary browser storage.
 func validatePreferences(values map[string]string) error {
 	bools := map[string]bool{}
-	for _, key := range []string{"favorite-stars-only", "favorites-first", "card-depth", "animate-tiles", "playlist-enabled", "show-hover-text", "show-game-titles", "hover-game-titles", "show-placeholder-images", "show-list-images", "recent-days-v2"} {
+	for _, key := range []string{"favorite-stars-only", "favorites-first", "card-depth", "animate-tiles", "playlist-enabled", "show-hover-text", "show-game-titles", "hover-game-titles", "show-placeholder-images", "show-list-images", "recent-days-v2", "stretch-covers"} {
 		bools[key] = true
 	}
 	for key, value := range values {
@@ -325,7 +328,7 @@ func validatePreferences(values map[string]string) error {
 		} else {
 			switch key {
 			case "theme":
-				for _, theme := range strings.Split("system|classic|light|dark|retro|neon|cartridge|cosmos|ion|rose|midnight|lattice|rain|storm|autumn", "|") {
+				for _, theme := range strings.Split("random|system|classic|light|dark|retro|neon|cartridge|cosmos|ion|rose|midnight|lattice|rain|storm|autumn", "|") {
 					if value == theme {
 						valid = true
 						break
@@ -361,4 +364,39 @@ func sourcesNeedLogin(sources []networkSource) bool {
 		}
 	}
 	return false
+}
+
+func needsFirstSetup(value serverSettings) bool {
+	return value.SetupStatus == "pending" || (!hasLibrary(value) && !value.SetupCompleted)
+}
+func canResumeSetup(value serverSettings) bool {
+	return value.SetupStatus == "pending" || value.SetupStatus == "skipped" || (value.SetupStatus == "" && !hasLibrary(value))
+}
+func handleSetupRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	setupMu.Lock()
+	defer setupMu.Unlock()
+	settingsMu.RLock()
+	value := configuredSettings
+	settingsMu.RUnlock()
+	if !canResumeSetup(value) {
+		http.Error(w, "First-time setup is already complete.", 409)
+		return
+	}
+	value.SetupCompleted = false
+	value.SetupStatus = "pending"
+	libraryRuntimeMu.Lock()
+	defer libraryRuntimeMu.Unlock()
+	if err := saveServerSettings(value); err != nil {
+		http.Error(w, "Could not reopen setup.", 503)
+		return
+	}
+	setupRequired.Store(true)
+	notifyRefreshSchedule()
+	logEvent("system", "First-time setup reopened")
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte("{\"required\":true}\n"))
 }

@@ -383,3 +383,122 @@ func TestRejectedRestoreDoesNotMutateActiveConnection(t *testing.T) {
 		t.Fatal("failed import changed live credentials")
 	}
 }
+
+func TestOnlyUnfinishedSetupCanBeReopened(t *testing.T) {
+	root, _ := setupFreshServer(t)
+	value := configuredSettings
+	value.SetupCompleted = true
+	value.SetupStatus = "complete"
+	value.RootDir = root
+	if err := saveServerSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handleSetupRestart(response, httptest.NewRequest("POST", "/api/setup/restart", nil))
+	if response.Code != 409 {
+		t.Fatal("completed setup could be reopened")
+	}
+	value.SetupStatus = "skipped"
+	if err := saveServerSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	response = httptest.NewRecorder()
+	handleSetupRestart(response, httptest.NewRequest("POST", "/api/setup/restart", nil))
+	if response.Code != 200 || !setupRequired.Load() {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	t.Setenv("GAMESHELF_ROOT", root)
+	reloaded := initializeServerSettings()
+	if !setupRequired.Load() || reloaded.SetupStatus != "pending" || reloaded.RootDir != root {
+		t.Fatal("unfinished setup or library choices lost on restart")
+	}
+}
+func TestDisplaySettingsEventsRejectSecretsAndRecordSafeChanges(t *testing.T) {
+	setupFreshServer(t)
+	response := httptest.NewRecorder()
+	handleSettingsEvent(response, httptest.NewRequest("POST", "/api/settings-events", strings.NewReader(`{"theme":"random","stretch-covers":"true"}`)))
+	if response.Code != 204 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	snapshot := string(applicationLogs.Snapshot())
+	if !strings.Contains(snapshot, "Display setting changed: theme=random") || !strings.Contains(snapshot, "stretch-covers=true") {
+		t.Fatal("setting events not recorded")
+	}
+	for _, payload := range []string{`{"password":"private-secret"}`, `{"theme":"light\nforged-log"}`, `{"stretch-covers":"yes"}`} {
+		response = httptest.NewRecorder()
+		handleSettingsEvent(response, httptest.NewRequest("POST", "/api/settings-events", strings.NewReader(payload)))
+		if response.Code != 400 {
+			t.Fatal("unsafe event accepted")
+		}
+	}
+	if strings.Contains(string(applicationLogs.Snapshot()), "private-secret") {
+		t.Fatal("credential value logged")
+	}
+}
+func TestCoverFitOverridesPersistAndExportIncludingExplicitFalse(t *testing.T) {
+	root := setupLibrary(t)
+	folder := filepath.Join(root, "Alpha")
+	if err := os.Mkdir(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := refreshGames(); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{"true", "false"} {
+		request := httptest.NewRequest("PUT", "/api/cover-fit/alpha", strings.NewReader(`{"stretch":`+value+`}`))
+		response := httptest.NewRecorder()
+		handleCoverFit(response, request)
+		if response.Code != 200 {
+			t.Fatal(response.Code, response.Body.String())
+		}
+		if err := refreshGames(); err != nil {
+			t.Fatal(err)
+		}
+		game := getGameEntryByID("alpha").Game
+		if game.CoverStretch == nil || *game.CoverStretch != (value == "true") {
+			t.Fatal("fit override not retained after refresh")
+		}
+	}
+	var output bytes.Buffer
+	if err := writeLibraryBackupSelectionExtra(&output, true, false, false, map[string]bool{}); err != nil {
+		t.Fatal(err)
+	}
+	archive, err := parseRestoreArchive(output.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := parseLibraryMetadata(archive.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value, ok := state.CoverStretch[folder]; !ok || value {
+		t.Fatal("explicit false was lost from the backup")
+	}
+	response := httptest.NewRecorder()
+	handleCoverFit(response, httptest.NewRequest("PUT", "/api/cover-fit/alpha", strings.NewReader(`{"stretch":null}`)))
+	if response.Code != 200 || getGameEntryByID("alpha").Game.CoverStretch != nil {
+		t.Fatal("could not return to global fit")
+	}
+	response = httptest.NewRecorder()
+	handleCoverFit(response, httptest.NewRequest("PUT", "/api/cover-fit/alpha", strings.NewReader(`{"stretch":true,"path":"/etc/passwd"}`)))
+	if response.Code != 400 {
+		t.Fatal("unexpected cover-fit field accepted")
+	}
+}
+func TestDefaultLogRetentionHasNoAgeLimitButRemainsSizeBounded(t *testing.T) {
+	var retained boundedLog
+	retained.Configure(defaultLogOptions())
+	retained.Write([]byte(time.Now().Add(-180*24*time.Hour).Format("2006/01/02 15:04:05") + " old retained entry\n"))
+	if !strings.Contains(string(retained.Snapshot()), "old retained entry") {
+		t.Fatal("default age still prunes logs")
+	}
+	retained.Configure(&logOptions{OverrideDays: true, Days: 7})
+	if strings.Contains(string(retained.Snapshot()), "old retained entry") {
+		t.Fatal("optional age limit ignored")
+	}
+	retained.Configure(&logOptions{OverrideSize: true, SizeMB: 1})
+	retained.Write(bytes.Repeat([]byte("size-bound-entry\n"), 100000))
+	if len(retained.Snapshot()) > 1<<20 {
+		t.Fatal("unlimited age disabled size bound")
+	}
+}

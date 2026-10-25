@@ -56,7 +56,7 @@
             }
           }
           if (before < height - 3 && drop.y >= height - 3 && dt > 0) {
-            splashes.push({x:drop.x,y:height-3,life:.22,size:2+Math.random()*4,alpha:drop.alpha*.8});
+            splashes.push({x:drop.x,y:height-3,life:viewport ? .22 : .16,size:viewport?2+Math.random()*4:1+Math.random()*1.5,alpha:drop.alpha*(viewport ? .8 : .55),duration:viewport ? .22 : .16});
             drop.y = -drop.length - Math.random()*40; drop.x = Math.random()*width; drop.vx = 0;
           }
           if (drop.y > height + drop.length) { drop.y = -drop.length; drop.x = Math.random() * width; drop.vx = 0; }
@@ -71,8 +71,8 @@
         }
         for (let i=splashes.length-1;i>=0;i--) {
           const splash=splashes[i];splash.life-=dt;if(splash.life<=0){splashes.splice(i,1);continue;}
-          const size=splash.size*(1-splash.life/.22);
-          context.strokeStyle='rgba(192,214,231,'+(splash.alpha*splash.life/.22)+')';context.lineWidth=.65;
+          const size=splash.size*(1-splash.life/splash.duration);
+          context.strokeStyle='rgba(192,214,231,'+(splash.alpha*splash.life/splash.duration)+')';context.lineWidth=.65;
           context.beginPath();context.moveTo(splash.x-size,splash.y-size*.5);context.lineTo(splash.x,splash.y);context.lineTo(splash.x+size,splash.y-size*.5);context.stroke();
         }
         for (const leaf of leaves) {
