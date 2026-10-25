@@ -15,6 +15,18 @@ import uuid
 import zipfile
 
 
+def open_respecting_refresh_limit(request, *args, **kwargs):
+    """Honor the app's discovery cooldown; do not retry unrelated rate limits."""
+    url = request.full_url if isinstance(request, urllib.request.Request) else str(request)
+    for attempt in range(3):
+        try:
+            return urllib.request.urlopen(request, *args, **kwargs)
+        except urllib.error.HTTPError as error:
+            if error.code != 429 or "forceRefresh" not in url or attempt == 2:
+                raise
+            time.sleep(min(11, max(1, int(error.headers.get("Retry-After", "10")))))
+
+
 def docker(*args):
     return subprocess.check_output(["docker", *args], text=True, stderr=subprocess.STDOUT).strip()
 
@@ -58,7 +70,7 @@ def main(image):
             def request(path, value=None, method=None, headers=None, raw=False):
                 req = urllib.request.Request(base + path, data=json.dumps(value).encode() if value is not None else None,
                     headers={"Content-Type": "application/json", **(headers or {})}, method=method)
-                with urllib.request.urlopen(req, timeout=120) as response:
+                with open_respecting_refresh_limit(req, timeout=120) as response:
                     content = response.read()
                     return (response.status, content) if raw else json.loads(content)
 

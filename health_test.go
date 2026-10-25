@@ -182,7 +182,7 @@ func TestHealthBackupRestoreAndFinalLogExportEntry(t *testing.T) {
 }
 func TestHealthOptionsValidationAndPermissionSeparation(t *testing.T) {
 	setupFreshServer(t)
-	cookie := familyCreate(t, map[string]accessRule{"health": {"disable", false}, "healthView": {"allow", false}})
+	cookie := familyCreate(t, map[string]accessRule{"health": {"disable", false, ""}, "healthView": {"allow", false, ""}})
 	settingsMu.RLock()
 	value := configuredSettings
 	settingsMu.RUnlock()

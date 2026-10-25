@@ -284,6 +284,7 @@ func runHealthCheck() {
 	healthData.Sources = sources
 	for _, source := range sources {
 		healthData.Events = append(healthData.Events, healthEvent{now, source.ID, source.Name, source.State, source.Message})
+		logEvent("health", "Library location %s: %s (%s)", source.ID, source.State, source.Message)
 	}
 	if len(healthData.Events) > 500 {
 		healthData.Events = healthData.Events[len(healthData.Events)-500:]
@@ -302,7 +303,7 @@ func runHealthCheck() {
 			critical++
 		}
 	}
-	logEvent("system", "Library health check: %d locations, %d degraded, %d critical", len(sources), degraded, critical)
+	logEvent("health", "Library health check: %d locations, %d degraded, %d critical", len(sources), degraded, critical)
 }
 func runHealthMonitor() {
 	timer := time.NewTimer(10 * time.Second)

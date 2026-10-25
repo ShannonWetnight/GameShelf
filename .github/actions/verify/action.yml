@@ -21,6 +21,11 @@ runs:
         node --check web/app.js
         node --check web/setup.js
         node --check web/tour.js
+        node --check web/access.js
+        node --check web/health.js
+        node --check web/motion.js
+        node --check web/selects.js
+        node --check web/tooltips.js
         node --test tests/frontend.test.cjs
         node --test tests/header-layout.test.cjs
         node --test tests/card-layout.test.cjs

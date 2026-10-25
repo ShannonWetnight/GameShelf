@@ -122,7 +122,7 @@ function app(
   };
   document.createTextNode = text => { const node = new Element(); node.textContent = text; return node; };
   document.querySelectorAll = selector => {
-    if (selector === '#logs-filters input') return ['system', 'library', 'errors', 'request', 'scan', 'download'].map(type => elements.get(`logs-filter-${type}`));
+    if (selector === '#logs-filters input') return ['system', 'library', 'errors', 'request', 'scan', 'download','health'].map(type => elements.get(`logs-filter-${type}`));
     if (selector === '.gs-sort-menu button') return elements.get('sort-menu').children;
     if (selector === '#export-options input:checked') return elements.get('export-options').querySelectorAll('input').filter(input => input.checked);
     if (selector === '#reset-metadata-options input' || selector === '#reset-metadata-options input:checked') {
@@ -850,8 +850,8 @@ test('theme and recent range persist, including migration of the old 3650-day se
   ui.start();
   assert.equal(ui.element('recent-days').value, '7');
   assert.equal(storage.get('gameshelf:recent-days'), '7');
-  assert.equal(ui.element('theme-select').value, 'system');
-  assert.equal(ui.document.body.dataset.theme, 'light');
+  assert.equal(ui.element('theme-select').value, 'classic');
+  assert.equal(ui.document.body.dataset.theme, 'classic');
   ui.element('theme-select').value = 'dark';
   ui.element('theme-select').emit('change');
   assert.equal(storage.get('gameshelf:theme'), 'dark');
@@ -1193,4 +1193,8 @@ test('offline games label cached metadata and block download actions', async () 
   assert.equal(file.attributes['aria-disabled'], 'true');
   file.emit('click');
   assert.match(ui.element('notification-text').textContent, /offline/);
+});
+
+test('manual refresh cooldown preserves the current catalog without a failed-refresh state',async()=>{
+ const ui=app();ui.start();ui.requests[0].resolve(response(games));await settle();ui.search('alpha');const before=[...ui.cards()];ui.click('gs-refresh-trigger');ui.requests[1].resolve({ok:false,status:429,headers:{get:()=> '9'}});await settle();assert.deepEqual(ui.cards(),before);assert.equal(ui.hidden('error-state'),true);assert.notEqual(ui.element('gs-logo-text').textContent,'FAILED');assert.match(ui.element('notification-text').textContent,/wait 9 seconds/);
 });

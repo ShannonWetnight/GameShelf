@@ -100,6 +100,7 @@ func main() {
 	// API endpoints
 	mux.HandleFunc("/api/access", handleAccess)
 	mux.HandleFunc("/api/access/unlock", handleAccessUnlock)
+ mux.HandleFunc("/api/access/enter",handleAccessEnter)
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/health/check", handleHealth)
 	mux.HandleFunc("/api/games", handleGames)
@@ -1164,6 +1165,8 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 
 	// forceRefresh enables client to bypass auto-scan timer
 	if r.URL.Query().Has("forceRefresh") {
+        if !admitManualRefresh(w,r){return}
+        defer finishManualRefresh()
 		if err := refreshGames(); err != nil {
 			logEvent("errors", "forced scan error: %v", err)
 			http.Error(w, "Unable to refresh game library. Please try again later.", http.StatusServiceUnavailable)
@@ -1578,6 +1581,8 @@ type logOptions struct {
 	System bool `json:"system"`
 	Library bool `json:"library"`
 	Errors bool `json:"errors"`
+ Health bool `json:"health"`
+ HealthConfigured bool `json:"healthConfigured,omitempty"`
 	Requests bool `json:"requests"`
 	Scans bool `json:"scans"`
 	Downloads bool `json:"downloads"`
@@ -1587,12 +1592,13 @@ type logOptions struct {
 	Days int `json:"days"`
 }
 
-func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, SizeMB:10, Days:0} }
+func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, Health:true, HealthConfigured:true, SizeMB:10, Days:0} }
 
 func normalizeLogOptions(value *logOptions) *logOptions {
 	if value == nil { return defaultLogOptions() }
 	copy := *value
-	if !copy.BaseConfigured { copy.System, copy.Library, copy.Errors = true, true, true; copy.BaseConfigured = true }
+	if !copy.BaseConfigured { copy.System, copy.Library, copy.Errors, copy.Health = true, true, true, true; copy.BaseConfigured = true }
+	if !copy.HealthConfigured {copy.Health=true;copy.HealthConfigured=true}
 	if copy.SizeMB == 0 { copy.SizeMB = 10 }
 
 	return &copy
@@ -1605,6 +1611,7 @@ func logTypeEnabled(kind string) bool {
 	case "system": return !custom || options.System
 	case "library": return !custom || options.Library
 	case "errors": return !custom || options.Errors
+ case "health": return !custom || options.Health
 	case "requests": return custom && options.Requests
 	case "scans": return custom && options.Scans
 	case "downloads": return custom && options.Downloads

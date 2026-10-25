@@ -1,23 +1,21 @@
 ## Added
 
-- Family Controls: four-digit PIN, individual Allow / Require PIN / Disable and visibility choices, and granular protection for settings, covers, favorites, destructive actions, Playlist, and downloads.
-- Library Health: source status, last successful checks, bounded manual/scheduled probes, configurable monitoring, and exportable/restoreable history.
-- A tenth original GameShelf Edition cover and more evenly scattered welcome artwork, with new sharing-focused setup wording.
+- Library Manager groups Sources, Library Health, and Refresh Interval; health monitoring and saved health logs open their own submenus.
+- Guardian controls for Settings-menu and Advanced-tab PIN access, Basic/Advanced placement, grouped categories, and disabled-control hints.
+- Joined app-themed dropdown lists with keyboard/type-ahead support, plus smooth expansion and contraction for dynamically resized menus and setup panels.
 
-## Fixed
+## Changes
 
-- Duplicate/native tooltips, inconsistent button feedback and fonts, Cartridge Gray return styling, and card/banner corner clipping across themes.
-- Cover controls now live in the editor with counterclockwise rotation, mirroring, and a disabled-stretch slash; card rain splashes remain visible above the title tray.
-- Shuffle handoff no longer pauses and replays a second card animation; rear cases fade before the result appears.
-- Skipped setup recovery remains visible in Basic settings after Wipe, and folder Select/Cancel actions share a width.
-- Log downloads append their export event last without expanding the open log view; health-only backups and larger bounded log snapshots restore correctly.
+- GameShelf Classic is the new-install default. System now chooses Light or Dark; theme choices use a fixed first group followed by alphabetical themes.
+- Refined setup help, stable background-case visibility, compact PIN errors as banners, library-location ellipses, and consistent Playlist/icon/log-button feedback.
+- Library health has a default-on Application Logs category alongside its persistent exportable history.
 
 ## Security
 
-- Server checks protect API operations independently of browser controls, including reset/restore paths and protected preference removal.
-- Salted PIN hashing, limited attempts, short-lived scoped HttpOnly browser unlocks, and credential-free audit events.
-- Private PIN rules survive Wipe/restore; backups include policies without PIN secrets, and fresh imports require a new PIN to unlock protected actions.
+- PIN changes revoke every current browser unlock, including the changing browser. Verification and rotation are serialized to prevent stale-PIN grants.
+- Settings, Advanced, and Library Manager permissions are enforced on relevant server operations as well as menu entry. Gate controls remain recoverable.
+- Manual refresh uses a ten-second server-wide cooldown and prevents concurrent manual discovery from queueing; repeated requests receive Retry-After.
 
 ## Other
 
-- Documented family-control behavior, recovery, monitoring, backup coverage, and security boundaries; added planned library filtering with health indicators to the roadmap.
+- Documented Library Manager and Guardian behavior; added optional local nickname/PIN sessions and per-library/per-game family access to the roadmap.

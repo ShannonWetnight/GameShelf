@@ -57,7 +57,7 @@ func familyGate(t *testing.T, path, method string, body any, cookie *http.Cookie
 }
 func TestFamilyPINScopesDisableIsolationAndSecrets(t *testing.T) {
 	setupFreshServer(t)
-	cookie := familyCreate(t, map[string]accessRule{"favoriteRemove": {"pin", false}, "covers": {"disable", false}, "theme": {"pin", true}, "health": {"disable", false}})
+	cookie := familyCreate(t, map[string]accessRule{"favoriteRemove": {"pin", false, ""}, "covers": {"disable", false, ""}, "theme": {"pin", true, ""}, "health": {"disable", false, ""}})
 	for _, path := range []string{"/api/favorite/game", "/api/covers/game", "/api/cover-fit/game"} {
 		r := familyGate(t, path, "PUT", map[string]bool{"favorite": false}, nil)
 		if r.Code != 423 && r.Code != 403 {
@@ -120,7 +120,7 @@ func TestFamilyPreventsResetRestoreAndPreferenceDeletionBypass(t *testing.T) {
 	settingsMu.Lock()
 	configuredSettings.Preferences = map[string]string{"theme": "dark", "settings-level": "basic"}
 	settingsMu.Unlock()
-	cookie := familyCreate(t, map[string]accessRule{"theme": {"pin", false}, "sources": {"pin", false}, "favoriteRemove": {"disable", false}})
+	cookie := familyCreate(t, map[string]accessRule{"theme": {"pin", false, ""}, "sources": {"pin", false, ""}, "favoriteRemove": {"disable", false, ""}})
 	settingsMu.RLock()
 	value := configuredSettings
 	settingsMu.RUnlock()
@@ -157,7 +157,7 @@ func TestFamilyPreventsResetRestoreAndPreferenceDeletionBypass(t *testing.T) {
 }
 func TestFamilyAttemptLimitsAndCorruptionFailClosed(t *testing.T) {
 	setupFreshServer(t)
-	cookie := familyCreate(t, map[string]accessRule{"downloads": {"pin", false}})
+	cookie := familyCreate(t, map[string]accessRule{"downloads": {"pin", false, ""}})
 	for i := 0; i < 6; i++ {
 		if r := familyUnlock(t, "0000", []string{"downloads"}, cookie); r.Code != 401 {
 			t.Fatal(i, r.Code)
@@ -178,7 +178,7 @@ func TestFamilyAttemptLimitsAndCorruptionFailClosed(t *testing.T) {
 }
 func TestFamilyBackupRulesWithoutSecretsAndFreshRestoreRequiresNewPIN(t *testing.T) {
 	setupFreshServer(t)
-	familyCreate(t, map[string]accessRule{"wipe": {"pin", false}})
+	familyCreate(t, map[string]accessRule{"wipe": {"pin", false, ""}})
 	var backup bytes.Buffer
 	if err := writeLibraryBackupWithHealth(&backup, false, true, true, map[string]bool{}, nil, true); err != nil {
 		t.Fatal(err)
@@ -222,7 +222,7 @@ func TestFamilyInitialCreationRaceAndPINChangeInvalidateOtherSessions(t *testing
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			results <- familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "7392", "policy": accessPolicy{map[string]accessRule{"downloads": {"pin", false}}}}, nil)
+			results <- familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "7392", "policy": accessPolicy{map[string]accessRule{"downloads": {"pin", false, ""}}}}, nil)
 		}()
 	}
 	wait.Wait()
@@ -245,7 +245,7 @@ func TestFamilyInitialCreationRaceAndPINChangeInvalidateOtherSessions(t *testing
 	second := familyCall(t, handleAccess, "GET", "/api/access", nil, nil).Result().Cookies()[0]
 	familyUnlock(t, "7392", []string{"downloads"}, second)
 	familyUnlock(t, "7392", []string{"admin"}, cookie)
-	if r := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "6248", "policy": accessPolicy{map[string]accessRule{"downloads": {"pin", false}}}}, cookie); r.Code != 200 {
+	if r := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "6248", "policy": accessPolicy{map[string]accessRule{"downloads": {"pin", false, ""}}}}, cookie); r.Code != 200 {
 		t.Fatal(r.Code, r.Body.String())
 	}
 	if r := familyGate(t, "/download/game", "GET", nil, second); r.Code != 423 {
@@ -274,7 +274,7 @@ func TestFamilyCSRFAndCorruptStoreCannotChangeRules(t *testing.T) {
 
 func TestFamilyRejectsAmbiguousJSONBeforeAuthorization(t *testing.T) {
 	setupFreshServer(t)
-	familyCreate(t, map[string]accessRule{"theme": {"disable", false}, "favoriteAdd": {"disable", false}, "titles": {"disable", false}})
+	familyCreate(t, map[string]accessRule{"theme": {"disable", false, ""}, "favoriteAdd": {"disable", false, ""}, "titles": {"disable", false, ""}})
 	settingsMu.RLock()
 	value := configuredSettings
 	settingsMu.RUnlock()

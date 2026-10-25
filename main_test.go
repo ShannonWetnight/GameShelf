@@ -99,6 +99,10 @@ func writeGame(t *testing.T, name string) {
 }
 
 func requestGames(t *testing.T, path string, status int) *httptest.ResponseRecorder {
+ // These scan fixtures represent separate manual attempts. Advance the quiet
+ // period without sleeping; guardian_test.go exercises real cooldown/in-flight behavior.
+ if strings.Contains(path,"forceRefresh")&&status!=http.StatusTooManyRequests{manualRefreshMu.Lock();manualRefreshLast=time.Now().Add(-manualRefreshCooldown);manualRefreshActive=false;manualRefreshMu.Unlock()}
+
 	t.Helper()
 	w := httptest.NewRecorder()
 	handleGames(w, httptest.NewRequest(http.MethodGet, path, nil))
