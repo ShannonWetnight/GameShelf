@@ -280,8 +280,9 @@
  function layoutSetupArt(){
    if(!document.body.classList.contains('gs-needs-setup'))return;
    const mobile=matchMedia('(pointer:coarse)').matches;
-   const zoom=(mobile?1:Math.max(.25,Math.min(5,window.outerWidth>0?window.outerWidth/innerWidth:1)))*(typeof uiScale==='number'?uiScale:1);
-   layer.style.inset='auto';layer.style.left='0';layer.style.top='0';layer.style.width=innerWidth*zoom+'px';layer.style.height=innerHeight*zoom+'px';layer.style.transformOrigin='top left';layer.style.transform='scale('+(1/zoom)+')';
+   const zoom=mobile?1:Math.max(.25,Math.min(5,window.outerWidth>0?window.outerWidth/innerWidth:1));
+   const appScale=typeof uiScale==='number'?uiScale:1;
+   layer.style.inset='auto';layer.style.left='0';layer.style.top='0';layer.style.width=innerWidth*zoom+'px';layer.style.height=innerHeight*zoom+'px';layer.style.transformOrigin='top left';layer.style.transform='scale('+(1/(zoom*appScale))+')';
    const w=innerWidth*zoom,h=innerHeight*zoom,box=document.querySelector('#setup-form').getBoundingClientRect();
    const size=mobile?88:Math.min(156,Math.max(110,w*.085));
    const spots=[[.05,.03],[.94,.07],[.10,.78],[.91,.77],[.32,.06],[.68,.08],[.20,.39],[.79,.43],[.35,.82],[.65,.79]];
