@@ -85,7 +85,7 @@ def main(image):
                 source = dict(id="", name=protocol.upper() + " fixture", protocol=protocol, url=url,
                     username="" if protocol == "nfs" else "reader", password="" if protocol == "nfs" else "fixture-password",
                     nfsVersion=0, uid=10001, gid=10001)
-                for attempt in range(12):
+                for attempt in range(3):
                     try:
                         result = request("/api/network-test", source)
                         if result.get("requiresTrust"):
@@ -95,7 +95,16 @@ def main(image):
                         break
                     except urllib.error.HTTPError as error:
                         message = error.read().decode()
-                        if attempt == 11:
+                        if attempt == 2:
+                            if protocol == "ftps":
+                                # These are isolated fixture credentials, never user secrets.
+                                obscured = docker("exec", app, "rclone", "obscure", "fixture-password")
+                                args = ["docker", "exec"]
+                                for key, value in dict(TYPE="ftp", HOST="network-fixture", PORT="990", USER="reader", PASS=obscured, TLS="true").items():
+                                    args += ["--env", "RCLONE_CONFIG_DIAG_" + key + "=" + value]
+                                args += [app, "rclone", "--config", "/dev/null", "--log-level", "ERROR", "--timeout", "8s", "--retries", "1", "lsjson", "diag:/"]
+                                diagnostic = subprocess.run(args, text=True, capture_output=True, timeout=20)
+                                print(diagnostic.stderr[-8000:])
                             raise AssertionError(f"{protocol} connection test: {message}") from error
                         time.sleep(.3)
                 # Test replies intentionally contain no password; retain the test input.
