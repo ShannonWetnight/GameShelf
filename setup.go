@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -110,8 +112,9 @@ func runAutoRefresh() {
 	for {
 		settingsMu.RLock()
 		interval := configuredRefreshInterval(configuredSettings.RefreshInterval)
+		configured := hasLibrary(configuredSettings)
 		settingsMu.RUnlock()
-		if setupRequired.Load() || interval <= 0 {
+		if setupRequired.Load() || !configured || interval <= 0 {
 			<-refreshSchedule
 			continue
 		}
@@ -147,7 +150,7 @@ func setupGate(next http.Handler) http.Handler {
 				return
 			}
 		}
-		configuration := r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
+		configuration := r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/source-status" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/server-settings" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/version" || r.URL.Path == "/api/logs"
 		libraryRoute := !configuration && (strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/download") || strings.HasPrefix(r.URL.Path, "/covers/"))
 		if libraryRoute {
 			// Finish any active library responses before setup replaces runtime paths.
@@ -188,6 +191,34 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Setup is already complete. Use Settings to change your library.", http.StatusConflict)
 			return
 		}
+		if r.URL.Query().Get("skip") == "1" {
+			settingsMu.RLock()
+			value := configuredSettings
+			settingsMu.RUnlock()
+			value.RootDir = ""
+			value.RootDirs = nil
+			value.Sources = nil
+			value.SetupCompleted = true
+			if err := saveServerSettings(value); err != nil {
+				http.Error(w, "Could not save your choice. Check data storage permissions.", http.StatusServiceUnavailable)
+				return
+			}
+			libraryRuntimeMu.Lock()
+			refreshMu.Lock()
+			rootDir = ""
+			rootDirs = nil
+			setActiveSources(nil)
+			gamesMu.Lock()
+			gamesMap = make(map[string]*gameEntry)
+			gamesMu.Unlock()
+			refreshMu.Unlock()
+			setupRequired.Store(false)
+			libraryRuntimeMu.Unlock()
+			notifyRefreshSchedule()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"complete": true, "settings": publicSettings(value)})
+			return
+		}
 		var value serverSettings
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 524288))
 		decoder.DisallowUnknownFields()
@@ -203,6 +234,7 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		value.SetupCompleted = true
 		if err := saveServerSettings(value); err != nil {
 			logEvent("errors", "first-time setup save: %v", err)
 			http.Error(w, "Could not save setup. Check that the data folder is writable by GameShelf.", http.StatusServiceUnavailable)
@@ -278,4 +310,55 @@ func handleLibraryFolders(w http.ResponseWriter, r *http.Request) {
 		Parent  string   `json:"parent"`
 		Folders []string `json:"folders"`
 	}{directory, parent, folders})
+}
+
+// Backups may carry only display preferences, never arbitrary browser storage.
+func validatePreferences(values map[string]string) error {
+	bools := map[string]bool{}
+	for _, key := range []string{"favorite-stars-only", "favorites-first", "card-depth", "animate-tiles", "playlist-enabled", "show-hover-text", "show-game-titles", "hover-game-titles", "show-placeholder-images", "show-list-images", "recent-days-v2"} {
+		bools[key] = true
+	}
+	for key, value := range values {
+		valid := false
+		if bools[key] {
+			valid = value == "true" || value == "false"
+		} else {
+			switch key {
+			case "theme":
+				for _, theme := range strings.Split("system|classic|light|dark|retro|neon|cartridge|cosmos|ion|rose|midnight|lattice|rain|storm|autumn", "|") {
+					if value == theme {
+						valid = true
+						break
+					}
+				}
+			case "list-image-click":
+				valid = value == "single" || value == "double" || value == "disabled"
+			case "view":
+				valid = value == "grid" || value == "list"
+			case "settings-level":
+				valid = value == "basic" || value == "advanced"
+			case "animation-speed":
+				n, e := strconv.ParseFloat(value, 64)
+				valid = e == nil && n >= 0 && n <= 3
+			case "list-opacity":
+				n, e := strconv.ParseFloat(value, 64)
+				valid = e == nil && n >= 0 && n <= 100
+			case "recent-days":
+				n, e := strconv.Atoi(value)
+				valid = e == nil && n >= 1 && n <= 3650
+			}
+		}
+		if !valid || len(value) > 64 {
+			return errors.New("unsupported display preference in backup")
+		}
+	}
+	return nil
+}
+func sourcesNeedLogin(sources []networkSource) bool {
+	for _, source := range sources {
+		if source.Protocol != "nfs" && (source.Username != "" || source.HasPassword || source.PasswordCipher != "") {
+			return true
+		}
+	}
+	return false
 }

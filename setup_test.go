@@ -1,7 +1,11 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +14,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func setupFreshServer(t *testing.T) (string, string) {
@@ -216,5 +221,165 @@ func TestConfigurationRejectsCrossSiteBrowserRequests(t *testing.T) {
 		if !sample.allowed && response.Code != http.StatusForbidden {
 			t.Fatal(response.Code)
 		}
+	}
+}
+
+func TestDeferredSetupPersistsAndCanBeConfiguredLater(t *testing.T) {
+	root, _ := setupFreshServer(t)
+	response := httptest.NewRecorder()
+	handleSetup(response, httptest.NewRequest("POST", "/api/setup?skip=1", nil))
+	if response.Code != 200 || setupRequired.Load() || !configuredSettings.SetupCompleted || hasLibrary(configuredSettings) {
+		t.Fatalf("skip: %d %s", response.Code, response.Body.String())
+	}
+	value := initializeServerSettings()
+	if setupRequired.Load() || !value.SetupCompleted {
+		t.Fatal("deferred setup was not remembered")
+	}
+	mountedLibraryRoots = []string{root}
+	value.RootDir = root
+	value.RootDirs = []string{root}
+	contents, _ := json.Marshal(value)
+	response = httptest.NewRecorder()
+	handleServerSettings(response, httptest.NewRequest("PUT", "/api/server-settings", bytes.NewReader(contents)))
+	if response.Code != 200 || rootDir != root {
+		t.Fatalf("manual sources: %s", response.Body.String())
+	}
+}
+func TestFirstSetupImportsBackupWithoutCredentialsOrRestart(t *testing.T) {
+	_, data := setupFreshServer(t)
+	oldList, oldSources := networkList, snapshotSources()
+	t.Cleanup(func() { networkList = oldList; setActiveSources(oldSources) })
+	networkList = func(context.Context, networkSource, bool) ([]remoteItem, error) {
+		return []remoteItem{{Path: "Restored Game", IsDir: true}}, nil
+	}
+	value := serverSettings{RootDir: "", DataDir: "/previous-server-data", RefreshInterval: "24h", Sources: []networkSource{{ID: newSourceID(), Protocol: "smb", URL: "smb://nas/games", Username: "reader", HasPassword: true, Password: "must-not-restore", PasswordCipher: "must-not-restore-cipher"}}, Preferences: map[string]string{"theme": "neon", "list-image-click": "double"}}
+	settings, _ := json.Marshal(value)
+	backup := restoreZIP(t, map[string][]byte{"server-settings.json": settings})
+	handler := setupGate(http.HandlerFunc(handleLibraryRestore))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest("POST", "/api/library-restore", bytes.NewReader(backup)))
+	if response.Code != 200 {
+		t.Fatalf("gated preview: %d %s", response.Code, response.Body.String())
+	}
+	var preview struct {
+		SHA           string `json:"sha256"`
+		RequiresLogin bool   `json:"requiresLogin"`
+	}
+	json.Unmarshal(response.Body.Bytes(), &preview)
+	if !preview.RequiresLogin {
+		t.Fatal("missing password notice")
+	}
+	request := httptest.NewRequest("POST", "/api/library-restore?apply=1&settings=1", bytes.NewReader(backup))
+	request.Header.Set("X-Preview-SHA256", preview.SHA)
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		scanProgressMu.Lock()
+		busy := scanBusy
+		scanProgressMu.Unlock()
+		if !busy {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("restore scan did not finish")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if response.Code != 200 || setupRequired.Load() || !configuredSettings.SetupCompleted || configuredSettings.DataDir != data {
+		t.Fatalf("import: %d %s", response.Code, response.Body.String())
+	}
+	source := configuredSettings.Sources[0]
+	if source.Username != "reader" || source.Password != "" || source.PasswordCipher != "" || source.HasPassword {
+		t.Fatal("import retained a password or lost username")
+	}
+	if configuredSettings.Preferences["theme"] != "neon" || len(gamesMap) != 1 {
+		t.Fatal("settings or library were not activated")
+	}
+}
+func TestBackupPreferenceWhitelist(t *testing.T) {
+	for _, values := range []map[string]string{{"password": "secret"}, {"theme": "system|classic"}, {"animation-speed": "NaN"}, {"list-opacity": "101"}, {"view": "javascript"}} {
+		if validatePreferences(values) == nil {
+			t.Fatalf("unsafe preferences accepted: %#v", values)
+		}
+	}
+	if err := validatePreferences(map[string]string{"theme": "classic", "animation-speed": "1.1", "list-opacity": "80", "show-game-titles": "false"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBackupIncludesSafePreferencesAndRedactsCredentials(t *testing.T) {
+	root, data := setupFreshServer(t)
+	settingsMu.Lock()
+	configuredSettings = serverSettings{RootDir: root, DataDir: data, RefreshInterval: "168h", SetupCompleted: true, Sources: []networkSource{{ID: newSourceID(), Protocol: "smb", URL: "smb://nas/games", Username: "reader", Password: "plaintext-secret", PasswordCipher: "encrypted-secret"}}}
+	settingsMu.Unlock()
+	request := httptest.NewRequest("GET", "/api/library-backup?select=1&settings=1", nil)
+	request.Header.Set("X-GameShelf-Preferences", `{"theme":"neon","list-opacity":"80","favorites-first":"true"}`)
+	response := httptest.NewRecorder()
+	handleLibraryBackup(response, request)
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	archive, err := zip.NewReader(bytes.NewReader(response.Body.Bytes()), int64(response.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(archive.File) != 1 || archive.File[0].Name != "server-settings.json" {
+		t.Fatal("unexpected backup files")
+	}
+	reader, err := archive.File[0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := io.ReadAll(reader)
+	reader.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{"plaintext-secret", "encrypted-secret", "passwordCipher"} {
+		if bytes.Contains(contents, []byte(secret)) {
+			t.Fatalf("secret exported: %s", secret)
+		}
+	}
+	var saved serverSettings
+	if err = json.Unmarshal(contents, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.Sources[0].Username != "reader" || saved.Sources[0].URL != "smb://nas/games" || saved.Preferences["theme"] != "neon" || !saved.SetupCompleted {
+		t.Fatal("restore configuration missing")
+	}
+	request = httptest.NewRequest("GET", "/api/library-backup?select=1&settings=1", nil)
+	request.Header.Set("X-GameShelf-Preferences", `{"password":"must-not-backup"}`)
+	response = httptest.NewRecorder()
+	handleLibraryBackup(response, request)
+	if response.Code != 400 {
+		t.Fatal("unapproved browser data accepted")
+	}
+}
+
+func TestRejectedRestoreDoesNotMutateActiveConnection(t *testing.T) {
+	_, data := setupFreshServer(t)
+	original := networkSource{ID: newSourceID(), Protocol: "smb", URL: "smb://nas/games", Username: "reader", PasswordCipher: "saved-credential"}
+	settingsMu.Lock()
+	configuredSettings.Sources = []networkSource{original}
+	settingsMu.Unlock()
+	invalid := serverSettings{DataDir: data, RefreshInterval: "invalid", Sources: []networkSource{{ID: original.ID, Protocol: "smb", URL: "smb://another/games", Username: "other"}}}
+	settings, _ := json.Marshal(invalid)
+	backup := restoreZIP(t, map[string][]byte{"server-settings.json": settings})
+	preview := httptest.NewRecorder()
+	handleLibraryRestore(preview, httptest.NewRequest("POST", "/api/library-restore", bytes.NewReader(backup)))
+	var result struct {
+		SHA string `json:"sha256"`
+	}
+	json.Unmarshal(preview.Body.Bytes(), &result)
+	request := httptest.NewRequest("POST", "/api/library-restore?apply=1&settings=1", bytes.NewReader(backup))
+	request.Header.Set("X-Preview-SHA256", result.SHA)
+	response := httptest.NewRecorder()
+	handleLibraryRestore(response, request)
+	if response.Code != 400 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	if configuredSettings.Sources[0] != original {
+		t.Fatal("failed import changed live credentials")
 	}
 }
