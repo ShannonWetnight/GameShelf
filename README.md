@@ -75,7 +75,7 @@ The welcome screen appears when no library or completed setup is saved. It waits
 
 Already have a backup? **Import Data** on the first step previews a GameShelf backup ZIP. Restore server settings, library state, and uploaded covers to bypass the setup steps. Passwords are not backed up: sign in to protected shares again afterward. [See recovery details](#backup-import-and-recovery).
 
-Not ready? The header **settings cog → Set Up Later** opens an empty shelf. Add locations later in **Settings → Advanced → Data and Diagnostics → Library Sources**. This choice survives restarts.
+Not ready? The header **settings cog → Set Up Later** opens an empty shelf. Add locations later in **Settings → Advanced → Data and Diagnostics → Library Sources**. This choice survives restarts. **Advanced Data and Diagnostics → Finish First-Time Setup** reopens the wizard only when setup was skipped or remains unfinished.
 
 The optional tour begins with game controls and the Home logo, then covers search, sorting, views, the dice picker, Playlist, and Settings. **Ignore** skips the invitation. Once started, exiting asks for confirmation. Replay it using **Settings → Appearance → Quick tour**. Motion respects animation settings and the device's reduced-motion preference.
 
@@ -159,7 +159,7 @@ Open **Add Cover** or **Edit Cover** in game details. Upload an image or choose 
 
 Edited covers are 600×900 PNGs in application data. They take priority over these automatically detected files at a game's root: `cover.jpg`, `cover.jpeg`, `cover.png`, `folder.jpg`, `folder.jpeg`, `folder.png`. Other supported filenames can be selected through the folder chooser. Missing artwork uses the GameShelf placeholder unless disabled.
 
-A 600×900 poster is a good starting point. Poster (2:3), portrait (3:4), square, landscape (4:3), and widescreen (16:9) covers preserve their proportions within a stable 2:3 frame. Non-poster artwork uses a soft cover-derived backdrop. Static titles sit below the frame without resizing the image.
+A 600×900 poster is a good starting point. Poster (2:3), portrait (3:4), square, landscape (4:3), and widescreen (16:9) covers preserve their proportions within a stable 2:3 frame. Any unused area uses a soft cover-derived backdrop, including unusual poster sizes and list thumbnails. **Stretch covers to fill** fills frames without preserving proportions. The stretch icon beside Edit Cover can enable or disable this for one game, overriding the browser-wide setting; Reset Metadata’s cover option clears this override. Static titles sit below the frame without resizing the image.
 
 ## Settings and defaults
 
@@ -168,6 +168,7 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Display prefer
 | Setting | Default | Location / behavior |
 | --- | --- | --- |
 | Theme | System | Appearance; follows the device. A dark system uses GameShelf Classic. |
+| Stretch covers to fill | Off | Advanced Library View; override individual titles with the stretch icon beside Edit Cover. Per-game overrides are shared metadata and included in backups. |
 | Animation speed | 1.10× | Advanced Appearance; 0 stops motion, maximum 3.0×. |
 | Animate loaded game tiles | On | Appearance; independent of animation speed. |
 | Show button hints | On | Appearance. |
@@ -185,7 +186,7 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Display prefer
 | Automatic refresh | 168 hours | Advanced Data and Diagnostics → Refresh Interval; 0 for manual only. |
 | Backup selections | All selected | Data and Diagnostics → Export Data. |
 
-**Application Logs** is visible in Basic settings; **Configure** is Advanced. View, filter, copy, or download the process's log snapshot. Without **Customize logging**, system, library, and error events stay enabled. Customization allows individual system, library, error, request, scan, and download categories. Default retention is seven days and 10 MB, with optional overrides. Logs are kept in process memory and do not survive a restart.
+**Application Logs** is visible in Basic settings; **Configure** is Advanced. View, filter, copy, or download the process's log snapshot. Without **Customize logging**, system, library, and error events stay enabled. Customization allows individual system, library, error, request, scan, and download categories. Default retention has no age limit and is bounded to 10 MB, with optional age and size overrides. System logging records server and display-setting changes without credential values. Logs are kept in process memory and do not survive a restart.
 
 **Reset All Settings → Wipe** asks for confirmation and resets browser preferences and server settings. It does not delete game files, game metadata, or uploaded covers. Restart if resetting changes the saved-data path. Without an initial library, setup is offered again.
 
@@ -195,6 +196,7 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Display prefer
 
 | Theme | Appearance and motion |
 | --- | --- |
+| Randomize | Chooses one existing theme each time the app is opened, keeping it stable for that visit. |
 | System, GameShelf Classic, Light, Dark | Standard branding; System follows the device. |
 | Retro Arcade | Purple arcade colors, warm aged-yellow text, pointer-lit dazzling stars. |
 | Neon Mirage | Cyan/pink vaporwave glow, perspective grid, CRT motion. |

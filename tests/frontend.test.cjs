@@ -100,6 +100,7 @@ function app(
     if (match[0].includes('value="')) element.value = match[0].match(/value="([^"]*)"/)[1];
     elements.set(match[1], element);
   }
+  for(const match of html.matchAll(/<select[^>]*id="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)){elements.get(match[1]).options=[...match[2].matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map(option=>({value:option[1],text:option[2]}));}
   for (const match of html.matchAll(/<button data-sort="([^"]+)">([^<]+)<\/button>/g)) {
     const button = new Element();
     button.dataset.sort = match[1];
@@ -153,6 +154,7 @@ function app(
     },
     clearTimeout: id => timers.delete(id),
     fetch(url, options) {
+      if(url==='/api/settings-events')return Promise.resolve(response({},204));
       if (url === '/api/version') {
         return Promise.resolve(versionInfo ? response(versionInfo) : response({}, 503));
       }
@@ -227,7 +229,7 @@ test('cover actions download the game and open read-only details', async () => {
   const body = card.children[1];
   const action = card.children[0].children[1].children[0];
   const details = card.children[0].children[1].children[2];
-  assert.equal(body.children[0].tagName, 'IMG');
+  assert.equal(body.children[0].querySelector('img').tagName, 'IMG');
   assert.equal(body.children[1].children[0].textContent, 'Alpha');
   assert.equal(body.children.length, 2);
   assert.equal(action.href, '/download/alpha');
@@ -292,12 +294,12 @@ test('both dialogs close on backdrop clicks, while inside clicks stay open', asy
   ui.click('build-info');
   settings.emit('click', { target: settings, clientX: 150, clientY: 150 });
   assert.equal(settings.open, true);
-  settings.emit('click', { target: settings, clientX: 0, clientY: 0 });
+  settings.emit('pointerdown', { target: settings,button:0,clientX:0,clientY:0 });settings.emit('pointerup', { target: settings,clientX:0,clientY:0 });settings.emit('click', { target: settings, clientX: 0, clientY: 0 });
   assert.equal(settings.open, false);
   const info = ui.cards()[0].children[0].children[1].children[2];
   info.emit('click');
   const details = ui.element('game-details-dialog');
-  details.emit('click', { target: details, clientX: 0, clientY: 0 });
+  details.emit('pointerdown', { target: details,button:0,clientX:0,clientY:0 });details.emit('pointerup', { target: details,clientX:0,clientY:0 });details.emit('click', { target: details, clientX: 0, clientY: 0 });
   assert.equal(details.open, false);
 });
 
@@ -928,7 +930,7 @@ test('refresh feedback returns to the brand when the pointer has left', async ()
   ui.requests[1].resolve(response(games));
   await settle();
   assert.equal(ui.element('gs-logo-text').textContent, 'REFRESHED');
-  assert.equal(ui.element('library-stage').classList.contains('gs-home-enter'), true);
+  assert.equal(ui.element('library-stage').classList.contains('gs-home-enter'), false);
   ui.tick(1000);
   assert.equal(ui.element('gs-logo-text').textContent, 'GAMESHELF');
 });
@@ -941,7 +943,7 @@ test('backup export waits for the complete response, prevents duplicate requests
   ui.click('export-library-data');
   const pending = ui.click('export-confirm');
   assert.equal(ui.element('export-confirm').disabled, true);
-  assert.match(ui.element('library-backup-status').textContent, /Preparing/);
+  assert.match(ui.element('export-status').textContent, /Preparing/);
   ui.click('export-confirm');
   assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 1);
   let finish;
@@ -957,7 +959,7 @@ test('backup export waits for the complete response, prevents duplicate requests
   await pending;
   assert.deepEqual(ui.downloads, [blob]);
   assert.equal(ui.element('export-confirm').disabled, false);
-  assert.equal(ui.element('library-backup-status').textContent, '');
+  assert.equal(ui.element('export-status').textContent, '');
   assert.equal(ui.element('notification-text').textContent, 'Library backup download started.');
   const link = ui.document.body.children.find(child => child.download === 'gameshelf-library-backup.zip');
   assert.equal(link.download, 'gameshelf-library-backup.zip');
@@ -983,7 +985,7 @@ for (const failure of ['http', 'network', 'body', 'truncated', 'wrong-type']) {
     await pending;
     assert.equal(ui.downloads.length, 0);
     assert.equal(ui.element('export-confirm').disabled, false);
-    assert.match(ui.element('library-backup-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
+    assert.match(ui.element('export-status').textContent, /backup failed.*No backup was downloaded.*try again/i);
     ui.click('export-confirm');
     assert.equal(ui.requests.filter(request => request.url === '/api/library-backup?select=1&state=1&settings=1&logs=1').length, 2);
   });

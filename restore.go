@@ -295,6 +295,7 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	if firstSetup {
 		effective.SetupCompleted = true
+		effective.SetupStatus = "complete"
 	}
 	writeSettings := settingsSelected || firstSetup
 	if writeSettings {
@@ -355,6 +356,7 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		setupRequired.Store(false)
 	}
 	notifyRefreshSchedule()
+	logEvent("system", "Library backup restored (state=%t settings=%t covers=%t)", selection.State, settingsSelected, selection.Covers)
 	scanWarning := ""
 	if !restartRequired {
 		if len(snapshotSources()) > 0 {

@@ -1,7 +1,7 @@
-const preferenceKeys = ['theme','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
+const preferenceKeys = ['theme','stretch-covers','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
 const hasSavedPreferences = preferenceKeys.some(key=>localStorage.getItem('gameshelf:'+key)!==null);
 function capturePreferences(){
-  const values = {theme:themePreference,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
+  const values = {theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
   return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,String(value)]));
 }
 function importPreferences(values){for(const key of preferenceKeys)if(typeof values?.[key]==='string')localStorage.setItem('gameshelf:'+key,values[key]);}
@@ -23,6 +23,7 @@ let recentDays = !legacyRecentRange && Number.isInteger(storedRecentDays) && sto
 if (legacyRecentRange) localStorage.setItem('gameshelf:recent-days', '7');
 localStorage.setItem('gameshelf:recent-days-v2', 'true');
 let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
+let stretchCovers = localStorage.getItem('gameshelf:stretch-covers') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
 const storedImageClick = localStorage.getItem('gameshelf:list-image-click');
 let listImageClick = ['single', 'double', 'disabled'].includes(storedImageClick) ? storedImageClick : localStorage.getItem('gameshelf:expand-list-image') === 'false' ? 'disabled' : 'single';
@@ -202,7 +203,7 @@ async function loadServerSettings() {
   try {
     const response = await fetch('/api/server-settings', { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    serverSettings = await response.json();
+    serverSettings = await response.json();syncSetupResume();
   } catch {
     document.getElementById('settings-save-status').textContent = 'Could not load server settings.';
   }
@@ -219,7 +220,7 @@ async function saveServerSettings(settings) {
 
 async function exportLibraryData() {
   const button = document.getElementById('export-confirm');
-  const status = document.getElementById('library-backup-status');
+  const status = document.getElementById('export-status');
   const dialog = document.getElementById('export-dialog');
   if (button.disabled) return;
   const checked = [...document.querySelectorAll('#export-options input:checked')];
@@ -501,6 +502,8 @@ function setCoverImage(image, frame, source, label) {
     const formats = [['poster', 2/3], ['portrait', 3/4], ['square', 1], ['landscape', 4/3], ['wide', 16/9]];
     const closest = formats.reduce((a,b) => Math.abs(Math.log(ratio/a[1])) < Math.abs(Math.log(ratio/b[1])) ? a : b);
     frame.dataset.coverShape = closest[0];
+ const frameRatio=frame.clientWidth/frame.clientHeight || 2/3;
+ frame.dataset.coverBackdrop=String(Math.abs(Math.log(ratio/frameRatio)) > .001);
     frame.classList.remove('gs-cover-unavailable');
     frame.style.setProperty?.('--cover-image', 'url(' + JSON.stringify(image.currentSrc || image.src) + ')');
   };
@@ -518,7 +521,7 @@ function sizeSettingsSelect(select) {
   const context = document.createElement('canvas').getContext?.('2d');
   if (!option || !context) return;
   context.font = getComputedStyle(select).font;
-  select.style.width = (select.id === 'theme-select' ? 190 : Math.ceil(context.measureText(option.text).width + 40)) + 'px';
+  select.style.width = (select.id === 'theme-select' ? 190 : Math.ceil(context.measureText('Double-click').width + 40)) + 'px';
   select.style.flexBasis = 'auto';
 }
 
@@ -545,6 +548,7 @@ function createGameCard(game) {
 
   const cover = document.createElement('div');
   cover.className = 'gs-card-cover';
+ setCoverStretch(cover,game);
 
   const img = document.createElement('img');
   const version = coverVersions.get(game.id);
@@ -659,7 +663,8 @@ function createGameCard(game) {
 
   const listImage = document.createElement('img');
   listImage.className = 'gs-list-image';
-  listImage.src = game.hasCover === false ? '/placeholder.png' : img.src;
+  const listFrame=document.createElement('span');listFrame.className='gs-list-cover';setCoverStretch(listFrame,game);
+ setCoverImage(listImage,listFrame,game.hasCover === false ? '/placeholder.png' : img.src,game.name);
   const expandImage = event => {
     if (event.type !== (listImageClick === 'double' ? 'dblclick' : 'click')) return;
     if (listImageClick === 'disabled' || !showListImages || !document.getElementById('games-container').classList.contains('list-view')) return;
@@ -673,7 +678,7 @@ function createGameCard(game) {
   listImage.addEventListener('dblclick', expandImage);
   listImage.alt = '';
   listImage.loading = 'lazy';
-  body.appendChild(listImage);
+  listFrame.appendChild(listImage);body.appendChild(listFrame);
 
   const content = document.createElement('div');
   content.className = 'gs-card-content';
@@ -698,6 +703,7 @@ function createGameCard(game) {
 }
 
 function openGameDetails(game, trigger, card) {
+ game=gamesCache.find(item=>item.id===game.id)||game;
   const dialog = document.getElementById('game-details-dialog');
   fileListController?.abort();
   fileListController = null;
@@ -709,6 +715,7 @@ function openGameDetails(game, trigger, card) {
   detailArt.classList.toggle('gs-no-cover', game.hasCover === false);
   const imageVersion = coverVersions.get(game.id);
   setCoverImage(document.getElementById('game-details-image'), document.querySelector?.('.gs-details-art-frame') || document.getElementById('game-details-art'), `/covers/${encodeURIComponent(game.id)}${imageVersion ? `?v=${imageVersion}` : ''}`, game.name);
+  setCoverStretch(document.querySelector?.('.gs-details-art-frame'),game);syncCoverStretchControl(game);
   document.getElementById('game-details-image-title').textContent = game.name;
   document.getElementById('game-title-input').value = game.name;
   document.getElementById('game-details-path').textContent = game.location || game.path || '';
@@ -1066,15 +1073,13 @@ function bindCoverEditor() {
   });
 }
 
-function closeOnBackdropClick(dialog) {
-  dialog.addEventListener('click', event => {
-    if (event.target !== dialog) return;
-    const rect = dialog.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right ||
-        event.clientY < rect.top || event.clientY > rect.bottom) {
-      dialog.close();
-    }
-  });
+function closeOnBackdropClick(dialog, close = () => dialog.close(), region = dialog) {
+  let startedOutside=false,endedOutside=false;
+  const outside=event=>{const rect=region.getBoundingClientRect();return event.target===dialog&&(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom);};
+  dialog.addEventListener('pointerdown',event=>{startedOutside=event.button===0&&outside(event);endedOutside=false;});
+  dialog.addEventListener('pointerup',event=>{endedOutside=outside(event);});
+  dialog.addEventListener('pointercancel',()=>{startedOutside=endedOutside=false;});
+  dialog.addEventListener('click',event=>{const dismiss=startedOutside&&endedOutside&&outside(event);startedOutside=endedOutside=false;if(dismiss)close();});
 }
 
 /* =============================
@@ -1254,10 +1259,9 @@ function suggestRandomGame() {
   const firstPreview = alternatives[Math.floor(Math.random() * alternatives.length)];
   const previews = [firstPreview, alternatives.find(candidate => candidate.id !== firstPreview.id) || firstPreview, game];
   for (const preview of previews) {
-    const face = document.createElement('img');
-    face.className = 'gs-shuffle-face';
-    face.src = cardMap.get(preview.id).querySelector('.gs-card-cover').querySelector('img').src;
-    face.alt = '';
+    const face = document.createElement('div');face.className = 'gs-shuffle-face';setCoverStretch(face,preview);
+ const resultFrame=card.querySelector('.gs-card-cover');if(resultFrame.clientWidth&&resultFrame.clientHeight){face.style.width=resultFrame.clientWidth+'px';face.style.height=resultFrame.clientHeight+'px';face.style.top=(resultFrame.offsetTop||0)+'px';}
+ const previewImage=document.createElement('img');previewImage.alt='';setCoverImage(previewImage,face,cardMap.get(preview.id).querySelector('.gs-card-cover').querySelector('img').src,preview.name);face.appendChild(previewImage);
     deck.appendChild(face);
   }
   container.appendChild(deck);
@@ -1307,22 +1311,25 @@ async function loadGames(isRefresh = false) {
       coverVersions.clear();
       refreshGeneration++;
       games.forEach(game => coverVersions.set(game.id, refreshGeneration));
-      clearSearch();
     }
 
+    const refreshingExisting = isRefresh && cardMap.size > 0;
+    if(refreshingExisting && !disableEffects && !matchMedia('(prefers-reduced-motion: reduce)').matches) await container.animate?.([{opacity:1},{opacity:.35}],{duration:motionDuration(140),easing:'ease-out'})?.finished?.catch(()=>{});
+    if(isRefresh)clearSearch();
     clearSuggestion();
     gamesCache = games;
     cardMap.clear();
     container.innerHTML = '';
     gamesCache.forEach((game, index) => {
       const card = createGameCard(game);
-      if (animateTiles && !disableEffects) {
+      if (animateTiles && !disableEffects && !refreshingExisting) {
         card.classList.add('gs-tile-fill');
         card.style.animationDelay = `${Math.min(index * 18, 180)}ms`;
       }
       cardMap.set(game.id, card);
       container.appendChild(card);
     });
+    if(refreshingExisting && !disableEffects && !matchMedia('(prefers-reduced-motion: reduce)').matches) container.animate?.([{opacity:.35},{opacity:1}],{duration:motionDuration(220),easing:'ease-out'});
     hasLoadedGames = true;
     applySort();
     syncCart();
@@ -1356,9 +1363,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const uiWindow = typeof window === 'undefined' ? { scrollY: 0, matchMedia: () => ({ matches: false }), scrollTo: () => {} } : window;
   const themeMedia = uiWindow.matchMedia('(prefers-color-scheme: dark)');
   const themeSelect = document.getElementById('theme-select');
-  if (!['system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice', 'rain', 'storm', 'autumn'].includes(themePreference)) themePreference = 'system';
+  if (!['random', 'system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice', 'rain', 'storm', 'autumn'].includes(themePreference)) themePreference = 'system';
+  const randomThemes=[...themeSelect.options].map(option=>option.value).filter(value=>!['system','random'].includes(value));
+  const sessionTheme=randomThemes[Math.floor(Math.random()*randomThemes.length)];
   function applyTheme() {
-    const theme = themePreference === 'system' ? (themeMedia.matches ? 'classic' : 'light') : themePreference;
+    const theme = themePreference === 'random' ? sessionTheme : themePreference === 'system' ? (themeMedia.matches ? 'classic' : 'light') : themePreference;
     if (document.documentElement) document.documentElement.dataset.theme = theme;
     window.GameShelfRain?.stopAll();
     document.body.dataset.theme = theme;
@@ -1439,7 +1448,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const succeeded = await loadGames(isRefresh);
     stage.classList.remove('gs-refreshing');
-    if (succeeded) {
+    if (succeeded && !isRefresh) {
       stage.classList.remove('gs-home-enter');
       void stage.offsetWidth;
       stage.classList.add('gs-home-enter');
@@ -1462,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
       clearSearch();
       currentSort = 'all';
       currentView = 'grid';
-      localStorage.setItem('gameshelf:view', currentView);
+      localStorage.setItem('gameshelf:view', currentView);recordSettingChange({view:currentView});
       document.getElementById('sort-heading').classList.add('hidden');
       document.getElementById('sort-menu').classList.add('hidden');
       document.getElementById('sort-button').classList.remove('gs-control-active');
@@ -1565,12 +1574,16 @@ document.addEventListener('DOMContentLoaded', () => {
     'theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
     'animate-tiles': 'Loaded game tile animation', 'show-hover-text': 'Button hints', 'show-game-titles': 'Game titles',
     'show-placeholder-images': 'Placeholder images', 'hover-game-titles': 'Hover game titles', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
-    'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'
+    'stretch-covers':'Cover stretching', 'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'
   };
   // Schedule after the saving listeners have applied each preference.
   for (const [id, label] of Object.entries(instantPreferences)) document.getElementById(id).addEventListener('change', () => {
-    Promise.resolve().then(() => showNotification(label + ' saved.'));
+    Promise.resolve().then(() => {showNotification(label + ' saved.');const keys={'theme-select':'theme','expand-list-image':'list-image-click','enable-playlist':'playlist-enabled'};const key=keys[id]||id;recordSettingChange({[key]:capturePreferences()[key]});});
   });
+  const stretchInput=document.getElementById('stretch-covers');stretchInput.checked=stretchCovers;
+  stretchInput.addEventListener('change',()=>{stretchCovers=stretchInput.checked;localStorage.setItem('gameshelf:stretch-covers',String(stretchCovers));for(const game of gamesCache)refreshCoverFit(game);});
+  document.getElementById('game-cover-stretch').addEventListener('click',saveCoverStretch);
+  document.getElementById('resume-setup').addEventListener('click',async()=>{try{const response=await fetch('/api/setup/restart',{method:'POST'});if(!response.ok)throw new Error((await response.text()).trim());window.location.reload();}catch(error){showNotification(error.message);}});
   const playlistInput = document.getElementById('enable-playlist');
   const animateTilesInput = document.getElementById('animate-tiles');
   hoverTextInput.checked = showHoverText;
@@ -1605,7 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
       exits.forEach(animation => animation?.cancel());
     }
     settingsLevel = level;
-    localStorage.setItem('gameshelf:settings-level', level);
+    localStorage.setItem('gameshelf:settings-level', level);recordSettingChange({'settings-level':level});
     applySettingsLevel();
     const after = settingsDialog.getBoundingClientRect?.().height;
     if (!disableEffects && before && after && before !== after) settingsDialog.animate?.(
@@ -1779,7 +1792,7 @@ document.addEventListener('DOMContentLoaded', () => {
     daysInput.value = String(recentDays);
     localStorage.setItem('gameshelf:recent-days', String(recentDays));
     showSaveFeedback(document.getElementById('recent-settings-save'));
-    applySearchFilter(); recentDialog.close(); showNotification('Recently Added range saved.');
+    applySearchFilter(); recentDialog.close(); recordSettingChange({'recent-days':String(recentDays)});showNotification('Recently Added range saved.');
   });
   const expandInput = document.getElementById('expand-list-image');
   expandInput.value = listImageClick;
@@ -1787,7 +1800,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled');
   expandInput.addEventListener('change', () => { listImageClick = expandInput.value; sizeSettingsSelect(expandInput); localStorage.setItem('gameshelf:list-image-click', listImageClick); document.body.classList.toggle('gs-expand-list-image', listImageClick !== 'disabled'); });
   const listImageDialog = document.getElementById('list-image-dialog');
-  listImageDialog.addEventListener('click', () => listImageDialog.close());
+  let previewPress=null;
+  listImageDialog.addEventListener('pointerdown',event=>{previewPress={x:event.clientX,y:event.clientY};});
+  listImageDialog.addEventListener('pointercancel',()=>{previewPress=null;});
+  listImageDialog.addEventListener('click',event=>{const still=!previewPress||Math.hypot(event.clientX-previewPress.x,event.clientY-previewPress.y)<8;previewPress=null;if(still)listImageDialog.close();});
   const resetSettingsDialog = document.getElementById('reset-settings-dialog');
   document.getElementById('open-reset-settings').addEventListener('click', () => { document.getElementById('reset-settings-status').textContent = ''; openModal(resetSettingsDialog); });
   for (const id of ['reset-settings-close', 'reset-settings-cancel']) document.getElementById(id).addEventListener('click', () => resetSettingsDialog.close());
@@ -1873,18 +1889,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const logSize = document.getElementById('log-size');
   function syncLogConfigInputs() {
     logTypeInputs.forEach(input => { input.disabled = !logVerbose.checked; });
-    logDays.disabled = !logDaysOverride.checked;
+    logDays.disabled = !logDaysOverride.checked;if(logDaysOverride.checked && !logDays.value)logDays.value='7';
     logSize.disabled = !logSizeOverride.checked;
   }
   for (const input of [logVerbose, logDaysOverride, logSizeOverride]) input.addEventListener('change', syncLogConfigInputs);
   document.getElementById('configure-logs').addEventListener('click', () => {
     if (!serverSettings) { document.getElementById('settings-save-status').textContent = 'Server settings are unavailable. Try refreshing.'; return; }
-    const options = serverSettings.logOptions || { system:true, library:true, errors:true, requests:true, scans:true, downloads:true, sizeMB:10, days:7 };
+    const options = serverSettings.logOptions || { system:true, library:true, errors:true, requests:false, scans:false, downloads:false, sizeMB:10, days:0 };
     logVerbose.checked = Boolean(serverSettings.verbose);
     for (const input of logTypeInputs) input.checked = options[input.id.slice(4)] !== false;
     logDaysOverride.checked = Boolean(options.overrideDays);
     logSizeOverride.checked = Boolean(options.overrideSize);
-    logDays.value = String(options.days || 7);
+    logDays.value = options.overrideDays ? String(options.days || 7) : '';logDays.placeholder='∞';
     logSize.value = String(options.sizeMB || 10);
     syncLogConfigInputs();
     document.getElementById('log-config-status').textContent = '';
@@ -1898,9 +1914,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const options = {
       baseConfigured:true, system:logTypeInputs[0].checked, library:logTypeInputs[1].checked, errors:logTypeInputs[2].checked,
       requests:logTypeInputs[3].checked, scans:logTypeInputs[4].checked, downloads:logTypeInputs[5].checked,
-      overrideDays:logDaysOverride.checked, days:Number(logDays.value), overrideSize:logSizeOverride.checked, sizeMB:Number(logSize.value)
+      overrideDays:logDaysOverride.checked, days:logDaysOverride.checked?Number(logDays.value):0, overrideSize:logSizeOverride.checked, sizeMB:Number(logSize.value)
     };
-    if (!Number.isInteger(options.days) || options.days < 1 || options.days > 3650 || !Number.isInteger(options.sizeMB) || options.sizeMB < 1 || options.sizeMB > 100) {
+    if (!Number.isInteger(options.days) || options.days < 0 || options.days > 3650 || (options.overrideDays && options.days < 1) || !Number.isInteger(options.sizeMB) || options.sizeMB < 1 || options.sizeMB > 100) {
       document.getElementById('log-config-status').textContent = 'Use 1–3650 days and 1–100 MB.'; return;
     }
     button.disabled = true;
@@ -2023,6 +2039,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const updated = await response.json();
       Object.assign(game, updated);
+      if(resetSelection.cover)delete game.coverStretch;
       if (resetSelection.cover) coverVersions.set(game.id, Date.now());
       const oldCard = cardMap.get(game.id);
       const newCard = createGameCard(game);
@@ -2039,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('game-details-favorite-mobile').textContent = game.favorite ? '★' : '☆';
       document.getElementById('game-details-favorite').classList.toggle('is-favorite', game.favorite);
       document.getElementById('game-details-favorite-mobile').classList.toggle('is-favorite', game.favorite);
-      applySort(); applySearchFilter();
+      refreshCoverFit(game);applySort(); applySearchFilter();
       resetConfirm.close();
       showNotification('Metadata reset successfully.');
     } catch { document.getElementById('reset-confirm-status').textContent = 'Could not reset metadata. Try again.'; }
@@ -2166,11 +2183,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.toggle('gs-sort-open', isOpening);
   });
 
+  let sortPressOutside=true;
+  document.addEventListener('pointerdown',e=>{sortPressOutside=!e.target.closest('#sort-button')&&!e.target.closest('#sort-menu');});
   document.addEventListener('click', e => {
     const clickedSortButton = e.target.closest('#sort-button');
     const clickedSortMenu = e.target.closest('#sort-menu');
 
-    if (!clickedSortButton && !clickedSortMenu) {
+    if (!clickedSortButton && !clickedSortMenu && (sortPressOutside || e.detail===0)) {
       sortMenu.classList.add('hidden');
       sortButton.classList.remove('gs-control-active');
       document.body.classList.remove('gs-sort-open');
@@ -2201,7 +2220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     viewToggle.addEventListener('click', () => {
       clearSuggestion();
       currentView = currentView === 'grid' ? 'list' : 'grid';
-      localStorage.setItem('gameshelf:view', currentView);
+      localStorage.setItem('gameshelf:view', currentView);recordSettingChange({view:currentView});
       transitionLibrary(applyViewMode);
 
     // Close sort menu if open
@@ -2250,3 +2269,29 @@ document.addEventListener('DOMContentLoaded', () => {
   applyViewMode();
 });
 
+
+function recordSettingChange(preferences){
+ const safe=Object.fromEntries(Object.entries(preferences).filter(([key,value])=>preferenceKeys.includes(key)&&typeof value==='string'));
+ if(Object.keys(safe).length)fetch('/api/settings-events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(safe)}).catch(()=>{});
+}
+function effectiveCoverStretch(game){return typeof game.coverStretch==='boolean'?game.coverStretch:stretchCovers;}
+function setCoverStretch(frame,game){if(frame)frame.dataset.coverFit=effectiveCoverStretch(game)?'stretch':'fit';}
+function syncCoverStretchControl(game){
+ const button=document.getElementById('game-cover-stretch');if(!button)return;
+ const enabled=effectiveCoverStretch(game);button.setAttribute('aria-pressed',String(enabled));button.title=enabled?'Disable stretch for this game':'Enable stretch for this game';button.setAttribute('aria-label',button.title);button.dataset.tooltip=button.title;
+ button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5M9 20H4v-5M4 4l5 5m11-5-5 5m5 11-5-5M4 20l5-5"/>'+(enabled?'<path class="gs-stretch-check" d="m9 12 2 2 4-4"/>':'<path class="gs-stretch-slash" d="M3 3l18 18"/>')+'</svg>';
+}
+function refreshCoverFit(game){
+ const card=cardMap.get(game.id);for(const frame of card?.querySelectorAll('.gs-card-cover,.gs-list-cover')||[])setCoverStretch(frame,game);
+ if(detailsGameId===game.id){setCoverStretch(document.querySelector?.('.gs-details-art-frame'),game);syncCoverStretchControl(game);}
+}
+async function saveCoverStretch(){
+ const game=gamesCache.find(item=>item.id===detailsGameId),button=document.getElementById('game-cover-stretch');if(!game||button.disabled)return;
+ const stretch=!effectiveCoverStretch(game);button.disabled=true;
+ try{const response=await fetch('/api/cover-fit/'+encodeURIComponent(game.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({stretch})});if(!response.ok)throw new Error('Could not save cover fit.');const result=await response.json();game.coverStretch=result.coverStretch;refreshCoverFit(game);animateControl(button);showNotification(stretch?'Cover stretch enabled for this game.':'Cover stretch disabled for this game.');}
+ catch(error){showNotification(error.message);}finally{button.disabled=false;}
+}
+function syncSetupResume(){
+ const value=serverSettings;if(!value)return;const hasLibrary=value.rootDir||value.rootDirs?.length||value.sources?.length;
+ document.getElementById('resume-setup-option').hidden=!(value.setupStatus==='pending'||value.setupStatus==='skipped'||(!value.setupStatus&&!hasLibrary));
+}

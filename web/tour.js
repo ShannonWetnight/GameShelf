@@ -49,7 +49,7 @@
   dialog.addEventListener('close',()=>{highlighted?.classList.remove('gs-tour-show-actions');highlighted=null;cancelAnimationFrame(frame);clearTimeout(revealTimer);frame=null;localStorage.setItem('gameshelf:tour-seen','true');});
   $('tour-next').addEventListener('click',()=>{if(index===steps.length-1)finish();else showStep(index+1);});
   $('tour-back').addEventListener('click',()=>{if(index>0)showStep(index-1);});
-  $('tour-close').addEventListener('click',requestCancel);dialog.addEventListener('click',event=>{if(event.target===dialog)requestCancel();});
+  $('tour-close').addEventListener('click',requestCancel);closeOnBackdropClick(dialog,requestCancel,tooltip);
   for(const id of ['tour-cancel-close','tour-cancel-keep'])$(id).addEventListener('click',()=>cancelDialog.close());
   $('tour-cancel-confirm').addEventListener('click',()=>{cancelDialog.close();finish();});closeOnBackdropClick(cancelDialog);
   addEventListener('resize',schedulePlace);addEventListener('scroll',schedulePlace,true);
@@ -59,6 +59,10 @@
   const intro=$('tour-intro-dialog');
   $('tour-intro-start').addEventListener('click',()=>{intro.close();setTimeout(start,reduced()?0:motionDuration(175));});
   for(const id of ['tour-intro-close','tour-intro-skip'])$(id).addEventListener('click',()=>{localStorage.setItem('gameshelf:tour-seen','true');intro.close();});closeOnBackdropClick(intro);
-  $('show-tour').addEventListener('click',()=>{$('settings-dialog').close();setTimeout(start,reduced()?0:motionDuration(175));});
+  $('show-tour').addEventListener('click',()=>{
+    // Put the tour in the top layer before Settings leaves, retaining scroll lock
+    // and the existing page/theme instead of exposing an intermediate backdrop.
+    start();$('settings-dialog').close();
+  });
   window.GameShelfTour={offer(){openModal(intro);},start};
 })();

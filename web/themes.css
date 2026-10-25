@@ -88,3 +88,6 @@ body.gs-no-animations::before,body.gs-no-animations::after { animation:none !imp
 .gs-space-canvas { position:fixed;inset:0;width:100%;height:100%;z-index:-1; }
 :root[data-theme="cosmos"] { --page-background:radial-gradient(ellipse at var(--nebula-x,20%) var(--nebula-y,20%),#17244c 0,transparent 55%),radial-gradient(ellipse at var(--nebula-x2,85%) var(--nebula-y2,70%),#291242 0,transparent 50%),#02040e; }
 :root[data-theme="cosmos"] body::before,:root[data-theme="cosmos"] body::after { background:none;animation:none; }
+
+/* Overscan the drifting mist so its rectangular edges never enter the viewport. */
+:root:is([data-theme="rain"],[data-theme="autumn"]) body::after{inset:-18%;width:auto;height:auto;}

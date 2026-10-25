@@ -41,6 +41,7 @@ type Game struct {
 	FileCount   int    `json:"fileCount"`
 	AddedAt     string `json:"addedAt"`
 	Favorite    bool   `json:"favorite"`
+ CoverStretch *bool `json:"coverStretch,omitempty"`
 	Location string `json:"location,omitempty"`
 	Unavailable bool `json:"unavailable,omitempty"`
 }
@@ -78,7 +79,7 @@ func main() {
 	dataDir = settings.DataDir
 	setActiveSources(settings.Sources)
 
-	if !hasLibrary(settings) && !settings.SetupCompleted {
+	if needsFirstSetup(settings) {
 		setupRequired.Store(true)
 		log.Print("Welcome to GameShelf. Open port 8080 to choose your library folders.")
 	} else if !hasLibrary(settings) {
@@ -106,6 +107,9 @@ func main() {
 	mux.HandleFunc("/api/cover-source/", handleCoverSource)
 	mux.HandleFunc("/api/game-title/", handleGameTitle)
 	mux.HandleFunc("/api/favorite/", handleFavorite)
+ mux.HandleFunc("/api/cover-fit/", handleCoverFit)
+ mux.HandleFunc("/api/settings-events", handleSettingsEvent)
+ mux.HandleFunc("/api/setup/restart", handleSetupRestart)
 	mux.HandleFunc("/api/metadata-reset/", handleMetadataReset)
 	mux.HandleFunc("/api/setup", handleSetup)
 	mux.HandleFunc("/api/network-test", handleNetworkTest)
@@ -184,6 +188,7 @@ type libraryState struct {
 	FirstSeen map[string]string `json:"firstSeen"`
 	Titles    map[string]string `json:"titles,omitempty"`
 	Favorites map[string]bool   `json:"favorites,omitempty"`
+ CoverStretch map[string]bool `json:"coverStretch,omitempty"`
 	IDs       map[string]string `json:"ids,omitempty"` // exact directory name -> stable ID
 }
 
@@ -223,7 +228,9 @@ func parseLibraryMetadata(contents []byte) (libraryState, error) {
 			return libraryState{}, fmt.Errorf("invalid title for %q", path)
 		}
 	}
-	for folder := range state.Favorites { if folder == "" { return libraryState{}, fmt.Errorf("invalid favorite folder") } }
+	if state.CoverStretch == nil { state.CoverStretch=make(map[string]bool) }
+ for folder := range state.CoverStretch { if folder=="" {return libraryState{},fmt.Errorf("invalid cover-fit folder")} }
+ for folder := range state.Favorites { if folder == "" { return libraryState{}, fmt.Errorf("invalid favorite folder") } }
 	owners := make(map[string]string)
 	for name, id := range state.IDs {
 		if name == "" || id == "" || id != strings.TrimSpace(id) || strings.ContainsAny(id, "/\\") {
@@ -519,6 +526,7 @@ func refreshGames() error {
 				FileCount:   fileCount,
 				AddedAt:     addedAt,
 				Favorite:    state.Favorites[absPath],
+ CoverStretch: coverStretchOverride(state,absPath),
 			},
 			DirName:   dirName,
 			RootDir:   folder.source,
@@ -1522,6 +1530,7 @@ func sanitizeFilename(name string) string {
 
 type serverSettings struct {
 	SetupCompleted bool `json:"setupCompleted,omitempty"`
+ SetupStatus string `json:"setupStatus,omitempty"`
 	Preferences map[string]string `json:"preferences,omitempty"`
 	RootDir string `json:"rootDir"`
 	RootDirs []string `json:"rootDirs,omitempty"`
@@ -1552,14 +1561,14 @@ type logOptions struct {
 	Days int `json:"days"`
 }
 
-func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, SizeMB:10, Days:7} }
+func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, SizeMB:10, Days:0} }
 
 func normalizeLogOptions(value *logOptions) *logOptions {
 	if value == nil { return defaultLogOptions() }
 	copy := *value
 	if !copy.BaseConfigured { copy.System, copy.Library, copy.Errors = true, true, true; copy.BaseConfigured = true }
 	if copy.SizeMB == 0 { copy.SizeMB = 10 }
-	if copy.Days == 0 { copy.Days = 7 }
+
 	return &copy
 }
 
@@ -1603,18 +1612,17 @@ func (b *boundedLog) Configure(options *logOptions) {
 	b.mu.Lock(); defer b.mu.Unlock()
 	b.limit = 10 << 20
 	if options.OverrideSize { b.limit = options.SizeMB << 20 }
-	b.maxAge = 7 * 24 * time.Hour
+	b.maxAge = 0
 	if options.OverrideDays { b.maxAge = time.Duration(options.Days) * 24 * time.Hour }
 	b.prune()
 }
 
 func (b *boundedLog) prune() {
 	if b.limit <= 0 { b.limit = 10 << 20 }
-	if b.maxAge <= 0 { b.maxAge = 7 * 24 * time.Hour }
-	cutoff := time.Now().Add(-b.maxAge)
+		cutoff := time.Now().Add(-b.maxAge)
 	lines := bytes.SplitAfter(b.data, []byte("\n"))
 	first := 0
-	for first < len(lines) {
+	for b.maxAge > 0 && first < len(lines) {
 		line := lines[first]
 		if len(line) < 19 { break }
 		stamp, err := time.ParseInLocation("2006/01/02 15:04:05", string(line[:19]), time.Local)
@@ -1671,10 +1679,11 @@ func validRefreshInterval(value string) bool {
 
 func validateServerSettings(value serverSettings) error {
 	if err:=validatePreferences(value.Preferences);err!=nil{return err}
+ if value.SetupStatus!="" && value.SetupStatus!="pending" && value.SetupStatus!="skipped" && value.SetupStatus!="complete" {return errors.New("invalid setup status")}
 	if len(libraryRoots(value))+len(value.Sources)>16{return errors.New("choose up to 16 library sources")}
 	ids,locations:=map[string]bool{},map[string]bool{}
 	for _,source:=range value.Sources{normalized,err:=normalizeNetworkSource(source);if err!=nil{return err};if normalized.ID!=""&&ids[normalized.ID]{return errors.New("duplicate network source identifier")};if locations[normalized.URL]{return errors.New("this network location is already in the library")};ids[normalized.ID]=true;locations[normalized.URL]=true}
-	if options := normalizeLogOptions(value.LogOptions); options.SizeMB < 1 || options.SizeMB > 100 || options.Days < 1 || options.Days > 3650 { return errors.New("log retention must be 1–100 MB and 1–3650 days") }
+	if options := normalizeLogOptions(value.LogOptions); options.SizeMB < 1 || options.SizeMB > 100 || options.Days < 0 || options.Days > 3650 || (options.OverrideDays && options.Days < 1) { return errors.New("log retention must be 1–100 MB and 1–3650 days when enabled") }
 	roots := libraryRoots(value)
 	if len(roots) > 16 || (len(roots) > 0 && roots[0] != value.RootDir) { return errors.New("choose 1–16 library paths with the primary path first") }
 	if !filepath.IsAbs(value.DataDir) || !filepath.IsLocal(filepath.Base(value.DataDir)) {
@@ -1724,7 +1733,7 @@ func initializeServerSettings() serverSettings {
 	settingsMu.Unlock()
 	verboseLogging.Store(value.Verbose)
 	applicationLogs.Configure(value.LogOptions)
-	setupRequired.Store(!hasLibrary(value) && !value.SetupCompleted)
+	setupRequired.Store(needsFirstSetup(value))
 	return value
 }
 
@@ -1774,6 +1783,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		libraryChanged:=old.RootDir!=saved.RootDir||strings.Join(libraryRoots(old),"\x00")!=strings.Join(libraryRoots(saved),"\x00")||!sourcesEqual(old.Sources,saved.Sources)
 		if libraryChanged&&!restart&&!setupRequired.Load(){if err:=activateLibrary(saved);err!=nil{logEvent("errors","library source scan: %v",err)}}
 		if old.RefreshInterval!=saved.RefreshInterval{notifyRefreshSchedule()}
+ logServerSettingsChanges(old,saved)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct{RestartRequired bool `json:"restartRequired"`;Settings serverSettings `json:"settings"`}{restart,publicSettings(saved)})
 	default:
@@ -1847,7 +1857,8 @@ func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
 	state, err := readLibraryMetadata()
 	if err != nil { http.Error(w, "library state unavailable", http.StatusServiceUnavailable); return }
 	var staged []stagedCover
-	if request.Cover {
+	if request.Cover { delete(state.CoverStretch,entry.Game.Path)
+
 		staged, err = stageUploadedCovers(entryCoverKey(entry))
 		if err != nil { http.Error(w, "could not reset cover", http.StatusServiceUnavailable); return }
 	}
@@ -1862,6 +1873,7 @@ func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
 	updated := *entry
 	if request.Title { updated.Game.Name = entry.DirName }
 	if request.Favorite { updated.Game.Favorite = false }
+ if request.Cover { updated.Game.CoverStretch=nil }
 	if request.Cover {
 		if entry.NetworkID!=""{relative:=remoteCoverName(entry);updated.CoverPath="";if relative!=""{updated.CoverPath=filepath.Join(entryRootDir(entry),entry.DirName,relative)}}else{updated.CoverPath = findCover(filepath.Join(entryRootDir(entry), entry.DirName))}
 		updated.Game.HasCover = updated.CoverPath != ""
@@ -1873,4 +1885,99 @@ func handleMetadataReset(w http.ResponseWriter, r *http.Request) {
 	gamesMu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updated.Game)
+}
+
+// A nil override follows the browser-wide preference; explicit false survives export.
+func coverStretchOverride(state libraryState, key string) *bool {
+	if value, ok := state.CoverStretch[key]; ok {
+		return &value
+	}
+	return nil
+}
+func handleCoverFit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	var payload struct {
+		Stretch *bool `json:"stretch"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		http.Error(w, "invalid cover fit", 400)
+		return
+	}
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	id := strings.TrimPrefix(r.URL.Path, "/api/cover-fit/")
+	entry := getGameEntryByID(id)
+	if entry == nil {
+		http.NotFound(w, r)
+		return
+	}
+	state, err := readLibraryMetadata()
+	if err != nil {
+		http.Error(w, "library state unavailable", 503)
+		return
+	}
+	if state.CoverStretch == nil {
+		state.CoverStretch = make(map[string]bool)
+	}
+	if payload.Stretch == nil {
+		delete(state.CoverStretch, entry.Game.Path)
+	} else {
+		state.CoverStretch[entry.Game.Path] = *payload.Stretch
+	}
+	if err = writeLibraryMetadata(state); err != nil {
+		http.Error(w, "could not save cover fit", 503)
+		return
+	}
+	gamesMu.Lock()
+	if current := gamesMap[id]; current != nil {
+		updated := *current
+		updated.Game.CoverStretch = payload.Stretch
+		gamesMap[id] = &updated
+	}
+	gamesMu.Unlock()
+	logEvent("system", "Game cover fit changed: %s", id)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"coverStretch": payload.Stretch})
+}
+func handleSettingsEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	var preferences map[string]string
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&preferences); err != nil || validatePreferences(preferences) != nil || len(preferences) == 0 {
+		http.Error(w, "invalid setting change", 400)
+		return
+	}
+	keys := make([]string, 0, len(preferences))
+	for key := range preferences {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		logEvent("system", "Display setting changed: %s=%s", key, preferences[key])
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+func logServerSettingsChanges(old, value serverSettings) {
+	// Never log credential values, user names, or full network addresses.
+	if !sourcesEqual(old.Sources, value.Sources) || strings.Join(libraryRoots(old), "\x00") != strings.Join(libraryRoots(value), "\x00") {
+		logEvent("system", "Library locations updated (%d locations)", len(libraryRoots(value))+len(value.Sources))
+	}
+	if old.RefreshInterval != value.RefreshInterval {
+		logEvent("system", "Refresh interval changed to %s", value.RefreshInterval)
+	}
+	if old.DataDir != value.DataDir {
+		logEvent("system", "Saved data location changed; restart required")
+	}
+	oldLogs, _ := json.Marshal(old.LogOptions)
+	newLogs, _ := json.Marshal(value.LogOptions)
+	if old.Verbose != value.Verbose || !bytes.Equal(oldLogs, newLogs) {
+		logEvent("system", "Logging configuration changed")
+	}
 }
