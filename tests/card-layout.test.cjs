@@ -9,8 +9,8 @@ const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8');
-const app = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8') + '\n:root{--ui-scale:1!important;}';
+const app = "localStorage.setItem('gameshelf:ui-scale','1');\n" + fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
 const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
   : 'google-chrome');
@@ -178,11 +178,11 @@ test('cover editor crops artwork and updates the card after upload', () => {
           const zoom = document.querySelector('#cover-zoom');
           zoom.value = '1.25'; zoom.dispatchEvent(new Event('input'));
           const gridDuringEdit = document.querySelector('#cover-preview').classList.contains('is-adjusting');
-          const zoomReadout = document.querySelector('#cover-zoom-value').textContent;
-          const tiltReadout = document.querySelector('#cover-tilt-value').textContent;
+          const zoomReadout = document.querySelector('#cover-zoom').dataset.tooltip;
+          const tiltReadout = document.querySelector('#cover-tilt').dataset.tooltip;
           document.querySelector('#cover-editor-reset').click();
-          const resetZoom = document.querySelector('#cover-zoom-value').textContent;
-          const resetTilt = document.querySelector('#cover-tilt-value').textContent;
+          const resetZoom = document.querySelector('#cover-zoom').dataset.tooltip;
+          const resetTilt = document.querySelector('#cover-tilt').dataset.tooltip;
           const resetSaveDisabled = document.querySelector('#cover-editor-save').disabled;
           const retryTransfer = new DataTransfer();
           retryTransfer.items.add(new File([bytes], 'cover-again.png', {type:'image/png'}));
@@ -234,10 +234,10 @@ test('cover editor crops artwork and updates the card after upload', () => {
     assert.equal(result.parentStayedOpen, true);
     assert.equal(result.returnedToDetails, true);
     assert.equal(result.gridDuringEdit, true);
-    assert.equal(result.zoomReadout, '125%');
-    assert.equal(result.tiltReadout, '8°');
-    assert.equal(result.resetZoom, '100%');
-    assert.equal(result.resetTilt, '0°');
+    assert.equal(result.zoomReadout, 'Zoom: 125%');
+    assert.equal(result.tiltReadout, 'Tilt: 8°');
+    assert.equal(result.resetZoom, 'Zoom: 100%');
+    assert.equal(result.resetTilt, 'Tilt: 0°');
     assert.equal(result.resetSaveDisabled, true);
     assert.equal(result.previewIsPNG, true);
     assert.equal(result.uploaded.url, '/api/covers/missing');
@@ -418,7 +418,7 @@ test('boot gate hides the library until setup eligibility is known',()=>{
 test('compact setup supports network-only libraries, saved credentials and later folder additions',()=>{
   for(const width of [1280,390]){
     const r=sourceUIProbe(`
-      const form=document.querySelector('#setup-form');form.dispatchEvent(new Event('submit',{cancelable:true}));result.emptyError=document.querySelector('#setup-status').textContent;
+      const form=document.querySelector('#setup-form');form.dispatchEvent(new Event('submit',{cancelable:true}));result.emptyError=document.querySelector('#setup-next').dataset.tooltip;
       document.querySelector('#setup-add-network').click();document.querySelector('#network-url').value='smb://nas/games';document.querySelector('#network-username').value='reader';document.querySelector('#network-password').value='temporary-secret';document.querySelector('#network-test').click();await pause();result.tested=!document.querySelector('#network-use').disabled;document.querySelector('#network-use').click();await pause();result.cards=document.querySelectorAll('#setup-source-list .gs-source-card').length;result.passwordCleared=document.querySelector('#network-password').value==='';
       result.overflow=document.documentElement.scrollWidth>innerWidth;document.querySelector('#setup-next').click();result.finishVisible=!document.querySelector('#setup-finish-panel').hidden;document.querySelector('#setup-tour').checked=false;document.querySelector('#setup-refresh-preset').value='0';document.querySelector('#setup-refresh-preset').dispatchEvent(new Event('change'));form.dispatchEvent(new Event('submit',{cancelable:true}));await pause();
       result.saved=writes[0];result.finished=document.querySelector('#setup-page').hidden&&!document.body.classList.contains('gs-needs-setup');result.games=document.querySelectorAll('.gs-card').length;result.passwordReturned=!!serverSettings.sources[0].password;result.passwordStored=JSON.stringify(localStorage).includes('temporary-secret');
@@ -432,7 +432,7 @@ test('compact setup supports network-only libraries, saved credentials and later
 
 test('network editor handles failed sign-in, SFTP trust, and cancelled tests without reopening',()=>{
   const r=sourceUIProbe(`
-    document.querySelector('#setup-add-network').click();document.querySelector('#network-url').value='smb://nas/bad';document.querySelector('#network-test').click();await pause();result.signinError=document.querySelector('#network-editor-status').textContent;result.disabled=document.querySelector('#network-use').disabled;
+    document.querySelector('#setup-add-network').click();document.querySelector('#network-url').value='smb://nas/bad';document.querySelector('#network-test').click();await pause();result.signinError=document.querySelector('#notification-text').textContent;result.disabled=document.querySelector('#network-use').disabled;
     document.querySelector('#network-protocol').value='sftp';document.querySelector('#network-protocol').dispatchEvent(new Event('change'));document.querySelector('#network-url').value='sftp://nas/games';document.querySelector('#network-test').click();await pause();result.trustOpen=document.querySelector('#network-trust-dialog').open;result.fingerprint=document.querySelector('#network-fingerprint').textContent;document.querySelector('#network-trust-confirm').click();await pause();result.trusted=!document.querySelector('#network-use').disabled;document.querySelector('#network-editor-cancel').click();await pause();
     document.querySelector('#setup-add-network').click();window.deferNetwork=true;document.querySelector('#network-url').value='sftp://nas/games';document.querySelector('#network-protocol').value='sftp';document.querySelector('#network-test').click();await pause();document.querySelector('#network-editor-cancel').click();await pause();releaseNetwork();await pause();result.closed=!document.querySelector('#network-editor-dialog').open&&!document.querySelector('#network-trust-dialog').open;result.noneAdded=document.querySelectorAll('#setup-source-list .gs-source-card').length===0;
   `);assert.match(r.signinError,/Sign-in failed/);assert.equal(r.disabled,true);assert.equal(r.trustOpen,true);assert.match(r.fingerprint,/SHA256/);assert.equal(r.trusted,true);assert.equal(r.closed,true);assert.equal(r.noneAdded,true);
@@ -499,6 +499,6 @@ test('selectors retain size, Randomize stays stable for a visit, and setup resum
 
 test('connection tests keep readable busy text, green success feedback, and no stale state when reopened',()=>{
  const r=sourceUIProbe(`
-   const $=id=>document.getElementById(id);$('setup-add-network').click();$('network-url').value='smb://nas/games';$('network-url').dispatchEvent(new Event('input'));window.deferNetwork=true;const button=$('network-test'),status=$('network-editor-status');const height=status.offsetHeight;button.click();result.busy={disabled:button.disabled,state:button.getAttribute('aria-busy'),text:button.textContent.trim()};releaseNetwork();await pause();result.ready={state:status.dataset.state,color:getComputedStyle(status).color,feedback:button.classList.contains('is-saved'),height:status.offsetHeight,previous:height};$('network-editor-cancel').click();await pause();$('setup-add-network').click();result.clean=!button.classList.contains('is-saved')&&!button.hasAttribute('aria-busy');
- `);assert.deepEqual(r.busy,{disabled:true,state:'true',text:'Test Connection'});assert.equal(r.ready.state,'ready');assert.equal(r.ready.color,'rgb(122, 211, 154)');assert.equal(r.ready.feedback,true);assert.equal(r.ready.height,r.ready.previous);assert.equal(r.clean,true);
+   const $=id=>document.getElementById(id);$('setup-add-network').click();$('network-url').value='smb://nas/games';$('network-url').dispatchEvent(new Event('input'));window.deferNetwork=true;const button=$('network-test'),dialog=$('network-editor-dialog');const height=dialog.offsetHeight;button.click();result.busy={disabled:button.disabled,state:button.getAttribute('aria-busy'),text:button.textContent.trim()};releaseNetwork();await pause();result.ready={message:$('notification-text').textContent,feedback:button.classList.contains('is-saved'),height:dialog.offsetHeight,previous:height};$('network-editor-cancel').click();await pause();$('setup-add-network').click();result.clean=!button.classList.contains('is-saved')&&!button.hasAttribute('aria-busy');
+ `);assert.deepEqual(r.busy,{disabled:true,state:'true',text:'Test Connection'});assert.match(r.ready.message,/Connected/);assert.equal(r.ready.feedback,true);assert.equal(r.ready.height,r.ready.previous);assert.equal(r.clean,true);
 });

@@ -66,11 +66,11 @@ func TestResetServerSettingsRestoresDefaultsWithoutLibraryChanges(t *testing.T) 
 	previousHome, previousRoot, previousSettings := settingsHome, allowedLibraryRoot, configuredSettings
 	t.Cleanup(func() { settingsHome, allowedLibraryRoot, configuredSettings = previousHome, previousRoot, previousSettings; verboseLogging.Store(previousSettings.Verbose) })
 	settingsHome, allowedLibraryRoot = data, root
-	custom := serverSettings{RootDir:root, DataDir:data, RefreshInterval:"1h", Verbose:true}
+	custom := serverSettings{RootDir:root, DataDir:data, RefreshInterval:"1h", Verbose:false}
 	if err := saveServerSettings(custom); err != nil { t.Fatal(err) }
 	response := httptest.NewRecorder()
 	handleResetServerSettings(response, httptest.NewRequest(http.MethodPost, "/api/server-settings/reset", nil))
 	if response.Code != http.StatusOK { t.Fatalf("reset status %d: %s", response.Code, response.Body.String()) }
-	if configuredSettings.RefreshInterval != "168h" || configuredSettings.Verbose { t.Fatalf("settings not reset: %#v", configuredSettings) }
+	if configuredSettings.RefreshInterval != "168h" || !configuredSettings.Verbose { t.Fatalf("settings not reset: %#v", configuredSettings) }
 	if _, err := os.Stat(settingsFile()); err != nil { t.Fatalf("settings file not saved: %v", err) }
 }

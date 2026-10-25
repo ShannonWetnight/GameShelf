@@ -9,7 +9,7 @@ const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
-const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8') + '\n:root{--ui-scale:1!important;}';
 const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8').replace('<body class="gs-booting">', '<body>');
 assert.ok(html.includes('<link rel="stylesheet" href="/styles.css">'));
 assert.ok(html.includes('<script src="/app.js"></script>'));

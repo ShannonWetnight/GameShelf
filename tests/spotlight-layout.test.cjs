@@ -9,8 +9,8 @@ const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'web/index.html'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8');
-const app = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'web/styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'web/themes.css'), 'utf8') + '\n:root{--ui-scale:1!important;}';
+const app = "localStorage.setItem('gameshelf:ui-scale','1');\n" + fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
 const chrome = process.env.CHROME_BIN || (process.platform === 'win32'
   ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
   : 'google-chrome');

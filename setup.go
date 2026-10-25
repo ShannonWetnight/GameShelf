@@ -346,6 +346,9 @@ func validatePreferences(values map[string]string) error {
 				valid = value == "grid" || value == "list"
 			case "settings-level":
 				valid = value == "basic" || value == "advanced"
+			case "ui-scale":
+				n, e := strconv.ParseFloat(value, 64)
+				valid = e == nil && n >= .75 && n <= 1.5
 			case "animation-speed":
 				n, e := strconv.ParseFloat(value, 64)
 				valid = e == nil && n >= 0 && n <= 3

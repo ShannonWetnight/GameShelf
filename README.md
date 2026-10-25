@@ -202,7 +202,7 @@ Open **Settings → Advanced → Data and Diagnostics → Family Controls → Co
 | Access | Behavior |
 | --- | --- |
 | Allow | Available normally; the default for every action. |
-| Require PIN | Prompts for the family PIN before the action. A successful entry unlocks only the requested actions in that browser for two minutes. |
+| Require PIN | Prompts for the family PIN before the action. A successful entry unlocks only the requested actions in that browser for the chosen remembrance period. |
 | Disable | Greys the controls out. The server also rejects protected API operations; entering the PIN does not override Disable. |
 
 The **Show** checkbox controls whether an action appears. Hiding is a presentation choice; choose Require PIN or Disable as well when restricting it. Configure individual appearance/library settings, sources, storage, refresh, logs, health monitoring, backup/restore, setup, covers, titles, favorites, metadata resets, Playlist actions, and downloads. Display preferences and Playlist selections live in each browser; their controls follow the policy. Server operations enforce the policy independently of the interface. Family Controls are grouped by Appearance, Library View, Library Manager, Data and Diagnostics, and game actions. The **Category** column places settings in Basic or Advanced. Family Controls itself can be moved into Basic. **Settings menu** and **Advanced settings tab** each support Allow or Require PIN; they cannot be hidden or disabled, which preserves owner recovery. Library Manager has a shared access rule in addition to any existing rules on its tools. Hiding a control does not change its access mode.
@@ -358,3 +358,10 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 
 > [!WARNING]
 > If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
+
+### Interface size and PIN remembrance
+Advanced Appearance settings include **UI scale** (75–150%, default 125%). Use this slider to resize GameShelf; wheel gestures scroll instead of changing the app's scale. The preference is included in backups.
+
+In **Family Controls**, enable PIN remembrance and choose 1–60 minutes (default 5). The unlock prompt offers an unchecked **Remember me** option. Without it, a PIN authorizes one protected request. Disabling remembrance hides the checkbox and requires a PIN for each protected action. Changing the PIN invalidates all existing unlocks; saving permission changes also clears grants and one-use approvals.
+
+New servers enable all logging sources by default. Customize logging to deselect sources. Existing servers retain their saved logging choices. Retention remains unlimited by days and limited to 10 MB by default.

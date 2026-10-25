@@ -284,7 +284,7 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(archive.settings, &restored)
 		effective = restored
 		if record, _ := readPINRecord(); record != nil {
-			effective.Access = &accessPolicy{record.Rules}
+			effective.Access = &accessPolicy{Rules: record.Rules, Remember: record.Remember}
 		}
 		if firstSetup {
 			effective.DataDir = dataDir
