@@ -1,6 +1,6 @@
 # Test servers only. This image is never part of the GameShelf runtime.
 FROM alpine:3.24.3
-RUN apk upgrade --no-cache && apk add --no-cache samba-server unfs3 rpcbind rclone openssl vsftpd netcat-openbsd \
+RUN apk upgrade --no-cache && apk add --no-cache samba-server samba-common-tools unfs3 rpcbind rclone openssl vsftpd netcat-openbsd \
     && adduser -D -H -u 10001 reader \
     && printf 'reader:fixture-password\n' | chpasswd \
     && printf 'fixture-password\nfixture-password\n' | smbpasswd -a -s reader \

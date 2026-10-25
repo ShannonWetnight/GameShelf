@@ -37,7 +37,7 @@ func TestNetworkAddressesAndPublicSettings(t *testing.T) {
 			t.Fatal("NFS defaults are not unprivileged")
 		}
 	}
-	for _, input := range []string{"smb://user:password@nas/games", "smb://nas", "file:///etc", "https://nas/../private", "https://nas/games?option=unsafe", "smb://nas/games\n"} {
+	for _, input := range []string{"sftp://-unsafe/games", "smb://user:password@nas/games", "smb://nas", "file:///etc", "https://nas/../private", "https://nas/games?option=unsafe", "smb://nas/games\n"} {
 		if _, err := normalizeNetworkSource(networkSource{URL: input}); err == nil && !strings.HasSuffix(input, "\n") {
 			t.Fatalf("unsafe address accepted: %q", input)
 		}
@@ -371,5 +371,54 @@ func TestRemovedNetworkSourceDisappearsWhenReplacementIsOffline(t *testing.T) {
 	}
 	if len(gamesMap) != 0 {
 		t.Fatal("removed source left games in the library")
+	}
+}
+
+func TestNetworkSettingsBackupOmitsPasswordsAndEncryptionKey(t *testing.T) {
+	_, data := setupFreshServer(t)
+	value := serverSettings{DataDir: data, RefreshInterval: "168h", Sources: []networkSource{{URL: "smb://nas/games", Password: "secret-not-for-backups"}}}
+	if err := saveServerSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	cipher := configuredSettings.Sources[0].PasswordCipher
+	var output bytes.Buffer
+	if err := writeLibraryBackupSelectionExtra(&output, false, false, true, map[string]bool{}); err != nil {
+		t.Fatal(err)
+	}
+	archive, err := zip.NewReader(bytes.NewReader(output.Bytes()), int64(output.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, file := range archive.File {
+		if strings.Contains(file.Name, "network-key") {
+			t.Fatal("encryption key included in backup")
+		}
+		if file.Name != "server-settings.json" {
+			continue
+		}
+		found = true
+		reader, err := file.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents, err := io.ReadAll(reader)
+		reader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(contents, []byte("secret-not-for-backups")) || bytes.Contains(contents, []byte(cipher)) {
+			t.Fatal("credential material included in backup")
+		}
+		var settings serverSettings
+		if err := json.Unmarshal(contents, &settings); err != nil {
+			t.Fatal(err)
+		}
+		if len(settings.Sources) != 1 || settings.Sources[0].ID != configuredSettings.Sources[0].ID {
+			t.Fatal("source identity missing from backup")
+		}
+	}
+	if !found {
+		t.Fatal("missing settings backup")
 	}
 }

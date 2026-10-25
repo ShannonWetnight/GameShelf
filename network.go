@@ -109,6 +109,9 @@ func normalizeNetworkSource(value networkSource) (networkSource, error) {
 	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !cleanText(value.URL, 2048) {
 		return value, errors.New("Enter a server and folder address without passwords or extra URL options")
 	}
+	if strings.HasPrefix(u.Hostname(), "-") || strings.ContainsAny(u.Hostname(), " \t\r\n") {
+		return value, errors.New("Enter a valid server name or IP address")
+	}
 	u.Host = strings.ToLower(u.Host)
 	scheme := strings.ToLower(u.Scheme)
 	protocol := scheme
@@ -674,6 +677,8 @@ func remoteFile(entry *gameEntry, relative string) (remoteItem, bool) {
 	return remoteItem{}, false
 }
 func remoteCoverFile(ctx context.Context, entry *gameEntry, relative string) (*os.File, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	item, ok := remoteFile(entry, relative)
 	if !ok || item.Size > 20<<20 {
 		return nil, errors.New("unsupported cover file")
