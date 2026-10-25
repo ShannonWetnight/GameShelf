@@ -62,7 +62,7 @@
       lastStates = state.sources;
       const offline = state.sources.filter(source => source.state === 'offline');
       const alert = $('source-alert'); alert.hidden = !state.busy && !offline.length;
-      $('source-alert-text').textContent = state.busy ? state.message || 'Connecting to your libraries…' : `${offline.length} location${offline.length === 1 ? ' is' : 's are'} offline. Last known games stay on your shelf.`;
+      $('source-alert-text').textContent = state.busy ? state.message || 'Connecting to your libraries…' : `${offline.length} location${offline.length === 1 ? ' is' : 's are'} offline. Cached games remain visible; downloads require a connection and refresh.`;
       if (state.busy && !$('setup-page').hidden) $('setup-status').textContent = state.message || 'Finding your games…';
       if (state.busy && $('server-settings-dialog').open && $('server-settings-save').disabled) $('server-settings-status').textContent = state.message || 'Reading your libraries…';
       return state;

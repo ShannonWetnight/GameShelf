@@ -2278,3 +2278,6 @@ body.gs-card-depth .gs-grid .gs-card { box-shadow:inset 0 1px 0 color-mix(in srg
 @media(prefers-reduced-motion:reduce) { .gs-onboarding-ambient *,.gs-onboarding-ambient::before,.gs-boot-dots i,.gs-network-status::before{animation:none!important}.gs-tour-spotlight{transition:none} }
 
 .gs-needs-setup .gs-main { padding:1.5rem max(16px,3vw) 2.5rem; }
+
+.gs-offline-label { color:var(--text-muted);font-size:.7rem; }
+[aria-disabled="true"][data-unavailable="true"] { opacity:.45;cursor:not-allowed; }

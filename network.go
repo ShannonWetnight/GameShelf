@@ -717,6 +717,9 @@ func remoteCoverFile(ctx context.Context, entry *gameEntry, relative string) (*o
 			return file, nil
 		}
 	}
+	if entry.Game.Unavailable {
+		return nil, errors.New("network source is offline and cover is not cached")
+	}
 	file, err := os.CreateTemp(directory, ".cover-*")
 	if err != nil {
 		return nil, err
@@ -765,11 +768,15 @@ func handleRemoteFiles(w http.ResponseWriter, r *http.Request, entry *gameEntry)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(struct {
-		Files     []gameFile `json:"files"`
-		Truncated bool       `json:"truncated"`
-	}{files, len(entry.RemoteFiles) > 2000})
+		Files       []gameFile `json:"files"`
+		Truncated   bool       `json:"truncated"`
+		Unavailable bool       `json:"unavailable,omitempty"`
+	}{files, len(entry.RemoteFiles) > 2000, entry.Game.Unavailable})
 }
 func serveRemoteFile(w http.ResponseWriter, r *http.Request, entry *gameEntry, relative string) {
+	if rejectUnavailableNetwork(w, r, entry) {
+		return
+	}
 	item, ok := remoteFile(entry, relative)
 	if !ok {
 		http.NotFound(w, r)
@@ -810,9 +817,9 @@ func sortedRemoteFiles(items []remoteItem) []remoteItem {
 }
 
 type networkFolder struct {
-	Name, Source, NetworkID, Location string
-	Files                             []remoteItem
-	Size                              int64
+	Name, Source, NetworkID, Location, Identity string
+	Files                                       []remoteItem
+	Size                                        int64
 }
 type connectionState struct {
 	ID      string `json:"id"`
@@ -857,7 +864,11 @@ func handleSourceStatus(w http.ResponseWriter, r *http.Request) {
 
 var networkList = listRemote
 
-func collectNetworkFolders() ([]networkFolder, []*gameEntry, error) {
+func collectNetworkFolders(state libraryState) ([]networkFolder, []*gameEntry, error) {
+	snapshot, err := readNetworkSnapshot()
+	if err != nil {
+		logEvent("errors", "Network index snapshot unavailable; continuing with live scans: %v", err)
+	}
 	folders := make([]networkFolder, 0)
 	retained := make([]*gameEntry, 0)
 	var firstError error
@@ -874,13 +885,27 @@ func collectNetworkFolders() ([]networkFolder, []*gameEntry, error) {
 			}
 			setConnectionState(source, "offline", err.Error())
 			logEvent("errors", "network source %s is unavailable: %v", source.ID, err)
+			var previous []*gameEntry
 			gamesMu.RLock()
 			for _, entry := range gamesMap {
-				if entry.NetworkID == source.ID {
-					retained = append(retained, entry)
+				if entry.NetworkID == source.ID && entry.NetworkIdentity == networkIdentity(source) {
+					copy := *entry
+					previous = append(previous, &copy)
 				}
 			}
 			gamesMu.RUnlock()
+			if len(previous) == 0 {
+				cached := snapshot.Sources[source.ID]
+				if cached.Identity == networkIdentity(source) {
+					for _, game := range cached.Games {
+						previous = append(previous, restoreNetworkGame(source, game, state))
+					}
+				}
+			}
+			for _, entry := range previous {
+				entry.Game.Unavailable = true
+				retained = append(retained, entry)
+			}
 			continue
 		}
 		successes++
@@ -921,7 +946,7 @@ func collectNetworkFolders() ([]networkFolder, []*gameEntry, error) {
 				}
 				size += item.Size
 			}
-			folders = append(folders, networkFolder{name, remoteRoot(source.ID), source.ID, strings.TrimRight(source.URL, "/") + "/" + url.PathEscape(name), files, size})
+			folders = append(folders, networkFolder{Name: name, Source: remoteRoot(source.ID), NetworkID: source.ID, Location: strings.TrimRight(source.URL, "/") + "/" + url.PathEscape(name), Identity: networkIdentity(source), Files: files, Size: size})
 		}
 	}
 	if successes == 0 && len(retained) == 0 && firstError != nil && len(rootDirs) == 0 && rootDir == "" {
@@ -942,13 +967,13 @@ func activateLibrary(value serverSettings) error {
 	setActiveSources(value.Sources)
 	// Removed locations must disappear even if a new server goes offline before
 	// its first scan. Keep last-known entries only for still-configured sources.
-	ids := make(map[string]bool)
+	ids := make(map[string]string)
 	for _, source := range value.Sources {
-		ids[source.ID] = true
+		ids[source.ID] = networkIdentity(source)
 	}
 	gamesMu.Lock()
 	for id, entry := range gamesMap {
-		keep := ids[entry.NetworkID]
+		keep := ids[entry.NetworkID] != "" && ids[entry.NetworkID] == entry.NetworkIdentity
 		if entry.NetworkID == "" {
 			for _, root := range rootDirs {
 				if entryRootDir(entry) == root {
@@ -962,6 +987,9 @@ func activateLibrary(value serverSettings) error {
 		}
 	}
 	gamesMu.Unlock()
+	if err := writeNetworkSnapshot(gamesMap); err != nil {
+		logEvent("errors", "Could not prune network index snapshot: %v", err)
+	}
 	refreshMu.Unlock()
 	return refreshGames()
 }
@@ -1002,6 +1030,9 @@ func serveNetworkCover(w http.ResponseWriter, r *http.Request, entry *gameEntry,
 	http.ServeContent(w, r, path.Base(relative), info.ModTime(), file)
 }
 func downloadRemoteGame(w http.ResponseWriter, r *http.Request, entry *gameEntry) {
+	if rejectUnavailableNetwork(w, r, entry) {
+		return
+	}
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.zip"`, sanitizeFilename(entry.Game.Name)))
 	output := &zipResponseWriter{ResponseWriter: w}
@@ -1123,4 +1154,186 @@ func listRemote(ctx context.Context, source networkSource, recursive bool) ([]re
 		}
 	}
 	return nil, errors.New("Could not read this NFS export with NFS 4 or NFS 3. Check the export path, client access, and user/group IDs")
+}
+
+// The index is disposable metadata, separate from credentials and user edits.
+// Only a failed source scan may consult it; even an empty live scan replaces it.
+const networkSnapshotLimit = 64 << 20
+
+type networkSnapshotGame struct {
+	ID        string       `json:"id"`
+	Directory string       `json:"directory"`
+	AddedAt   string       `json:"addedAt,omitempty"`
+	Files     []remoteItem `json:"files"`
+}
+type networkSnapshotSource struct {
+	Identity string                `json:"identity"`
+	Games    []networkSnapshotGame `json:"games"`
+}
+type networkSnapshot struct {
+	Version int                              `json:"version"`
+	Sources map[string]networkSnapshotSource `json:"sources"`
+}
+
+func networkIdentity(source networkSource) string {
+	// Source IDs survive edits. Bind the snapshot to the actual location too.
+	// Never serialize the source struct (which contains authentication material).
+	sum := sha256.Sum256([]byte(source.Protocol + "\x00" + source.URL))
+	return hex.EncodeToString(sum[:])
+}
+
+func readNetworkSnapshot() (networkSnapshot, error) {
+	var snapshot networkSnapshot
+	root, err := os.OpenRoot(dataDir)
+	if os.IsNotExist(err) {
+		return snapshot, nil
+	}
+	if err != nil {
+		return snapshot, err
+	}
+	defer root.Close()
+	file, _, err := openRegularFile(root, "network-index.json")
+	if os.IsNotExist(err) {
+		return snapshot, nil
+	}
+	if err != nil {
+		return snapshot, err
+	}
+	defer file.Close()
+	contents, err := io.ReadAll(io.LimitReader(file, networkSnapshotLimit+1))
+	if err != nil {
+		return snapshot, err
+	}
+	if len(contents) > networkSnapshotLimit {
+		return snapshot, errors.New("network index exceeds 64 MiB")
+	}
+	if err = json.Unmarshal(contents, &snapshot); err != nil {
+		return networkSnapshot{}, err
+	}
+	if snapshot.Version != 1 || snapshot.Sources == nil {
+		return networkSnapshot{}, errors.New("unsupported network index format")
+	}
+	ids := make(map[string]bool)
+	for sourceID, source := range snapshot.Sources {
+		identity, err := hex.DecodeString(source.Identity)
+		if sourceID == "" || err != nil || len(identity) != sha256.Size {
+			return networkSnapshot{}, errors.New("invalid network index source")
+		}
+		directories := make(map[string]bool)
+		for _, game := range source.Games {
+			if game.ID == "" || strings.TrimSpace(game.ID) != game.ID || strings.ContainsAny(game.ID, "/\\\x00\r\n") || ids[game.ID] || directories[game.Directory] || !safeRemotePath(game.Directory) || strings.Contains(game.Directory, "/") {
+				return networkSnapshot{}, errors.New("invalid network index game")
+			}
+			ids[game.ID], directories[game.Directory] = true, true
+			if game.AddedAt != "" {
+				if _, err := time.Parse(time.RFC3339, game.AddedAt); err != nil {
+					return networkSnapshot{}, errors.New("invalid network index date")
+				}
+			}
+			paths := make(map[string]bool)
+			var size int64
+			for _, file := range game.Files {
+				if !safeRemotePath(file.Path) || file.IsDir || file.Size < 0 || paths[file.Path] || size > int64(1<<63-1)-file.Size {
+					return networkSnapshot{}, errors.New("invalid network index file")
+				}
+				paths[file.Path] = true
+				size += file.Size
+			}
+		}
+	}
+	return snapshot, nil
+}
+
+// Called under refreshMu after a complete scan, or after removing sources.
+func writeNetworkSnapshot(entries map[string]*gameEntry) error {
+	snapshot := networkSnapshot{Version: 1, Sources: make(map[string]networkSnapshotSource)}
+	for _, source := range snapshotSources() {
+		cached := networkSnapshotSource{Identity: networkIdentity(source), Games: make([]networkSnapshotGame, 0)}
+		for _, entry := range entries {
+			if entry.NetworkID == source.ID && entry.NetworkIdentity == cached.Identity {
+				cached.Games = append(cached.Games, networkSnapshotGame{ID: entry.Game.ID, Directory: entry.DirName, AddedAt: entry.Game.AddedAt, Files: entry.RemoteFiles})
+			}
+		}
+		sort.Slice(cached.Games, func(i, j int) bool { return cached.Games[i].Directory < cached.Games[j].Directory })
+		snapshot.Sources[source.ID] = cached
+	}
+	if len(snapshot.Sources) == 0 {
+		err := os.Remove(filepath.Join(dataDir, "network-index.json"))
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	contents, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+	if len(contents) > networkSnapshotLimit {
+		return errors.New("network index exceeds 64 MiB")
+	}
+	if err = os.MkdirAll(dataDir, 0700); err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(dataDir, ".network-index-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	if _, err = file.Write(contents); err != nil {
+		file.Close()
+		return err
+	}
+	if err = file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	if err = file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), filepath.Join(dataDir, "network-index.json"))
+}
+
+func restoreNetworkGame(source networkSource, game networkSnapshotGame, state libraryState) *gameEntry {
+	root := remoteRoot(source.ID)
+	folder := filepath.Join(root, game.Directory)
+	coverKey := sourceCoverKey(root, game.Directory)
+	entry := &gameEntry{Game: Game{ID: game.ID, Name: game.Directory, Path: folder, AddedAt: game.AddedAt, FileCount: len(game.Files), Location: strings.TrimRight(source.URL, "/") + "/" + url.PathEscape(game.Directory), Unavailable: true}, DirName: game.Directory, RootDir: root, CoverKey: coverKey, NetworkID: source.ID, NetworkIdentity: networkIdentity(source), RemoteFiles: game.Files}
+	for _, item := range game.Files {
+		entry.Game.SizeBytes += item.Size
+	}
+	if id := state.IDs[folder]; id != "" {
+		entry.Game.ID = id
+	}
+	if title := state.Titles[folder]; title != "" {
+		entry.Game.Name = title
+	}
+	entry.Game.Favorite = state.Favorites[folder]
+	if added := state.FirstSeen[folder]; added != "" {
+		entry.Game.AddedAt = added
+	}
+	entry.Game.CoverSource = "placeholder"
+	for _, cover := range []string{customCoverPath(coverKey), legacyCustomCoverPath(coverKey)} {
+		if info, err := os.Lstat(cover); err == nil && info.Mode().IsRegular() {
+			entry.CoverPath = cover
+			entry.Game.CoverSource = "uploaded"
+			break
+		}
+	}
+	if entry.CoverPath == "" {
+		if cover := remoteCoverName(entry); cover != "" {
+			entry.CoverPath = filepath.Join(folder, cover)
+			entry.Game.CoverSource = "folder"
+		}
+	}
+	entry.Game.HasCover = entry.CoverPath != ""
+	return entry
+}
+
+func rejectUnavailableNetwork(w http.ResponseWriter, r *http.Request, entry *gameEntry) bool {
+	if entry.Game.Unavailable {
+		w.Header().Set("Cache-Control", "no-store")
+		http.Error(w, "This network library is offline. Reconnect and refresh before downloading files.", http.StatusServiceUnavailable)
+		return true
+	}
+	return false
 }

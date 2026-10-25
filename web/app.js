@@ -153,8 +153,24 @@ function showSaveFeedback(button) {
   saveFeedbackTimers.set(button, setTimeout(() => button.classList.remove('is-saved'), 1100));
 }
 
-function showDownloadStarted() {
+function showDownloadStarted(event) {
+  if (event?.currentTarget?.dataset.unavailable === 'true') {
+    event.preventDefault();
+    showNotification('This library is offline. Reconnect and refresh before downloading.');
+    return;
+  }
   showNotification('Download started.');
+}
+
+function setDownloadAvailability(link, unavailable) {
+  link.dataset.unavailable = String(Boolean(unavailable));
+  link.setAttribute('aria-disabled', String(Boolean(unavailable)));
+  if (unavailable) {
+    link.removeAttribute('href');
+    link.title = 'Offline: reconnect and refresh before downloading';
+  } else {
+    link.title = 'Download';
+  }
 }
 
 /* =============================
@@ -362,6 +378,7 @@ function confirmPlaylistChange(action, id = null) {
 function toggleCart(id) {
   if (!playlistEnabled) return;
   if (cartGameIds.has(id)) { confirmPlaylistChange('remove', id); return; }
+  if (gamesCache.find(game => game.id === id)?.unavailable) { showNotification('This library is offline. Reconnect and refresh before adding downloads.'); return; }
   if (cartGameIds.size >= 50) { showNotification('The Playlist can hold up to 50 games.'); return; }
   cartGameIds.add(id);
   syncCart();
@@ -375,7 +392,7 @@ function renderCart() {
   for (const game of selected) {
     const row = document.createElement('li');
     const label = document.createElement('span');
-    label.textContent = `${game.name} · ${formatSize(game.sizeBytes)}`;
+    label.textContent = `${game.name} · ${formatSize(game.sizeBytes)}${game.unavailable ? ' · Offline' : ''}`;
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.textContent = 'Remove';
@@ -595,8 +612,9 @@ function createGameCard(game) {
       <path d="M12 3.5v11m0 0 4-4m-4 4-4-4M5 17.5v2h14v-2"/>
     </svg>
   `;
-  dl.addEventListener('click', () => {
-    showDownloadStarted();
+  setDownloadAvailability(dl, game.unavailable);
+  dl.addEventListener('click', event => {
+    showDownloadStarted(event);
     dl.blur();
   });
 
@@ -658,6 +676,12 @@ function createGameCard(game) {
   title.textContent = game.name;
 
   content.appendChild(title);
+  if (game.unavailable) {
+    const offline = document.createElement('small');
+    offline.className = 'gs-offline-label';
+    offline.textContent = 'Offline · last known files';
+    content.appendChild(offline);
+  }
   body.appendChild(content);
 
   card.appendChild(cover);
@@ -683,8 +707,9 @@ function openGameDetails(game, trigger, card) {
   document.getElementById('game-details-path').textContent = game.location || game.path || '';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-download').href = `/download/${encodeURIComponent(game.id)}`;
+  setDownloadAvailability(document.getElementById('game-details-download'), game.unavailable);
   const fileSummary = Number.isInteger(game.fileCount) ? `${game.fileCount} ${game.fileCount === 1 ? 'file' : 'files'} · ` : '';
-  document.getElementById('game-details-download-summary').textContent = `${fileSummary}${formatSize(game.sizeBytes)} ZIP`;
+  document.getElementById('game-details-download-summary').textContent = game.unavailable ? `Offline · last known: ${fileSummary}${formatSize(game.sizeBytes)}` : `${fileSummary}${formatSize(game.sizeBytes)} ZIP`;
   document.getElementById('game-details-files-mobile').textContent = `${game.fileCount ?? 0} ${game.fileCount === 1 ? 'file' : 'files'} · Show Files`;
   document.getElementById('game-details-cover').textContent = game.coverSource === 'uploaded'
     ? 'Uploaded' : game.hasCover ? 'Available' : 'Missing';
@@ -742,13 +767,14 @@ async function toggleGameFiles() {
       download.download = file.path.split('/').pop();
       download.setAttribute('aria-label', `Download ${file.path}`);
       download.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11m0 0 4-4m-4 4-4-4M5 17.5v2h14v-2"/></svg>';
+      setDownloadAvailability(download, result.unavailable);
       download.addEventListener('click', showDownloadStarted);
       item.appendChild(name);
       item.appendChild(size);
       item.appendChild(download);
       list.appendChild(item);
     }
-    status.textContent = result.truncated
+    status.textContent = result.unavailable ? 'Offline: showing the last known file list. Reconnect and refresh to download.' : result.truncated
       ? `Showing the first ${list.children.length} files.`
       : list.children.length === 0 ? 'No files found.' : '';
   } catch (error) {
@@ -1189,6 +1215,7 @@ function suggestRandomGame() {
     const spotlightDownload = document.getElementById('spotlight-download');
     spotlightDownload.href = `/download/${encodeURIComponent(game.id)}`;
     spotlightDownload.setAttribute('aria-label', `Download ${game.name}`);
+    setDownloadAvailability(spotlightDownload, game.unavailable);
     document.getElementById('spotlight-info').setAttribute('aria-label', `Information about ${game.name}`);
     returnActions.classList.remove('hidden');
     void returnActions.offsetWidth;
@@ -1477,6 +1504,7 @@ document.addEventListener('DOMContentLoaded', () => {
   closeOnBackdropClick(playlistConfirm);
   document.getElementById('cart-checkout').addEventListener('click', () => {
     if (cartGameIds.size === 0) return;
+    if (gamesCache.some(game => cartGameIds.has(game.id) && game.unavailable)) { showNotification('A Playlist library is offline. Remove those games or reconnect and refresh.'); return; }
     const query = new URLSearchParams();
     for (const id of cartGameIds) query.append('game', id);
     const link = document.createElement('a');
@@ -1497,6 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
     randomButton.focus();
   });
   document.getElementById('spotlight-download').addEventListener('click', event => {
+    if (event.currentTarget.dataset.unavailable === 'true') { showDownloadStarted(event); return; }
     if (!suggestedGameId) event.preventDefault();
     else showDownloadStarted();
     event.currentTarget.blur();

@@ -42,6 +42,7 @@ type Game struct {
 	AddedAt     string `json:"addedAt"`
 	Favorite    bool   `json:"favorite"`
 	Location string `json:"location,omitempty"`
+	Unavailable bool `json:"unavailable,omitempty"`
 }
 
 type gameEntry struct {
@@ -51,6 +52,7 @@ type gameEntry struct {
 	CoverKey  string // unique storage name for an uploaded cover
 	CoverPath string // absolute path to cover, if any
 	NetworkID string
+	NetworkIdentity string
 	RemoteFiles []remoteItem
 }
 
@@ -400,7 +402,7 @@ func refreshGames() error {
 		if err != nil { return fmt.Errorf("reading library source %s: %w", source, err) }
 		for _, e := range entries { if e.IsDir() && !isSourceContainer(source, e.Name()) { folders = append(folders, sourceFolder{source, e.Name(), filepath.Join(source, e.Name()),nil}) } }
 	}
-	networkFolders,retained,networkErr:=collectNetworkFolders();if networkErr!=nil{return networkErr}
+	networkFolders,retained,networkErr:=collectNetworkFolders(state);if networkErr!=nil{return networkErr}
 	for i:=range networkFolders{folder:=&networkFolders[i];folders=append(folders,sourceFolder{folder.Source,folder.Name,filepath.Join(folder.Source,folder.Name),folder})}
 	// A different library/storage pair must not inherit process-local assignments.
 	rootSignature := strings.Join(scanRoots, "\x00")
@@ -426,6 +428,16 @@ func refreshGames() error {
 		if savedIDs[name] == "" && !usedIDs[id] {
 			savedIDs[name] = id
 			usedIDs[id] = true
+		}
+	}
+	// Reserve offline IDs before allocating IDs for freshly discovered folders.
+	for _, entry := range retained {
+		key := entry.Game.Path
+		if id := savedIDs[key]; id != "" {
+			entry.Game.ID = id
+		} else if !usedIDs[entry.Game.ID] {
+			savedIDs[key] = entry.Game.ID
+			usedIDs[entry.Game.ID] = true
 		}
 	}
 	ids, _ := assignGameIDs(primaryGameEntries, savedIDs)
@@ -512,10 +524,23 @@ func refreshGames() error {
 			CoverPath: cover,
 		}
 
-		if folder.network!=nil{entry.NetworkID=folder.network.NetworkID;entry.RemoteFiles=folder.network.Files;entry.Game.Location=folder.network.Location}
+		if folder.network != nil {
+			entry.NetworkID = folder.network.NetworkID
+			entry.RemoteFiles = folder.network.Files
+			entry.Game.Location = folder.network.Location
+			entry.NetworkIdentity = folder.network.Identity
+		}
 		nextGames[id] = entry
 	}
-	for _,entry:=range retained{nextGames[entry.Game.ID]=entry;nextFirstSeen[entry.Game.Path]=entry.Game.AddedAt}
+	for _, entry := range retained {
+		// A saved assignment or fresh scan always wins over a stale snapshot.
+		if ids[entry.Game.Path] == entry.Game.ID && nextGames[entry.Game.ID] == nil {
+			nextGames[entry.Game.ID] = entry
+			if entry.Game.AddedAt != "" {
+				nextFirstSeen[entry.Game.Path] = entry.Game.AddedAt
+			}
+		}
+	}
 	if stateErr == nil {
 		if len(nextFirstSeen) != len(firstSeen) {
 			stateChanged = true
@@ -553,6 +578,9 @@ func refreshGames() error {
 	lastIndexedAt = time.Now().UTC()
 	gamesMu.Unlock()
 
+	if err := writeNetworkSnapshot(nextGames); err != nil {
+		logEvent("errors", "Network index snapshot could not be saved; offline browsing after restart may be unavailable: %v", err)
+	}
 	logEvent("library", "Indexed %d games", len(nextGames))
 	return nil
 }
@@ -1369,7 +1397,11 @@ func handleDownloadCart(w http.ResponseWriter, r *http.Request) {
 		seen[id] = true
 		entry := getGameEntryByID(id)
 		if entry == nil { http.NotFound(w, r); return }
-		if entry.NetworkID!=""{items=append(items,item{id,nil,entry});continue}
+		if entry.NetworkID != "" {
+			if rejectUnavailableNetwork(w, r, entry) { return }
+			items = append(items, item{id, nil, entry})
+			continue
+		}
 		root, err := openGameRoot(entry)
 		if err != nil { http.Error(w, "Unable to read a selected game.", http.StatusServiceUnavailable); return }
 		items = append(items, item{id, root,entry})

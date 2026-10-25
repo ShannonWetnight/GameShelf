@@ -1,11 +1,4 @@
-## Changes
-
-- Keep test tooling on Edge and publish clean stable packages from main.
-
-## Added
-
-- Create selective draft release PRs after Edge verification.
-
 ## Fixed
 
-- Explain how to recover when release notes are missing.
+- Keep previously indexed network games visible after a restart while their file server is offline.
+- Mark cached games and file lists as offline and block downloads until the source reconnects and refreshes.

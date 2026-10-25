@@ -1163,3 +1163,31 @@ test('sparkle stars twinkle independently, pause with motion off, and clean up o
   assert.notEqual(host.children[0],background);assert.notDeepEqual(arcs.map(a=>a[0]),positions);assert.notEqual(variables['--nebula-x'],nebula);assert.equal(host.children.length,1);assert.equal(listeners.size,1);
   api.setTheme('classic',()=>rate);assert.equal(host.children.length,0);assert.equal(frames.size,0);assert.equal(listeners.size,0);
 });
+
+test('offline games label cached metadata and block download actions', async () => {
+  const ui = app();
+  ui.start();
+  ui.requests[0].resolve(response([{ id:'offline', name:'Cached game', sizeBytes:42, fileCount:1, unavailable:true }]));
+  await settle();
+  const card = ui.cards()[0];
+  assert.match(card.querySelector('.gs-offline-label').textContent, /Offline/);
+  const download = card.querySelector('.gs-card-download');
+  assert.equal(download.attributes['aria-disabled'], 'true');
+  let prevented = false;
+  download.emit('click', { preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.match(ui.element('notification-text').textContent, /offline/);
+  card.querySelector('.gs-card-cart').emit('click');
+  assert.notEqual(ui.element('cart-count').textContent, '1');
+  card.querySelector('.gs-card-info').emit('click');
+  assert.match(ui.element('game-details-download-summary').textContent, /Offline.*last known/);
+  assert.equal(ui.element('game-details-download').attributes['aria-disabled'], 'true');
+  ui.click('game-details-download-summary');
+  ui.requests[1].resolve(response({ files:[{path:'game.bin',sizeBytes:42}], truncated:false, unavailable:true }));
+  await settle();
+  assert.match(ui.element('game-files-status').textContent, /last known file list/);
+  const file = ui.element('game-files-list').children[0].children[2];
+  assert.equal(file.attributes['aria-disabled'], 'true');
+  file.emit('click');
+  assert.match(ui.element('notification-text').textContent, /offline/);
+});
