@@ -167,3 +167,39 @@ func TestHealthLoggingDefaultsMigrateAndCanBeCustomized(t *testing.T) {
 }
 
 var _ = http.StatusOK
+
+type pausedCatalogResponse struct {
+	header  http.Header
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (w *pausedCatalogResponse) Header() http.Header { return w.header }
+func (w *pausedCatalogResponse) WriteHeader(int)     {}
+func (w *pausedCatalogResponse) Write(value []byte) (int, error) {
+	close(w.entered)
+	<-w.release
+	return len(value), nil
+}
+func TestManualDiscoverySlotDoesNotWaitForSlowCatalogReaders(t *testing.T) {
+	root, _ := setupFreshServer(t)
+	rootDir, rootDirs = root, []string{root}
+	writeGame(t, "Alpha")
+	writer := &pausedCatalogResponse{header: http.Header{}, entered: make(chan struct{}), release: make(chan struct{})}
+	done := make(chan struct{})
+	go func() { handleGames(writer, httptest.NewRequest("GET", "/api/games?forceRefresh=1", nil)); close(done) }()
+	select {
+	case <-writer.entered:
+	case <-time.After(2 * time.Second):
+		close(writer.release)
+		t.Fatal("catalog response did not start")
+	}
+	manualRefreshMu.Lock()
+	active := manualRefreshActive
+	manualRefreshMu.Unlock()
+	close(writer.release)
+	<-done
+	if active {
+		t.Fatal("slow response reader retained the discovery slot")
+	}
+}

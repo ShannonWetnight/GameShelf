@@ -1166,8 +1166,10 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 	// forceRefresh enables client to bypass auto-scan timer
 	if r.URL.Query().Has("forceRefresh") {
         if !admitManualRefresh(w,r){return}
-        defer finishManualRefresh()
-		if err := refreshGames(); err != nil {
+        // Release discovery admission as soon as the scan finishes. A slow
+        // reader of the JSON response must not hold the manual-scan slot.
+        err := func() error { defer finishManualRefresh(); return refreshGames() }()
+		if err != nil {
 			logEvent("errors", "forced scan error: %v", err)
 			http.Error(w, "Unable to refresh game library. Please try again later.", http.StatusServiceUnavailable)
 			return
