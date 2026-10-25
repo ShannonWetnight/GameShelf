@@ -108,6 +108,10 @@ GameShelf currently limits network library access to read operations, but a netw
 * [ ] Document the security boundary: container read-only filesystems and unprivileged execution do not revoke remote SMB account permissions. Server-side read-only credentials remain the strongest enforcement.
 
 ### Administration, Security & LAN
+* [ ] **Family Controls user PINs:** optional local nicknames and unique PINs, with per-session themes, Guardian policies, allowed libraries, and potentially individual game access. Keep the default shared shelf free of mandatory sign-ins or external account services.
+* [x] Add optional Settings-menu and Advanced-tab PIN gates, configurable Basic/Advanced placement, grouped Guardian controls, and complete session invalidation on PIN changes.
+* [x] Consolidate library sources, health monitoring/history, and refresh into Library Manager; rate-limit manual discovery on the server.
+
 Security is an ongoing product requirement, including server-enforced access rules, safe storage, read-only boundaries, recovery, and automated vulnerability checks.
 
 * [x] Add Family Controls with a four-digit PIN, individual Allow / Require PIN / Disable policies and visibility, server-side action enforcement, scoped browser unlocks, and attempt limits.

@@ -25,13 +25,14 @@ import (
 type accessRule struct {
 	Mode   string `json:"mode"`
 	Hidden bool   `json:"hidden"`
+	Level  string `json:"level,omitempty"`
 }
 type accessPolicy struct {
 	Rules map[string]accessRule `json:"rules"`
 }
 
 var accessActions = map[string]string{
-	"sources": "Library Sources", "storage": "Saved data location", "refresh": "Refresh schedule", "logging": "Logging configuration", "logs": "View and export logs", "health": "Configure health monitoring", "healthView": "View Library Health", "export": "Export Data", "restore": "Restore Data", "wipe": "Wipe Settings", "setup": "First-Time Setup", "covers": "Edit covers and fit", "titles": "Edit game titles", "favoriteAdd": "Add favorites", "favoriteRemove": "Remove favorites", "metadata": "Reset Metadata", "playlistAdd": "Add to Playlist", "playlistRemove": "Remove or clear Playlist", "downloads": "Downloads",
+	"admin": "Family Controls", "settings": "Settings menu", "advanced": "Advanced settings tab", "libraryManager": "Library Manager", "sources": "Library Sources", "storage": "Saved data location", "refresh": "Refresh Interval", "logging": "Logging configuration", "logs": "View and export logs", "health": "Configure health monitoring", "healthView": "View Library Health", "export": "Export Data", "restore": "Restore Data", "wipe": "Wipe Settings", "setup": "First-Time Setup", "covers": "Edit covers and fit", "titles": "Edit game titles", "favoriteAdd": "Add favorites", "favoriteRemove": "Remove favorites", "metadata": "Reset Metadata", "playlistAdd": "Add to Playlist", "playlistRemove": "Remove or clear Playlist", "downloads": "Downloads",
 }
 
 var preferenceActions = map[string]string{"theme": "theme", "animation-speed": "motion", "animate-tiles": "tileAnimation", "show-hover-text": "buttonHints", "show-game-titles": "staticTitles", "show-placeholder-images": "placeholderArt", "card-depth": "cardDepth", "playlist-enabled": "playlistFeature", "show-list-images": "listImages", "favorites-first": "favoritesFirst", "favorite-stars-only": "pinnedStars", "hover-game-titles": "hoverNames", "list-opacity": "listOpacity", "recent-days": "recentRange", "recent-days-v2": "recentRange", "list-image-click": "imageExpand", "stretch-covers": "stretchDefault"}
@@ -41,6 +42,54 @@ func init() {
 		accessActions[action] = label
 	}
 }
+
+var accessDefaultLevels = map[string]string{
+	"theme": "basic", "buttonHints": "basic", "staticTitles": "basic", "placeholderArt": "basic", "playlistFeature": "basic", "listImages": "basic", "favoritesFirst": "basic", "pinnedStars": "basic", "export": "basic", "restore": "basic", "logs": "basic", "setup": "basic",
+	"motion": "advanced", "tileAnimation": "advanced", "cardDepth": "advanced", "stretchDefault": "advanced", "hoverNames": "advanced", "listOpacity": "advanced", "recentRange": "advanced", "imageExpand": "advanced", "libraryManager": "advanced", "logging": "advanced", "wipe": "advanced", "admin": "advanced",
+}
+
+func accessLevel(policy *accessPolicy, action string) string {
+	if policy != nil && policy.Rules[action].Level != "" {
+		return policy.Rules[action].Level
+	}
+	return accessDefaultLevels[action]
+}
+func accessGroup(action string) string {
+	switch action {
+	case "settings", "advanced":
+		return "Settings access"
+	case "theme", "motion", "tileAnimation", "buttonHints", "staticTitles", "placeholderArt", "cardDepth":
+		return "Appearance"
+	case "stretchDefault", "playlistFeature", "listImages", "favoritesFirst", "pinnedStars", "hoverNames", "listOpacity", "recentRange", "imageExpand":
+		return "Library View"
+	case "libraryManager", "sources", "storage", "refresh", "health", "healthView":
+		return "Library Manager"
+	case "export", "restore", "logging", "logs", "setup", "wipe", "admin":
+		return "Data and Diagnostics"
+	default:
+		return "Game actions"
+	}
+}
+func accessDependencies(policy *accessPolicy, actions []string, settingsOperation bool) []string {
+	result := append([]string(nil), actions...)
+	if settingsOperation {
+		result = append(result, "settings")
+	}
+	for _, action := range actions {
+		switch action {
+		case "sources", "storage", "refresh", "health", "healthView":
+			result = append(result, "libraryManager")
+			if settingsOperation && accessLevel(policy, "libraryManager") == "advanced" {
+				result = append(result, "advanced")
+			}
+		}
+		if settingsOperation && accessLevel(policy, action) == "advanced" {
+			result = append(result, "advanced")
+		}
+	}
+	return result
+}
+
 func resetAccessActions() []string {
 	actions := []string{"wipe", "sources", "storage", "refresh", "logging", "health", "playlistRemove"}
 	for _, action := range preferenceActions {
@@ -98,6 +147,15 @@ func validateAccessPolicy(policy *accessPolicy) error {
 	for action, rule := range policy.Rules {
 		if _, ok := accessActions[action]; !ok {
 			return errors.New("unknown family-control action")
+		}
+		if rule.Level != "" && rule.Level != "basic" && rule.Level != "advanced" {
+			return errors.New("choose Basic or Advanced for the setting category")
+		}
+		if (action == "settings" || action == "advanced") && (rule.Mode == "disable" || rule.Hidden) {
+			return errors.New("menu gates support Allow or Require PIN and must stay visible")
+		}
+		if action == "admin" && (rule.Hidden || rule.Mode != "pin") {
+			return errors.New("Family Controls must remain visible and require the Guardian PIN")
 		}
 		if rule.Mode != "allow" && rule.Mode != "pin" && rule.Mode != "disable" {
 			return errors.New("choose Allow, Require PIN, or Disable")
@@ -247,7 +305,7 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 			mode = "pin"
 		}
 		if mode == "disable" {
-			writeAccessError(w, 403, "action_disabled", []string{action}, accessActions[action]+" is disabled by family controls.")
+			writeAccessError(w, 403, "action_disabled", []string{action}, accessActions[action]+" has been disabled by a GameShelf Guardian.")
 			return false
 		}
 		if mode == "pin" && !hasPINGrant(r, action) {
@@ -409,7 +467,7 @@ func accessGate(next http.Handler) http.Handler {
 		// In particular, a valid first object followed by junk must never skip
 		// classification and then be accepted by a streaming decoder downstream.
 		path := r.URL.Path
-		jsonBody := r.Method != "GET" && r.Method != "HEAD" && (path == "/api/server-settings" || path == "/api/settings-events" || path == "/api/access" || path == "/api/access/unlock" || strings.HasPrefix(path, "/api/favorite/") || strings.HasPrefix(path, "/api/metadata-reset/"))
+		jsonBody := r.Method != "GET" && r.Method != "HEAD" && (path == "/api/server-settings" || path == "/api/settings-events" || path == "/api/access" || path == "/api/access/unlock" || path == "/api/access/enter" || strings.HasPrefix(path, "/api/favorite/") || strings.HasPrefix(path, "/api/metadata-reset/"))
 		if jsonBody && r.Method != "DELETE" {
 			contents, err := io.ReadAll(io.LimitReader(r.Body, 524289))
 			r.Body.Close()
@@ -424,6 +482,11 @@ func accessGate(next http.Handler) http.Handler {
 			r.Body = io.NopCloser(bytes.NewReader(contents))
 		}
 		actions := accessRequestActions(r)
+		settingsOperation := r.URL.Path == "/api/server-settings" && r.Method == "PUT" || r.URL.Path == "/api/settings-events" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/library-backup" || r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/logs" || strings.HasPrefix(r.URL.Path, "/api/health") || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/setup/restart"
+		if len(actions) > 0 || settingsOperation {
+			policy, _, _ := currentAccessPolicy()
+			actions = accessDependencies(policy, actions, settingsOperation)
+		}
 		if len(actions) > 0 && !checkAccess(w, r, actions) {
 			return
 		}
@@ -494,6 +557,8 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 		writeAccessError(w, 429, "pin_rate_limited", nil, "Too many PIN attempts. Wait one minute and try again.")
 		return
 	}
+	accessConfigMu.Lock()
+	defer accessConfigMu.Unlock()
 	record, err := readPINRecord()
 	if err != nil {
 		http.Error(w, "PIN storage is unavailable.", 503)
@@ -546,7 +611,13 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		}
 		accessMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"configured": configured, "policy": policy, "actions": accessActions, "grants": grants})
+		json.NewEncoder(w).Encode(map[string]any{"configured": configured, "policy": policy, "actions": accessActions, "levels": accessDefaultLevels, "groups": func() map[string]string {
+			groups := map[string]string{}
+			for action := range accessActions {
+				groups[action] = accessGroup(action)
+			}
+			return groups
+		}(), "grants": grants})
 		return
 	}
 	if r.Method != "PUT" && r.Method != "DELETE" {
@@ -647,7 +718,10 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 	for _, session := range accessSessions {
 		session.Grants = map[string]time.Time{}
 	}
-	if session := accessSessions[id]; session != nil {
+	if oldRecord != nil && request.NewPIN != "" {
+		accessSessions = map[string]*pinSession{}
+		http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
+	} else if session := accessSessions[id]; session != nil {
 		session.Grants["admin"] = time.Now().Add(pinGrantDuration)
 	}
 	accessMu.Unlock()
@@ -662,4 +736,32 @@ func sortedAccessActions() []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method != "POST" {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+	var value struct {
+		Action string `json:"action"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&value) != nil || (value.Action != "settings" && value.Action != "advanced" && value.Action != "libraryManager") {
+		http.Error(w, "unknown menu", 400)
+		return
+	}
+	actions := []string{value.Action}
+	if value.Action == "advanced" {
+		actions = append(actions, "settings")
+	}
+	if value.Action == "libraryManager" {
+		policy, _, _ := currentAccessPolicy()
+		actions = accessDependencies(policy, actions, true)
+	}
+	if checkAccess(w, r, actions) {
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

@@ -22,7 +22,7 @@ const legacyRecentRange = storedRecentDays === 3650 && !localStorage.getItem('ga
 let recentDays = !legacyRecentRange && Number.isInteger(storedRecentDays) && storedRecentDays >= 1 && storedRecentDays <= 3650 ? storedRecentDays : 7;
 if (legacyRecentRange) localStorage.setItem('gameshelf:recent-days', '7');
 localStorage.setItem('gameshelf:recent-days-v2', 'true');
-let themePreference = localStorage.getItem('gameshelf:theme') || 'system';
+let themePreference = localStorage.getItem('gameshelf:theme') || 'classic';
 let stretchCovers = localStorage.getItem('gameshelf:stretch-covers') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
 const storedImageClick = localStorage.getItem('gameshelf:list-image-click');
@@ -132,8 +132,9 @@ function openModal(dialog) {
   if (modalScrollPosition) window.scrollTo?.({ ...modalScrollPosition, behavior: 'instant' });
 }
 
-function showNotification(message) {
+function showNotification(message, variant = 'success') {
   const banner = document.getElementById('notification-banner');
+  banner.classList.toggle('gs-notification-error',variant==='error');banner.setAttribute('role',variant==='error'?'alert':'status');banner.querySelector?.('.gs-notification-check')?.replaceChildren?.(document.createTextNode(variant==='error'?'×':'✓'));
   const visibleDialog = [...openDialogs].filter(dialog => dialog.open && !dialog.dataset.closing).at(-1);
   (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;
@@ -311,6 +312,7 @@ async function fetchGames(isRefresh = false) {
   try {
     const url = isRefresh ? '/api/games?forceRefresh=1' : '/api/games';
     const res = await fetch(url, { signal: controller.signal });
+    if(res.status===429){showNotification('Please wait '+(res.headers.get('Retry-After')||'a few')+' seconds before refreshing again.');return null;}
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const games = await res.json();
     if (!Array.isArray(games) || games.some(game =>
@@ -405,7 +407,7 @@ function renderCart() {
     label.textContent = `${game.name} · ${formatSize(game.sizeBytes)}${game.unavailable ? ' · Offline' : ''}`;
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.textContent = 'Remove';
+    remove.textContent = 'Remove';remove.className='gs-detail-action';
     remove.setAttribute('aria-label', `Remove ${game.name} from Playlist`);
     remove.addEventListener('click', () => toggleCart(game.id));
     row.append(label, remove);
@@ -720,7 +722,7 @@ function openGameDetails(game, trigger, card) {
   setCoverStretch(document.querySelector?.('.gs-details-art-frame'),game);syncCoverStretchControl(game);
   document.getElementById('game-details-image-title').textContent = game.name;
   document.getElementById('game-title-input').value = game.name;
-  document.getElementById('game-details-path').textContent = game.location || game.path || '';
+  document.getElementById('game-details-path').textContent = game.location || game.path || '';document.getElementById('game-details-path').dataset.tooltip=game.location||game.path||'';
   document.getElementById('game-details-size').textContent = formatSize(game.sizeBytes);
   document.getElementById('game-details-download').href = `/download/${encodeURIComponent(game.id)}`;
   setDownloadAvailability(document.getElementById('game-details-download'), game.unavailable);
@@ -1306,6 +1308,7 @@ async function loadGames(isRefresh = false) {
 
   try {
     const games = await fetchGames(isRefresh);
+    if(games===null)return null;
 
     // Commit the new library only after the request and response validation succeed.
     if (isRefresh) {
@@ -1364,11 +1367,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const uiWindow = typeof window === 'undefined' ? { scrollY: 0, matchMedia: () => ({ matches: false }), scrollTo: () => {} } : window;
   const themeMedia = uiWindow.matchMedia('(prefers-color-scheme: dark)');
   const themeSelect = document.getElementById('theme-select');
-  if (!['random', 'system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice', 'rain', 'storm', 'autumn'].includes(themePreference)) themePreference = 'system';
+  if (!['random', 'system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice', 'rain', 'storm', 'autumn'].includes(themePreference)) themePreference = 'classic';
   const randomThemes=[...themeSelect.options].map(option=>option.value).filter(value=>!['system','random'].includes(value));
   const sessionTheme=randomThemes[Math.floor(Math.random()*randomThemes.length)];
   function applyTheme() {
-    const theme = themePreference === 'random' ? sessionTheme : themePreference === 'system' ? (themeMedia.matches ? 'classic' : 'light') : themePreference;
+    const theme = themePreference === 'random' ? sessionTheme : themePreference === 'system' ? (themeMedia.matches ? 'dark' : 'light') : themePreference;
     if (document.documentElement) document.documentElement.dataset.theme = theme;
     window.GameShelfRain?.stopAll();
     document.body.dataset.theme = theme;
@@ -1449,6 +1452,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const succeeded = await loadGames(isRefresh);
     stage.classList.remove('gs-refreshing');
+    if(succeeded===null){refreshLock=false;logoText.textContent=refreshHovered?'REFRESH':originalText;return;}
     if (succeeded && !isRefresh) {
       stage.classList.remove('gs-home-enter');
       void stage.offsetWidth;
@@ -1609,6 +1613,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let changingSettingsLevel = false;
   for (const level of ['basic', 'advanced']) document.getElementById(`settings-${level}`).addEventListener('click', async () => {
     if (changingSettingsLevel || settingsLevel === level) return;
+    if(level==='advanced'&&window.GameShelfAccess&&!await window.GameShelfAccess.enter('advanced'))return;
     changingSettingsLevel = true;
     const before = settingsDialog.getBoundingClientRect?.().height;
     if (level === 'basic' && !disableEffects && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -1622,7 +1627,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('gameshelf:settings-level', level);recordSettingChange({'settings-level':level});
     applySettingsLevel();
     const after = settingsDialog.getBoundingClientRect?.().height;
-    if (!disableEffects && before && after && before !== after) settingsDialog.animate?.(
+    if (!window.GameShelfMotion && !disableEffects && before && after && before !== after) settingsDialog.animate?.(
       [{ height: `${before}px`, overflow: 'hidden' }, { height: `${after}px`, overflow: 'hidden' }],
       { duration: motionDuration(240), easing: 'cubic-bezier(.22,.7,.2,1)' }
     );
@@ -1635,9 +1640,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  settingsButton.addEventListener('click', () => {
+  settingsButton.addEventListener('click', async () => {
     animateControl(settingsButton);
     if (document.body.classList.contains('gs-needs-setup')) {window.GameShelfSetup?.openOptions();return;}
+    if(window.GameShelfAccess&&!await window.GameShelfAccess.enter('settings'))return;
+    if(window.GameShelfAccess&&!window.GameShelfAccess.canUse('advanced')){settingsLevel='basic';applySettingsLevel();}
     openModal(settingsDialog);
 
   });
@@ -1753,7 +1760,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await response.json();
       restoreDialog.close();
       if (restoreChoices[2].checked) importPreferences(result.preferences || restorePreview?.preferences);
-      const message=result.restartRequired?'Library data restored. Restart the container to apply the data location.':result.requiresLogin?'Data restored. Enter share passwords in Advanced Settings → Library Sources.':result.scanWarning||'Library data restored.';
+      const message=result.restartRequired?'Library data restored. Restart the container to apply the data location.':result.requiresLogin?'Data restored. Enter share passwords in Advanced Settings → Library Manager → Library Sources.':result.scanWarning||'Library data restored.';
       if(result.setupComplete || (restoreChoices[2].checked && result.preferences && Object.keys(result.preferences).length)) {
         localStorage.setItem('gameshelf:restore-notice',message);window.location.reload();return;
       }
@@ -1884,7 +1891,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const logConfigDialog = document.getElementById('log-config-dialog');
   const logVerbose = document.getElementById('log-verbose');
-  const logKinds = ['system', 'library', 'errors', 'requests', 'scans', 'downloads'];
+  const logKinds = ['system', 'library', 'errors', 'requests', 'scans', 'downloads', 'health'];
   const logTypeInputs = logKinds.map(kind => document.getElementById(`log-${kind}`));
   const logDaysOverride = document.getElementById('log-override-days');
   const logSizeOverride = document.getElementById('log-override-size');
@@ -1916,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.getElementById('log-config-save');
     const options = {
       baseConfigured:true, system:logTypeInputs[0].checked, library:logTypeInputs[1].checked, errors:logTypeInputs[2].checked,
-      requests:logTypeInputs[3].checked, scans:logTypeInputs[4].checked, downloads:logTypeInputs[5].checked,
+      requests:logTypeInputs[3].checked, scans:logTypeInputs[4].checked, downloads:logTypeInputs[5].checked, health:logTypeInputs[6].checked, healthConfigured:true,
       overrideDays:logDaysOverride.checked, days:logDaysOverride.checked?Number(logDays.value):0, overrideSize:logSizeOverride.checked, sizeMB:Number(logSize.value)
     };
     if (!Number.isInteger(options.days) || options.days < 0 || options.days > 3650 || (options.overrideDays && options.days < 1) || !Number.isInteger(options.sizeMB) || options.sizeMB < 1 || options.sizeMB > 100) {
@@ -1942,7 +1949,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showFilteredLogs() {
     const included = new Set(logFilters.filter(input => input.checked).map(input => input.value));
     const lines = rawLogs.split('\n').filter(line => {
-      const type = (line.match(/\[(system|library|errors|request|scan|download)\]/) || [,'system'])[1];
+      const type = (line.match(/\[(system|library|errors|request|scan|download|health)\]/) || [,'system'])[1];
       return included.has(type);
     });
     logsContent.textContent = lines.join('\n');
@@ -1994,7 +2001,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   logsDownload.addEventListener('click', async () => {
     if(!logsContent.textContent||logsDownload.disabled)return;logsDownload.disabled=true;
-    try{const response=await fetch('/api/logs?export=1',{cache:'no-store'});if(!response.ok)throw new Error('Could not export logs.');const snapshot=await response.text();const all=snapshot.trimEnd().split('\n'),exportEntry=all.pop();const included=new Set(logFilters.filter(input=>input.checked).map(input=>input.value));const selected=all.filter(line=>included.has((line.match(/\[(system|library|errors|request|scan|download)\]/)||[,'system'])[1]));selected.push(exportEntry);const url=URL.createObjectURL(new Blob([selected.join('\n')+'\n'],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='gameshelf-logs.txt';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);animateControl(logsDownload);}
+    try{const response=await fetch('/api/logs?export=1',{cache:'no-store'});if(!response.ok)throw new Error('Could not export logs.');const snapshot=await response.text();const all=snapshot.trimEnd().split('\n'),exportEntry=all.pop();const included=new Set(logFilters.filter(input=>input.checked).map(input=>input.value));const selected=all.filter(line=>included.has((line.match(/\[(system|library|errors|request|scan|download|health)\]/)||[,'system'])[1]));selected.push(exportEntry);const url=URL.createObjectURL(new Blob([selected.join('\n')+'\n'],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='gameshelf-logs.txt';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);animateControl(logsDownload);}
     catch{showNotification('Could not export logs. Try again.');}finally{logsDownload.disabled=false;}
   });
   document.getElementById('logs-close').addEventListener('click', () => logsDialog.close());

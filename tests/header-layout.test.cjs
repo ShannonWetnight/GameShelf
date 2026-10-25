@@ -134,7 +134,7 @@ test('settings use three aligned columns except on portrait phones', () => {
     const probe = `<script>
       document.querySelector('#settings-dialog').showModal();
       const sections = [...document.querySelectorAll('#settings-dialog .gs-settings-section')].map(el => el.getBoundingClientRect());
-      const buttons = ['#export-library-data','#open-library-restore','#open-server-settings'].map(selector => document.querySelector(selector).getBoundingClientRect().width);
+      const buttons = ['#export-library-data','#open-library-restore','#open-library-manager'].map(selector => document.querySelector(selector).getBoundingClientRect().width);
       const report = document.createElement('pre'); report.id = 'settings-layout-report';
       report.textContent = JSON.stringify({columns:sections.map(box => Math.round(box.left)), widths:buttons,
         checkboxCursor:getComputedStyle(document.querySelector('#show-list-images')).cursor,

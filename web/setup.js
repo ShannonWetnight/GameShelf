@@ -6,7 +6,7 @@
   let current = null, step = 1, panel = 'setup', editing = null;
   let saveAfterTrust = false;
   let editorID = '', editorHasPassword = false, editorHostKey = '', tested = '', testing = false, pendingTrust = null;
-  let folderOriginal = null, folderPanel = 'setup', pickerTarget = null, folderState = null, browseVersion = 0;
+  let folderFailedPath='',folderOriginal = null, folderPanel = 'setup', pickerTarget = null, folderState = null, browseVersion = 0;
   let statusTimer, lastStates = [], watchedBusy = false;
   let editorVersion = 0, networkController = null, folderVersion = 0;
   const rootsInput = owner => $(owner === 'setup' ? 'setup-roots' : 'server-root-path');
@@ -76,7 +76,7 @@
   $('setup-import').addEventListener('click',()=>$('open-library-restore').click());
   $('setup-defer').addEventListener('click',async()=>{
     const button=$('setup-defer');if(button.disabled)return;button.disabled=true;$('setup-options-status').textContent='Opening your shelf…';
-    try{await jsonRequest('/api/setup?skip=1',{method:'POST'});$('setup-options-dialog').close();await boot();showNotification('Add your games later in Advanced Settings → Library Sources.');}
+    try{await jsonRequest('/api/setup?skip=1',{method:'POST'});$('setup-options-dialog').close();await boot();showNotification('Add your games later in Advanced Settings → Library Manager → Library Sources.');}
     catch(error){$('setup-options-status').textContent=error.message;}finally{button.disabled=false;}
   });
 
@@ -132,7 +132,7 @@
       $('setup-libraries-panel').hidden = step !== 1; $('setup-finish-panel').hidden = step !== 2;
       $('setup-back').hidden = step === 1; $('setup-next').hidden = step === 2; $('setup-save').hidden = step !== 2; $('setup-import').hidden = step !== 1;
       $('setup-step-libraries').setAttribute('aria-current', step === 1 ? 'step' : 'false'); $('setup-step-finish').setAttribute('aria-current', step === 2 ? 'step' : 'false');
-      $('setup-summary').textContent = `${sourceCount('setup')} location${sourceCount('setup') === 1 ? '' : 's'} ready for your shelf.`;
+      $('setup-summary').textContent = '';
     };
     apply();
     if (animate && !disableEffects && !matchMedia('(prefers-reduced-motion: reduce)').matches) $(step === 1 ? 'setup-libraries-panel' : 'setup-finish-panel').animate?.([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: motionDuration(220), easing: 'ease-out' });
@@ -229,7 +229,9 @@
   $('network-editor-dialog').addEventListener('close', () => { if (!$('network-editor-dialog').open) releaseEditor(); });
   closeOnBackdropClick($('network-editor-dialog')); closeOnBackdropClick($('network-trust-dialog'));
 
-  function openFolder(owner, original = null) { if (original === null && !canAdd(owner)) return; folderVersion++; folderPanel = owner; folderOriginal = original; $('source-folder-path').value = original || ''; $('source-folder-status').textContent = ''; openModal($('source-folder-dialog')); }
+  function openFolder(owner, original = null) { if (original === null && !canAdd(owner)) return; folderVersion++; folderPanel = owner; folderOriginal = original;folderFailedPath=''; $('source-folder-path').value = original || ''; $('source-folder-status').textContent = ''; syncFolderButton();openModal($('source-folder-dialog')); }
+  function syncFolderButton(){const path=$('source-folder-path').value.trim();$('source-folder-use').disabled=!path||path===(folderOriginal||'')||path===folderFailedPath;}
+  $('source-folder-path').addEventListener('input',()=>{$('source-folder-status').textContent='';syncFolderButton();});
   $('source-folder-use').addEventListener('click', async () => {
     const button = $('source-folder-use'); if (button.disabled) return; const version = folderVersion; button.disabled = true;
     try {
@@ -240,8 +242,8 @@
       if (paths.includes(result.path) && result.path !== folderOriginal) throw new Error('This folder is already in your library.');
       if (existing !== -1) paths[existing] = result.path; else paths.push(result.path);
       rootsInput(folderPanel).value = paths.join('\n'); render(folderPanel); $('source-folder-dialog').close(); showNotification(folderOriginal?'Folder edits saved to your choices. Save your library to apply.':'Folder added. Save to apply your choices.');
-    } catch (error) { $('source-folder-status').textContent = error.message; }
-    finally { button.disabled = false; }
+    } catch (error) { folderFailedPath=$('source-folder-path').value.trim();$('source-folder-status').textContent = error.message; }
+    finally { syncFolderButton(); }
   });
   for (const id of ['source-folder-close', 'source-folder-cancel']) $(id).addEventListener('click', () => $('source-folder-dialog').close());
   $('source-folder-dialog').addEventListener('close', () => { folderVersion++; });
@@ -260,14 +262,14 @@
   }
   $('source-folder-browse').addEventListener('click', () => { pickerTarget = $('source-folder-path'); folderState = null; openModal(browser); browse(); });
   $('source-browser-home').addEventListener('click', () => browse()); $('source-browser-up').addEventListener('click', () => browse(folderState?.parent || ''));
-  $('source-browser-select').addEventListener('click', () => { if (!folderState?.path || !pickerTarget) return; pickerTarget.value = folderState.path; browser.close(); });
+  $('source-browser-select').addEventListener('click', () => { if (!folderState?.path || !pickerTarget) return; pickerTarget.value = folderState.path;pickerTarget.dispatchEvent(new Event('input',{bubbles:true})); browser.close(); });
   for (const id of ['source-browser-close', 'source-browser-cancel']) $(id).addEventListener('click', () => browser.close());
   browser.addEventListener('close', () => { browseVersion++; }); closeOnBackdropClick(browser);
   for (const owner of ['setup', 'server']) {
     const draftOwner = owner === 'server' ? 'settings' : 'setup';
     $(owner + '-add-folder').addEventListener('click', () => openFolder(draftOwner)); $(owner + '-add-network').addEventListener('click', () => openNetwork(draftOwner));
   }
-  $('source-alert-manage').addEventListener('click', () => { $('build-info').click(); $('settings-advanced').click(); $('open-server-settings').click(); });
+  $('source-alert-manage').addEventListener('click',async()=>{if(await window.GameShelfLibraryManager?.open())$('open-server-settings').click();});
   function beginSaveProgress() { readStatus(); const timer=setInterval(readStatus,1200);return ()=>clearInterval(timer); }
   window.GameShelfSetup = { openOptions, beginSaveProgress, boot, initialize: boot, prepareSettings, settingsSources, savedSettings, watchScan };
 })();
@@ -283,7 +285,7 @@
    const size=mobile?88:Math.min(156,Math.max(110,w*.085));
    const spots=[[.05,.03],[.94,.07],[.10,.78],[.91,.77],[.32,.06],[.68,.08],[.20,.39],[.79,.43],[.35,.82],[.65,.79]];
    const headerBottom=document.querySelector('.gs-header').getBoundingClientRect().bottom*zoom;const minimumTop=headerBottom+Math.max(30,size*.35);
-   tiles.forEach((tile,index)=>{const [x,y]=spots[index];tile.style.width=size+'px';tile.style.left=Math.max(8,Math.min(w-size-8,w*x-size/2))+'px';tile.style.top=Math.max(minimumTop,Math.min(h-size*1.5-24,minimumTop+(h-minimumTop-size*1.5-24)*y))+'px';tile.style.right=tile.style.bottom='auto';const rect=tile.getBoundingClientRect();const overlaps=rect.right>box.left-10&&rect.left<box.right+10&&rect.bottom>box.top-10&&rect.top<box.bottom+10;tile.style.opacity=overlaps?'.16':mobile?'.32':'.5';});
+   tiles.forEach((tile,index)=>{const [x,y]=spots[index];tile.style.width=size+'px';tile.style.left=Math.max(8,Math.min(w-size-8,w*x-size/2))+'px';tile.style.top=Math.max(minimumTop,Math.min(h-size*1.5-24,minimumTop+(h-minimumTop-size*1.5-24)*y))+'px';tile.style.right=tile.style.bottom='auto';tile.style.opacity=mobile?'.32':'.5';});
  }
  new ResizeObserver(layoutSetupArt).observe(document.querySelector('#setup-form'));
  addEventListener('resize',layoutSetupArt);window.visualViewport?.addEventListener('resize',layoutSetupArt);new MutationObserver(layoutSetupArt).observe(document.body,{attributes:true,attributeFilter:['class']});

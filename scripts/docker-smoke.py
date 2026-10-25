@@ -13,6 +13,18 @@ import urllib.request
 import zipfile
 
 
+def open_respecting_refresh_limit(request, *args, **kwargs):
+    """Honor the app's discovery cooldown; do not retry unrelated rate limits."""
+    url = request.full_url if isinstance(request, urllib.request.Request) else str(request)
+    for attempt in range(3):
+        try:
+            return urllib.request.urlopen(request, *args, **kwargs)
+        except urllib.error.HTTPError as error:
+            if error.code != 429 or "forceRefresh" not in url or attempt == 2:
+                raise
+            time.sleep(min(11, max(1, int(error.headers.get("Retry-After", "10")))))
+
+
 def docker(*args):
     return subprocess.check_output(["docker", *args], text=True, stderr=subprocess.STDOUT).strip()
 
@@ -56,7 +68,7 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         base = "http://" + address
 
         def get(path):
-            with urllib.request.urlopen(base + path, timeout=5) as response:
+            with open_respecting_refresh_limit(base + path, timeout=5) as response:
                 assert response.status == 200
                 return response.read()
 
@@ -83,6 +95,12 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
         assert get("/app.js")
         assert get("/styles.css")
         assert len(json.loads(get("/api/games?forceRefresh=1"))) == expected
+        try:
+            urllib.request.urlopen(base + "/api/games?forceRefresh=1", timeout=5)
+            raise AssertionError("Repeated manual refresh was not rate limited")
+        except urllib.error.HTTPError as error:
+            assert error.code == 429 and int(error.headers["Retry-After"]) > 0
+
         if uid == 10001:
             backup_zip = zipfile.ZipFile(io.BytesIO(get("/api/library-backup")))
             assert backup_zip.testzip() is None
@@ -121,7 +139,7 @@ def check(image, root, port, expected, *, user=None, group=None, interval="0",
                 base + "/api/covers/" + games[0]["id"],
                 data=pathlib.Path("web/placeholder.png").read_bytes(),
                 headers={"Content-Type": "image/png"}, method="PUT")
-            with urllib.request.urlopen(upload, timeout=5) as response:
+            with open_respecting_refresh_limit(upload, timeout=5) as response:
                 assert response.status == 204
             updated = json.loads(get("/api/games"))
             assert next(game for game in updated if game["id"] == games[0]["id"])["coverSource"] == "uploaded"
@@ -243,7 +261,7 @@ def denied_root(image, root):
         for attempt in range(30):
             try:
                 address = docker("port", cid, "8080/tcp").splitlines()[0]
-                with urllib.request.urlopen("http://" + address + "/api/setup", timeout=3) as response:
+                with open_respecting_refresh_limit("http://" + address + "/api/setup", timeout=3) as response:
                     assert json.load(response)["required"]
                 assert docker("inspect", "--format", "{{.State.Running}}", cid) == "true"
                 assert "permission denied" in docker("logs", cid)
@@ -288,7 +306,7 @@ def temporary_ids(image):
                     for attempt in range(50):
                         try:
                             address = docker("port", cid, "8080/tcp").splitlines()[0]
-                            with urllib.request.urlopen("http://" + address + "/api/games" +
+                            with open_respecting_refresh_limit("http://" + address + "/api/games" +
                                                         ("?forceRefresh=1" if refresh else ""), timeout=3) as r:
                                 return json.load(r)
                         except (OSError, IndexError, urllib.error.URLError):
@@ -333,7 +351,7 @@ def first_run(image, root=None):
             req = urllib.request.Request("http://" + address + path,
                 data=json.dumps(value).encode() if value is not None else None,
                 headers={"Content-Type": "application/json"}, method=method)
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with open_respecting_refresh_limit(req, timeout=5) as response:
                 return json.load(response)
         for attempt in range(40):
             try:

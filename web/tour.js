@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const dialog = $('tour-dialog'), tooltip = $('tour-tooltip'), cancelDialog=$('tour-cancel-dialog');
   const definitions = [
-    ['.gs-card', 'Everything within reach', 'Hover a game for favorites, download, Playlist, and details. The details panel also lets you edit its title and cover.'],
+    ['.gs-card', 'Everything within reach', 'Hover over a game for favorites, download, Playlist, and details. The details panel also lets you edit its title and cover.'],
     ['#gs-home-trigger', 'Always a way home', 'Click the GameShelf console logo to return to your full shelf in grid view at any time.'],
     ['#search-input', 'Find your next game', 'Search by title. Clear the search to bring your full shelf back.'],
     ['#sort-button', 'Your shelf, your order', 'Sort by title, size, favorites, or recently added games.'],
