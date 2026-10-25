@@ -181,7 +181,7 @@
     const source = editorSource(); const duplicate = drafts[panel].findIndex(item => item.url === source.url);
     if (duplicate !== -1 && duplicate !== editing) { $('network-editor-status').textContent = 'This location is already in your library.'; return; }
     if (editing === null) drafts[panel].push(source); else drafts[panel][editing] = source;
-    render(panel); $('network-editor-dialog').close(); showNotification('Network location ready. Save to apply your choices.');
+    render(panel); closeNetwork(); showNotification('Network location ready. Save to apply your choices.');
   });
   for (const id of ['network-url', 'network-username', 'network-password', 'network-domain', 'network-uid', 'network-gid', 'network-nfs-version']) $(id).addEventListener('input', invalidateTest);
   $('network-url').addEventListener('input', () => { const match = /^([a-z]+):\/\//i.exec($('network-url').value.trim()); const protocol = match ? ({ http: 'webdav', https: 'webdav', webdav: 'webdav', webdavs: 'webdav' }[match[1]] || match[1]) : null; if (['smb', 'nfs', 'sftp', 'webdav', 'ftp', 'ftps'].includes(protocol)) { $('network-protocol').value = protocol; updateProtocol(); } });
@@ -190,8 +190,10 @@
   $('network-recheck-key').addEventListener('click', () => { editorHostKey = ''; invalidateTest(); updateProtocol(); testConnection(); });
   $('network-trust-confirm').addEventListener('click', () => { editorHostKey = pendingTrust || ''; pendingTrust = null; $('network-trust-dialog').close(); updateProtocol(); testConnection(); });
   for (const id of ['network-trust-close', 'network-trust-cancel']) $(id).addEventListener('click', () => { pendingTrust = null; $('network-trust-dialog').close(); });
-  for (const id of ['network-editor-close', 'network-editor-cancel']) $(id).addEventListener('click', () => $('network-editor-dialog').close());
-  $('network-editor-dialog').addEventListener('close', () => { editorVersion++; networkController?.abort(); testing = false; $('network-password').value = ''; });
+  function releaseEditor() { editorVersion++; networkController?.abort(); testing = false; $('network-password').value = ''; }
+  function closeNetwork() { releaseEditor(); $('network-editor-dialog').close(); }
+  for (const id of ['network-editor-close', 'network-editor-cancel']) $(id).addEventListener('click', closeNetwork);
+  $('network-editor-dialog').addEventListener('close', () => { if (!$('network-editor-dialog').open) releaseEditor(); });
   closeOnBackdropClick($('network-editor-dialog')); closeOnBackdropClick($('network-trust-dialog'));
 
   function openFolder(owner, original = null) { if (original === null && !canAdd(owner)) return; folderVersion++; folderPanel = owner; folderOriginal = original; $('source-folder-path').value = original || ''; $('source-folder-status').textContent = ''; openModal($('source-folder-dialog')); }
