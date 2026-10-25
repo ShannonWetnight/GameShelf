@@ -92,6 +92,17 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external de
 * [x] Keep cover reads and ZIP contents within the selected game directory, including symlinks and files changed during a request; preserve uploaded covers under application data
 * [x] Handle unreadable files and interrupted ZIP downloads cleanly; close each file after streaming and abort partial archives
 
+### Network Library Read-Only Safeguards (Future Review)
+GameShelf currently limits network library access to read operations, but a network account with write permissions retains those permissions on the remote server. Application safeguards do not replace server-enforced read-only access.
+
+* [ ] **First: add a clear disclaimer** in first-time Network setup and the Library Sources editor. Explain that GameShelf only performs read operations, but supplied credentials may still have write permissions; recommend a dedicated read-only account/share. Keep the wording consistent with the README.
+* [ ] Explicitly reject unsupported network connector operations at the backend boundary rather than treating every non-list operation as a read.
+* [ ] Review remote path validation and containment across scans, artwork, individual downloads, and ZIP streams, including symlinks and paths that change during a request.
+* [ ] Expand network smoke and regression tests using isolated SMB credentials that have read/write access. Verify scans, previews, and downloads leave the remote library unchanged; test that write/delete/rename operations are unavailable. Never perform destructive tests against a user's library.
+* [ ] Review protocol-specific read-only file access and whether SMB can request only the minimum file and directory permissions needed. Evaluate the tradeoffs before replacing the existing limited rclone connector.
+* [ ] Evaluate tighter connector process isolation, including source-specific credentials, approved destinations, least privilege, and a narrow read-only interface.
+* [ ] Document the security boundary: container read-only filesystems and unprivileged execution do not revoke remote SMB account permissions. Server-side read-only credentials remain the strongest enforcement.
+
 ### Administration, Security & LAN
 * [ ] Add local-only analytics (downloads, refresh history, recent activity)
 * [x] Add `/api/stats` for UI integrations (read-only counts, total indexed bytes, covered games, and last successful scan time)
