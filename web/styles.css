@@ -2630,8 +2630,8 @@ body.gs-needs-setup{height:calc(100dvh / var(--ui-scale));min-height:0;overflow:
 /* Every profile has a square portrait, including uploaded photos. */
 .gs-profile-picker-list{padding:0;grid-template-columns:repeat(2,minmax(0,1fr));scrollbar-gutter:auto;}
 :root .gs-profile-picker .gs-profile-tile{aspect-ratio:1;min-height:0!important;height:auto;padding:12px!important;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;}
-.gs-profile-tile img{width:min(100%,128px);aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);}
-.gs-profile-tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gs-profile-tile img{width:min(100%,128px);aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);flex:none;}
+.gs-profile-tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none;line-height:1.2;}
 #profiles-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
 .gs-profile-entry{aspect-ratio:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;margin:0;gap:10px;}
 .gs-profile-entry>img{width:90px;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);}
@@ -2660,6 +2660,7 @@ body.gs-needs-setup{height:calc(100dvh / var(--ui-scale));min-height:0;overflow:
 .gs-avatar-dialog button.gs-detail-action{min-height:40px;padding:0 .8rem;font-size:.85rem;line-height:1;}
 
 @media(max-width:560px){#profiles-list{grid-template-columns:1fr;}.gs-profile-entry>img{width:100px;}}
+@media(max-width:560px){:root .gs-profile-picker .gs-profile-tile{padding:8px!important;gap:8px;}.gs-profile-picker .gs-profile-tile img{width:66%;}}
 
 .gs-profile-pin-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .22s cubic-bezier(.2,.7,.2,1),opacity .18s;}
 .gs-profile-pin-collapse>div{min-height:0;overflow:hidden;}
