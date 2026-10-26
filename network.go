@@ -1316,7 +1316,7 @@ func restoreNetworkGame(source networkSource, game networkSnapshotGame, state li
 		entry.Game.Name = title
 	}
 	entry.Game.Favorite = state.Favorites[folder]
-	entry.Game.CoverStretch = coverStretchOverride(state, folder)
+ entry.Game.CoverStretch = coverStretchOverride(state,folder)
 	if added := state.FirstSeen[folder]; added != "" {
 		entry.Game.AddedAt = added
 	}
