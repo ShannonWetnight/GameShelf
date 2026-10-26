@@ -133,8 +133,8 @@ test('tour keeps a continuous backdrop and includes a separate text-refresh step
 });
 
 test('manual refresh cooldown warns and pulses red without starting another request',()=>{
- const r=fullUI(`$('gs-refresh-trigger').click();await pause();const before=requests.filter(item=>item.url==='/api/games?forceRefresh=1').length;$('gs-refresh-trigger').click();await pause();result.before=before;result.after=requests.filter(item=>item.url==='/api/games?forceRefresh=1').length;result.warning=$('notification-banner').classList.contains('gs-notification-warning');result.icon=document.querySelector('.gs-notification-check').textContent;result.red=$('gs-refresh-trigger').classList.contains('gs-refresh-limited');result.busy=$('library-stage').classList.contains('gs-refreshing');`);
- assert.equal(r.before,1);assert.equal(r.after,1);assert.equal(r.warning,true);assert.equal(r.icon,'!');assert.equal(r.red,true);assert.equal(r.busy,false);
+ const r=fullUI(`$('gs-refresh-trigger').click();await pause();const before=requests.filter(item=>item.url==='/api/games?forceRefresh=1').length;$('gs-refresh-trigger').click();await pause();result.before=before;result.after=requests.filter(item=>item.url==='/api/games?forceRefresh=1').length;result.warning=$('notification-banner').classList.contains('gs-notification-warning');result.icon=document.querySelector('.gs-notification-check svg path').getAttribute('d');result.red=$('gs-refresh-trigger').classList.contains('gs-refresh-limited');result.busy=$('library-stage').classList.contains('gs-refreshing');`);
+ assert.equal(r.before,1);assert.equal(r.after,1);assert.equal(r.warning,true);assert.equal(r.icon,'M10 4v7m0 4h.01');assert.equal(r.red,true);assert.equal(r.busy,false);
 });
 
 test('unchecked remembrance authorizes the open cover editor without another prompt',()=>{

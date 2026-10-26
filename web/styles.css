@@ -2527,7 +2527,8 @@ body{min-height:calc(100dvh / var(--ui-scale));}
 .gs-health-badge::before,.gs-health-dot{display:inline-block;align-self:center;vertical-align:middle;}
 .gs-health-legend{list-style:none;padding:0;display:grid;gap:7px;color:var(--text-muted);font-size:.8rem;}
 .gs-source-card-content>strong{align-items:center;line-height:1.4;}
-#network-password::placeholder{color:var(--text-muted);opacity:.5;letter-spacing:3px;}
+#network-password::placeholder{color:var(--text-muted);opacity:.65;letter-spacing:normal;font:inherit;}
+#network-password.gs-password-saved:placeholder-shown::placeholder{letter-spacing:2px;}
 .gs-family-rules{border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px;}
 .gs-family-table-head>:not(:first-child),.gs-family-category-note{text-align:center;justify-self:center;}
 .gs-family-rule select{text-align:center;text-align-last:center;}
@@ -2604,3 +2605,58 @@ body{min-height:calc(100dvh / var(--ui-scale));}
 @media(max-width:560px){:is(.gs-profile-editor,.gs-profiles-dialog) .gs-role-rule select{width:122px;}}
 
 .gs-family-table-head{margin-inline:10px 18px;}
+
+/* Setup is a centered stage; long or expanded steps scroll inside the form. */
+body.gs-needs-setup{height:calc(100dvh / var(--ui-scale));min-height:0;overflow:hidden;}
+.gs-needs-setup .gs-header{flex:none;}
+.gs-needs-setup .gs-main{min-height:0;display:grid;place-items:center;padding:16px max(16px,3vw);}
+.gs-needs-setup .gs-setup-page{width:min(640px,100%);max-height:100%;min-height:0;margin:0;display:flex;flex-direction:column;}
+.gs-needs-setup .gs-setup-page[hidden]{display:none;}
+.gs-needs-setup .gs-setup-page>:not(form){flex:none;}
+.gs-needs-setup .gs-setup-intro{margin:.6rem 0 1.2rem;}
+.gs-needs-setup .gs-setup-panel{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;flex:0 1 auto;}
+.gs-needs-setup .gs-setup-panel>*{min-width:0;}
+.gs-notification-check{line-height:0;}
+.gs-notification-check svg{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.gs-family-remembrance label:last-child{align-items:center;justify-content:center;line-height:1;}
+#family-remember-minutes{text-align:center;appearance:textfield;padding-inline:8px;}
+#family-remember-minutes::-webkit-inner-spin-button{appearance:none;}
+.gs-role-rule select,#role-template,#profile-theme{text-align:center;text-align-last:center;padding-inline:30px!important;}
+.gs-role-rule>span{cursor:help;}
+.gs-role-rule>span:focus-visible{outline:1px solid var(--accent);outline-offset:3px;border-radius:3px;}
+.gs-select-menu{overflow-x:hidden;scroll-snap-type:y mandatory;will-change:clip-path,opacity;}
+.gs-select-menu [role="option"]{box-sizing:border-box;display:flex;align-items:center;white-space:nowrap;scroll-snap-align:start;}
+
+/* Every profile has a square portrait, including uploaded photos. */
+.gs-profile-picker-list{padding:0;grid-template-columns:repeat(2,minmax(0,1fr));scrollbar-gutter:auto;}
+:root .gs-profile-picker .gs-profile-tile{aspect-ratio:1;min-height:0!important;height:auto;padding:12px!important;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;}
+.gs-profile-tile img{width:min(100%,128px);aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);}
+.gs-profile-tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#profiles-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.gs-profile-entry{aspect-ratio:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;margin:0;gap:10px;}
+.gs-profile-entry>img{width:90px;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);}
+.gs-profile-entry .gs-profile-row-actions{align-self:center;flex-wrap:wrap;justify-content:center;}
+.gs-profile-photo-field{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:16px;}
+#profile-photo{padding:0;width:90px;height:90px;overflow:hidden;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--input-background);cursor:pointer;}
+#profile-photo:is(:hover,:focus-visible){border-color:var(--accent);box-shadow:0 0 12px var(--accent-soft);}
+#profile-photo img{display:block;width:100%;height:100%;object-fit:cover;}
+.gs-avatar-dialog{width:min(620px,calc((100vw - 32px)/var(--ui-scale)));max-height:calc((100dvh - 32px)/var(--ui-scale));overflow-y:auto;overscroll-behavior:contain;}
+.gs-avatar-preview{width:min(180px,100%);aspect-ratio:1;margin:0 auto 14px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden;background:var(--input-background);}
+.gs-avatar-preview :is(img,canvas){display:block;width:100%;height:100%;object-fit:cover;}
+#avatar-canvas{touch-action:none;cursor:grab;}
+#avatar-canvas:active{cursor:grabbing;}
+#avatar-dialog [hidden]{display:none!important;}
+.gs-avatar-upload-row{display:flex;justify-content:center;margin-bottom:14px;}
+#avatar-zoom-field{display:flex;align-items:center;gap:12px;max-width:280px;margin:12px auto;}
+#avatar-zoom{width:100%;accent-color:var(--accent);}
+.gs-avatar-options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;max-height:260px;overflow-y:auto;padding:3px;}
+.gs-avatar-option{aspect-ratio:1;min-width:0;padding:3px;border:2px solid transparent;border-radius:var(--radius-sm);background:var(--input-background);cursor:pointer;transition:transform .15s,border-color .15s;}
+.gs-avatar-option img{display:block;width:100%;height:100%;object-fit:cover;border-radius:4px;}
+.gs-avatar-option:is(:hover,:focus-visible),.gs-avatar-option[aria-pressed="true"]{border-color:var(--accent);}
+.gs-avatar-option:hover{transform:scale(1.04);}
+@media(max-height:700px){.gs-needs-setup .gs-setup-intro{margin:.3rem 0 .65rem}.gs-needs-setup .gs-main{padding-block:10px;}.gs-needs-setup .gs-setup-page h1{font-size:1.65rem;}}
+@media(max-width:560px){.gs-profile-entry{padding:10px;}.gs-profile-entry>img{width:72px;}.gs-profile-entry .gs-profile-row-actions{gap:5px;}.gs-avatar-options{gap:5px;}.gs-avatar-preview{width:130px;}}
+
+.gs-avatar-dialog button.gs-detail-action{min-height:40px;padding:0 .8rem;font-size:.85rem;line-height:1;}
+
+@media(max-width:560px){#profiles-list{grid-template-columns:1fr;}.gs-profile-entry>img{width:100px;}}

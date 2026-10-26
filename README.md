@@ -368,7 +368,9 @@ New servers enable all logging sources by default. Customize logging to deselect
 
 ## Family profiles
 
-Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. Create a Guardian PIN through **Guardian PIN**, add the family members, then turn on **Enable family profiles**. Each person chooses their nickname and enters their own four-digit PIN. The toolbar profile icon switches shelves or signs out.
+Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. You can configure profiles and roles before creating a Guardian PIN on a fresh setup. Create one through **Guardian PIN**, or let **Enable family profiles** open the PIN creator. An existing Guardian PIN still protects profile management, including resumed setup. Add the family members, then turn on **Enable family profiles**. Each person chooses their nickname and enters their own four-digit PIN. The toolbar profile icon switches shelves or signs out.
+
+Profiles use square photo cards. In Add Profile or Edit Profile, choose **Choose Photo** to pick one of 25 original GameShelf portraits, or upload a PNG, JPEG, or WebP up to 8 MB. Drag and zoom uploaded photos to choose a square crop. Photos are stored at 256 × 256 pixels; GameShelf validates and re-encodes uploads to remove image metadata. Save the profile to apply a photo. Selecting a profile opens the shared **PIN Required** prompt; cancel returns to the photo cards.
 
 Each profile keeps its own favorites and appearance choices. The browser keeps a separate Playlist for each profile. Assign all libraries or selected libraries, then all games or selected games within those libraries. Library choices become available after the locations are saved. Catalogs, statistics, cover images, individual files, and ZIP routes all enforce assignments on the server; guessing a game URL does not bypass them.
 
@@ -380,6 +382,6 @@ Profiles have no fixed count limit; saved profile data is bounded to 32 MiB. Aut
 
 ### Protected profile backups
 
-Export Data offers **Family profiles, roles, and personal shelves** when profiles exist. This includes nicknames, salted profile PIN verifiers, roles and memberships, assignments, favorites, and preferences. It requires Guardian approval and a separate backup passphrase of at least 12 characters. The archive contains an AES-256-GCM encrypted profile document; its key is derived using PBKDF2-HMAC-SHA256 with 600,000 iterations. The passphrase and Guardian PIN verifier are never included.
+Export Data offers **Family profiles, roles, and personal shelves** when profiles exist. This includes nicknames, profile photos, salted profile PIN verifiers, roles and memberships, assignments, favorites, and preferences. It requires Guardian approval and a separate backup passphrase of at least 12 characters. The archive contains an AES-256-GCM encrypted profile document; its key is derived using PBKDF2-HMAC-SHA256 with 600,000 iterations. The passphrase and Guardian PIN verifier are never included.
 
 Keep the passphrase separately: it is required when restoring profiles, and cannot be recovered by GameShelf. A wrong passphrase or altered encrypted document is rejected before any selected data is replaced. On a fresh server, imported profiles stay disabled until you create a new Guardian PIN and explicitly enable them. On an existing protected server, the current Guardian PIN and controls remain authoritative. Restore server settings alongside profiles to preserve network source IDs and library assignments; local folder assignments require the same container paths.

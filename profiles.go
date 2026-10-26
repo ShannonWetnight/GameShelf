@@ -30,6 +30,7 @@ type familyRole struct {
 type familyProfile struct {
 	ID           string            `json:"id"`
 	Nickname     string            `json:"nickname"`
+	Avatar       string            `json:"avatar,omitempty"`
 	Roles        []string          `json:"roles"`
 	AllLibraries bool              `json:"allLibraries"`
 	Libraries    []string          `json:"libraries"`
@@ -186,6 +187,9 @@ func validateProfileDB(value *profileDatabase) error {
 		hash, e2 := base64.StdEncoding.DecodeString(profile.Hash)
 		if e1 != nil || e2 != nil || len(salt) != 16 || len(hash) != 32 {
 			return errors.New("Invalid profile PIN verifier")
+		}
+		if err := validateProfileAvatar(profile.Avatar); err != nil {
+			return err
 		}
 		if err := validatePreferences(profile.Preferences); err != nil {
 			return err
@@ -456,7 +460,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 		profiles := []map[string]string{}
 		for _, p := range db.Profiles {
-			profiles = append(profiles, map[string]string{"id": p.ID, "nickname": p.Nickname})
+			profiles = append(profiles, map[string]string{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar})
 		}
 		sort.Slice(profiles, func(i, j int) bool { return profiles[i]["nickname"] < profiles[j]["nickname"] })
 		p, active := currentProfileLocked(r, db)
@@ -512,6 +516,9 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			}
 			p.ID = "p-" + key[:24]
 		}
+		if exists && p.Avatar == "" {
+			p.Avatar = old.Avatar
+		}
 		p.Salt = old.Salt
 		p.Hash = old.Hash
 		if p.Preferences == nil {
@@ -528,6 +535,12 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Favorites = old.Favorites
 		p.Nickname = strings.TrimSpace(p.Nickname)
+		avatar, avatarErr := normalizeProfileAvatar(p.Avatar)
+		if avatarErr != nil {
+			http.Error(w, avatarErr.Error(), 400)
+			return
+		}
+		p.Avatar = avatar
 		if !exists || body.PIN != "" {
 			if !validPIN(body.PIN) || body.PIN != body.ConfirmPIN {
 				http.Error(w, "Enter the same four-digit PIN twice.", 400)

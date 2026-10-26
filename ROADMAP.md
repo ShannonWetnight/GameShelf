@@ -152,6 +152,7 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [x] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
 - [x] Starter permission roles (Child, Adult, Administrator, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
 - [x] Assign libraries and individual games per profile; combine role/group permissions and retain each profile's preferences and favorites.
+- [x] Square profile photo cards, 25 original game-inspired portraits, cropped uploads, and shared minimal PIN sign-in. Include photos in protected profile backups.
 - [x] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Require Guardian approval and a separate passphrase for AES-GCM protected profile exports/restores; keep imported profiles disabled on a fresh server until a new Guardian PIN is created.
 - [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.
 

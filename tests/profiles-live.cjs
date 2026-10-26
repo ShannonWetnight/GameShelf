@@ -14,7 +14,10 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   const {targetId}=await command('Target.createTarget',{url:'about:blank'},undefined);session=(await command('Target.attachToTarget',{targetId,flatten:true},undefined)).sessionId;
   await command('Page.navigate',{url:origin});await waitFor("document.querySelector('#profile-picker')?.open");
   assert.equal(await evaluate("document.querySelectorAll('.gs-card').length"),0,'catalog exposed before profile login');
-  await evaluate("document.querySelector('.gs-profile-tile').click();document.querySelector('#profile-login-pin').value='2468';document.querySelector('#profile-login-form').requestSubmit()");
+  await evaluate("document.querySelector('.gs-profile-tile').click();document.querySelector('#pin-entry').value='0000';document.querySelector('#pin-form').requestSubmit()");
+  await waitFor("document.querySelector('#notification-banner').classList.contains('gs-notification-error')&&!document.querySelector('#pin-submit').disabled");
+  assert.equal(await evaluate("document.querySelector('#pin-dialog').open&&document.querySelector('#profile-picker').open"),true,'failed sign-in lost the picker');
+  await evaluate("document.querySelector('#pin-entry').value='2468';document.querySelector('#pin-form').requestSubmit()");
   await waitFor("document.querySelectorAll('.gs-card').length===1&&!document.body.classList.contains('gs-booting')");
   assert.deepEqual(await evaluate("gamesCache.map(game=>game.name)"),['Allowed']);
   assert.equal(await evaluate("fetch('/download/hidden').then(r=>r.status)"),404);
@@ -29,10 +32,15 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open"),false,'Guardian lease prompted twice');
   assert.equal(await evaluate("fetch('/api/profiles?manage=1').then(r=>r.json()).then(r=>r.profiles[0].favorites.allowed)"),true);
   await evaluate("document.querySelector('#profiles-list button').click()");await waitFor("document.querySelector('#profile-editor-dialog').open");
+  await evaluate("document.querySelector('#profile-photo-change').click()");await waitFor("document.querySelector('#avatar-dialog').open");
+  await waitFor("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"] img').naturalWidth===256");
+  await evaluate("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"]').click();document.querySelector('#avatar-select').click()");
+  await waitFor("!document.querySelector('#avatar-dialog').open&&document.querySelector('#profile-photo-image').src.includes('cosmic-fox')");
   await evaluate("document.querySelector('#profile-nickname').value='Jamie Updated';document.querySelector('#profile-editor-save').click()");
   await waitFor("document.querySelector('#profiles-list').textContent.includes('Jamie Updated')");
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open"),false,'save repeated Guardian PIN prompt');
   assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.needsProfile)"),true,'profile edit failed to revoke login');
+  assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.profiles[0].avatar)"),'builtin:cosmic-fox');
   process.stdout.write('Live profile login, personal favorite, restricted direct routes, Guardian recovery, edit, and revocation passed.\n');
  }finally{clearTimeout(deadline);command('Browser.close').catch(()=>{});await pause(100);browser.kill();await pause(150);const resolved=path.resolve(profile);if(resolved.startsWith(path.resolve(os.tmpdir())+path.sep)&&path.basename(resolved).startsWith('gs-profile-live-')){try{fs.rmSync(resolved,{recursive:true,force:true});}catch{}}}
 })().catch(error=>{process.stderr.write(error.stack);process.exitCode=1;});
