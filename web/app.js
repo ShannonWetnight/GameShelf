@@ -95,7 +95,7 @@ function applyMotionSpeed() {
   for (const animation of document.getAnimations?.() || []) {
     // Shuffle and dialog timers use their own matching duration.
     const target = animation.effect?.target;
-    if (animation.id === 'gs-theme-redraw' || target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
+    if (animation.id === 'gs-theme-redraw' || animation.id === 'gs-dropdown' || target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
     animation.updatePlaybackRate?.(animationSpeed || 1);
   }
 }
@@ -147,7 +147,7 @@ function openModal(dialog) {
 
 function showNotification(message, variant = 'success') {
   const banner = document.getElementById('notification-banner');
-  banner.classList.toggle('gs-notification-warning',variant==='warning');banner.classList.toggle('gs-notification-error',variant==='error');banner.setAttribute('role',variant==='error'||variant==='warning'?'alert':'status');banner.querySelector?.('.gs-notification-check')?.replaceChildren?.(document.createTextNode(variant==='error'?'×':variant==='warning'?'!':'✓'));
+  banner.classList.toggle('gs-notification-warning',variant==='warning');banner.classList.toggle('gs-notification-error',variant==='error');banner.setAttribute('role',variant==='error'||variant==='warning'?'alert':'status');const mark=banner.querySelector?.('.gs-notification-check');if(mark)mark.innerHTML=variant==='error'?'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8m0-8-8 8"/></svg>':variant==='warning'?'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v7m0 4h.01"/></svg>':'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10 3 3 7-7"/></svg>';
   const visibleDialog = [...openDialogs].filter(dialog => dialog.open && !dialog.dataset.closing).at(-1);
   (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;

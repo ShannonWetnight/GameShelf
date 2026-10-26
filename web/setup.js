@@ -192,7 +192,7 @@
     $('network-use').setAttribute('aria-label',index===null?'Add Location':'Save location');
     $('network-protocol').value = source.protocol || 'smb'; $('network-url').value = source.url || ''; $('network-name').value = source.name || '';
     $('network-username').value = source.username || ''; $('network-password').value = source.password || ''; $('network-domain').value = source.domain || '';
-    $('network-password').placeholder = editorHasPassword && !source.password ? '••••••••' : 'Optional';
+    $('network-password').classList.toggle('gs-password-saved',editorHasPassword&&!source.password);$('network-password').placeholder = editorHasPassword && !source.password ? '••••••••' : 'Optional';
     $('network-nfs-version').value = String(source.nfsVersion || 0); $('network-uid').value = String(source.uid || 10001); $('network-gid').value = String(source.gid || 10001);
     $('network-advanced').open = false; invalidateTest(); updateProtocol(); openModal($('network-editor-dialog'));
   }

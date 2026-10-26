@@ -1,0 +1,156 @@
+{
+  "tool": "Built-in image_gen",
+  "style": "Original square game genre portraits",
+  "avatars": [
+    {
+      "id": "star-pilot",
+      "label": "Star Pilot",
+      "file": "web/profile-avatars/star-pilot.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a confident young woman starship pilot wearing a cream and teal flight helmet, visor lifted, friendly face, midnight blue nebula background"
+    },
+    {
+      "id": "ember-knight",
+      "label": "Ember Knight",
+      "file": "web/profile-avatars/ember-knight.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a friendly armored knight with a rounded charcoal helmet and small copper plume, warm ember orange background"
+    },
+    {
+      "id": "meadow-ranger",
+      "label": "Meadow Ranger",
+      "file": "web/profile-avatars/meadow-ranger.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a cheerful forest ranger with deep brown skin, green hood and leaf clasp, sage and sunlit gold background"
+    },
+    {
+      "id": "pixel-robot",
+      "label": "Pixel Robot",
+      "file": "web/profile-avatars/pixel-robot.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a small expressive retro robot with square cyan eyes and orange antenna, navy and aqua background"
+    },
+    {
+      "id": "neon-racer",
+      "label": "Neon Racer",
+      "file": "web/profile-avatars/neon-racer.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a futuristic racer wearing a glossy magenta and indigo racing helmet with a cyan visor, purple night background"
+    },
+    {
+      "id": "moon-mage",
+      "label": "Moon Mage",
+      "file": "web/profile-avatars/moon-mage.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a gentle elderly wizard with a crescent moon hat, silver beard and midnight robes, blue and gold background"
+    },
+    {
+      "id": "deep-diver",
+      "label": "Deep Diver",
+      "file": "web/profile-avatars/deep-diver.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a whimsical deep sea explorer in an antique brass diving helmet with glowing aqua glass, deep ocean background"
+    },
+    {
+      "id": "sky-courier",
+      "label": "Sky Courier",
+      "file": "web/profile-avatars/sky-courier.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a courageous fox aviator with leather flying goggles and a sky blue scarf, cream cloud background"
+    },
+    {
+      "id": "garden-sprout",
+      "label": "Garden Sprout",
+      "file": "web/profile-avatars/garden-sprout.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: an adorable round sprout creature in a tiny terracotta pot with leafy hair, peach and soft green background"
+    },
+    {
+      "id": "pirate-captain",
+      "label": "Pirate Captain",
+      "file": "web/profile-avatars/pirate-captain.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a friendly adventurous cat pirate captain wearing a burgundy tricorn and gold earring, turquoise sea background"
+    },
+    {
+      "id": "arcane-scholar",
+      "label": "Arcane Scholar",
+      "file": "web/profile-avatars/arcane-scholar.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a young East Asian magical scholar with round spectacles, dark blue cloak, hovering tiny crystal, lavender background"
+    },
+    {
+      "id": "desert-nomad",
+      "label": "Desert Nomad",
+      "file": "web/profile-avatars/desert-nomad.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a calm desert adventurer with warm brown skin and a sand-colored headwrap with an amber gemstone, terracotta backdrop"
+    },
+    {
+      "id": "frost-guardian",
+      "label": "Frost Guardian",
+      "file": "web/profile-avatars/frost-guardian.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a friendly stocky snow guardian creature with icy blue fur and a small silver crown, dark winter blue background"
+    },
+    {
+      "id": "puzzle-owl",
+      "label": "Puzzle Owl",
+      "file": "web/profile-avatars/puzzle-owl.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: an intelligent round owl with cream face, amber spectacles and geometric plumage, teal puzzle-themed background without text"
+    },
+    {
+      "id": "circuit-cat",
+      "label": "Circuit Cat",
+      "file": "web/profile-avatars/circuit-cat.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a cute robotic cat with a graphite face, lime glowing eyes and subtle circuit cheek lines, navy background"
+    },
+    {
+      "id": "crystal-dragon",
+      "label": "Crystal Dragon",
+      "file": "web/profile-avatars/crystal-dragon.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a small friendly violet dragon with translucent turquoise crystal horns, plum and mint background"
+    },
+    {
+      "id": "iron-engineer",
+      "label": "Iron Engineer",
+      "file": "web/profile-avatars/iron-engineer.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a smiling middle-aged woman engineer with copper goggles on her head and dark curly hair, slate and orange background"
+    },
+    {
+      "id": "court-champion",
+      "label": "Court Champion",
+      "file": "web/profile-avatars/court-champion.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a confident young Black athlete with a golden headband and red sports jersey, cobalt blue background"
+    },
+    {
+      "id": "rhythm-dj",
+      "label": "Rhythm DJ",
+      "file": "web/profile-avatars/rhythm-dj.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a joyful DJ with oversized coral and purple headphones, short dark hair and violet jacket, electric blue background"
+    },
+    {
+      "id": "wandering-chef",
+      "label": "Wandering Chef",
+      "file": "web/profile-avatars/wandering-chef.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a cheerful little round penguin chef with cream chef hat and red kerchief, warm apricot background"
+    },
+    {
+      "id": "shadow-detective",
+      "label": "Shadow Detective",
+      "file": "web/profile-avatars/shadow-detective.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a mysterious but friendly detective with a midnight fedora, amber scarf, soft partial face silhouette, smoky blue background"
+    },
+    {
+      "id": "ocean-navigator",
+      "label": "Ocean Navigator",
+      "file": "web/profile-avatars/ocean-navigator.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a friendly sea turtle navigator with a navy captain cap and a small brass compass pendant, seafoam background"
+    },
+    {
+      "id": "retro-astronaut",
+      "label": "Retro Astronaut",
+      "file": "web/profile-avatars/retro-astronaut.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a charming retro astronaut with a white bubble space helmet and a warm gold face visor, burgundy starry background"
+    },
+    {
+      "id": "forest-sprite",
+      "label": "Forest Sprite",
+      "file": "web/profile-avatars/forest-sprite.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a delicate friendly little woodland spirit with leafy antlers, moss-green face and tiny flower details, muted violet background"
+    },
+    {
+      "id": "cosmic-fox",
+      "label": "Cosmic Fox",
+      "file": "web/profile-avatars/cosmic-fox.webp",
+      "prompt": "Use case: stylized-concept. Asset type: GameShelf family profile avatar, one individual square 1:1 image. Create original polished game-inspired portrait illustration. Cohesive collection style: bold simple readable silhouette, close-up centered head and shoulders, smooth clean outlines, soft cel-shaded shapes, restrained luminous accents, rich complementary colors, modern premium game launcher avatar. Subject fills about 75% of square; all important features stay within central 85%; seamless full-bleed colored background. Family friendly, appealing at 64px. NO text, NO letters, NO logos, NO frames, NO borders, NO watermark, NO famous or copyrighted characters. Subject: a regal friendly silver fox with luminous blue eyes and a subtle galaxy-pattern fur collar, deep violet background"
+    }
+  ]
+}

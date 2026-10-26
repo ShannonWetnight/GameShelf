@@ -1,7 +1,7 @@
 /* Family controls: browser affordances plus scoped, short-lived server grants. */
 (() => {
  const nativeFetch=window.fetch.bind(window),$=id=>document.getElementById(id);
- let permit=null,menuLease=null;
+ let permit=null,menuLease=null,pinHandler=null,pinSettingsResolve=null,pinSettingsSaved=false;
  let state={configured:false,policy:{rules:{}},actions:{},grants:{}},promptPromise=null,promptResolve=null,promptActions=[],loaded=false;
  const replaying=new WeakSet();const controls=new WeakMap();let scheduled=false;
  const labels=()=>state.actions||{};const managerTools=new Set(['sources','storage','refresh','health','healthView']);
@@ -19,12 +19,12 @@
  function disabled(action){return actionsFor(action).some(item=>mode(item)==='disable');}
  function locked(actions){return actions.filter(action=>mode(action)==='pin'&&!unlocked(action));}
  async function read(response){try{return await (response.clone?response.clone():response).json();}catch{return null;}}
- function closePrompt(approved){const resolve=promptResolve;promptResolve=null;promptPromise=null;$('pin-dialog').close();$('pin-entry').value='';resolve?.(approved);}
+ function closePrompt(approved){const resolve=promptResolve;promptResolve=null;promptPromise=null;pinHandler=null;$('pin-dialog').close();$('pin-entry').value='';resolve?.(approved);}
  async function ask(actions){
   actions=[...new Set(actions)];if(promptPromise){const prior=await promptPromise;return prior?ask(actions):false;}
   const required=locked(actions);if(!required.length)return true;
   if(!state.configured){showNotification('An item requiring a PIN has been selected, but no PIN has been set.','error');return false;}
-  promptActions=required;const remembrance=state.policy.remember||{enabled:true,minutes:5};$('pin-remember-option').hidden=!remembrance.enabled;$('pin-remember').checked=false;$('pin-remember').disabled=!remembrance.enabled;$('pin-remember-label').textContent='Remember me for '+remembrance.minutes+' minute'+(remembrance.minutes===1?'':'s')+'.';$('pin-action-label').textContent=required.map(action=>action==='admin'?'Family Controls':labels()[action]||action).join(', ');$('pin-status').textContent='';$('pin-entry').value='';
+  pinHandler=null;promptActions=required;$('pin-entry').setAttribute('aria-label','Four-digit Guardian PIN');const remembrance=state.policy.remember||{enabled:true,minutes:5};$('pin-remember-option').hidden=!remembrance.enabled;$('pin-remember').checked=false;$('pin-remember').disabled=!remembrance.enabled;$('pin-remember-label').textContent='Remember me for '+remembrance.minutes+' minute'+(remembrance.minutes===1?'':'s')+'.';$('pin-action-label').textContent=required.map(action=>action==='admin'?'Family Controls':labels()[action]||action).join(', ');$('pin-status').textContent='';$('pin-entry').value='';
   promptPromise=new Promise(resolve=>promptResolve=resolve);openModal($('pin-dialog'));setTimeout(()=>$('pin-entry').focus({preventScroll:true}),100);return promptPromise;
  }
  async function authorizedFetch(input,options){
@@ -108,7 +108,7 @@
  document.addEventListener('click',intercept,true);document.addEventListener('pointerdown',intercept,true);document.addEventListener('keydown',intercept,true);
  $('pin-form').addEventListener('submit',async event=>{
   event.preventDefault();const button=$('pin-submit');if(button.disabled)return;button.disabled=true;if(!/^\d{4}$/.test($('pin-entry').value)){button.disabled=false;showNotification('Enter a four-digit PIN.','error');return;}
-  try{const response=await nativeFetch('/api/access/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:$('pin-entry').value,actions:promptActions,remember:$('pin-remember').checked&&!$('pin-remember-option').hidden})});const result=await read(response);if(!response.ok)throw new Error(result?.message||'Could not unlock. Try again.');if(result.token)permit={token:result.token,actions:result.unlocked,until:result.expiresAt};else for(const action of result.unlocked)state.grants[action]=result.expiresAt;refreshUI();closePrompt(true);}
+  try{if(pinHandler){const handler=pinHandler;await handler($('pin-entry').value);closePrompt(true);return;}const response=await nativeFetch('/api/access/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:$('pin-entry').value,actions:promptActions,remember:$('pin-remember').checked&&!$('pin-remember-option').hidden})});const result=await read(response);if(!response.ok)throw new Error(result?.message||'Could not unlock. Try again.');if(result.token)permit={token:result.token,actions:result.unlocked,until:result.expiresAt};else for(const action of result.unlocked)state.grants[action]=result.expiresAt;refreshUI();closePrompt(true);}
   catch(error){showNotification(error.message,'error');$('pin-entry').value='';$('pin-entry').focus();}finally{button.disabled=false;}
  });
  for(const id of ['pin-close','pin-cancel'])$(id).addEventListener('click',()=>closePrompt(false));$('pin-dialog').addEventListener('cancel',event=>{event.preventDefault();closePrompt(false);});$('pin-dialog').addEventListener('close',()=>{if(promptResolve){const resolve=promptResolve;promptResolve=null;promptPromise=null;resolve(false);}});
@@ -130,7 +130,9 @@
    const visible=document.createElement('input');visible.type='checkbox';visible.checked=!rule(action).hidden;visible.disabled=gate||admin;visible.setAttribute('aria-label','Show '+label+' controls');row.append(name,select,category,visible);section.appendChild(row);
   }
  }
- async function openFamily(){if(state.configured&&!await enter('admin'))return;await refresh(true);const remember=state.policy.remember||{enabled:true,minutes:5};$('family-remember-enabled').checked=remember.enabled;$('family-remember-minutes').value=remember.minutes;$('family-remember-minutes').disabled=!remember.enabled;$('family-new-pin').value='';$('family-confirm-pin').value='';$('family-pin-label').textContent=state.configured?'New PIN (optional)':'Create a four-digit PIN';$('family-status').textContent='';$('family-remove').hidden=!state.configured;$('family-open-pin').textContent=state.configured?'PIN Settings':'Create 4-digit PIN';policyRows();openModal($('family-dialog'));}
+ async function prepareFamily(){if(state.configured&&!await enter('admin'))return false;await refresh(true);const remember=state.policy.remember||{enabled:true,minutes:5};$('family-remember-enabled').checked=remember.enabled;$('family-remember-minutes').value=remember.minutes;$('family-remember-minutes').disabled=!remember.enabled;$('family-new-pin').value='';$('family-confirm-pin').value='';$('family-pin-label').textContent=state.configured?'New PIN (optional)':'Create a four-digit PIN';$('family-status').textContent='';$('family-remove').hidden=!state.configured;$('family-open-pin').textContent=state.configured?'PIN Settings':'Create 4-digit PIN';policyRows();return true;}
+ async function openFamily(){if(await prepareFamily())openModal($('family-dialog'));}
+ async function openPIN(){if(pinSettingsResolve)return false;if(!$('family-dialog').open&&!await prepareFamily())return false;$('family-new-pin').value='';$('family-confirm-pin').value='';$('family-pin-title').textContent=state.configured?'PIN Settings':'Create 4-digit PIN';$('family-pin-label').textContent=state.configured?'New PIN (optional)':'Create a four-digit PIN';pinSettingsSaved=false;openModal($('family-pin-dialog'));return new Promise(resolve=>pinSettingsResolve=resolve);}
  for(const id of ['open-family-controls','open-family-controls-setup'])$(id).addEventListener('click',()=>openFamily().catch(error=>showNotification(error.message)));
  for(const id of ['family-close','family-cancel'])$(id).addEventListener('click',()=>$('family-dialog').close());
  async function savePolicy(pin,remember,button){
@@ -138,19 +140,20 @@
   if(!state.configured&&!pin&&Object.values(rules).some(rule=>rule.mode==='pin')){showNotification('An item requiring a PIN has been selected, but no PIN has been set.','error');return false;}
   button.disabled=true;try{
    const response=await window.fetch('/api/access',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({newPin:pin,policy:{rules,remember}})});
-   if(!response.ok){const detail=await read(response);throw new Error(detail?.message||await response.text());}
-   permit=null;menuLease=null;await refresh();await loadServerSettings();showSaveFeedback(button);showNotification(pin?'Guardian PIN saved.':'Family controls saved.');return true;
+   const saved=await read(response);if(!response.ok){throw new Error(saved?.message||await response.text());}
+   permit=null;menuLease=null;await refresh();if(saved?.created&&pin){const unlocked=await nativeFetch('/api/access/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin,actions:['admin'],remember:false})});const grant=await read(unlocked);if(unlocked.ok&&grant?.token){permit={token:grant.token,actions:grant.unlocked,until:grant.expiresAt};await enter('admin');}}await loadServerSettings();showSaveFeedback(button);showNotification(pin?'Guardian PIN saved.':'Family controls saved.');return true;
   }catch(error){showNotification(error.message||'Could not save family controls.','error');return false;}finally{button.disabled=false;}
  }
  $('family-save').addEventListener('click',async()=>{if(await savePolicy('',state.policy.remember||{enabled:true,minutes:5},$('family-save')))$('family-dialog').close();});
- $('family-open-pin').addEventListener('click',()=>{$('family-new-pin').value='';$('family-confirm-pin').value='';$('family-pin-title').textContent=state.configured?'PIN Settings':'Create 4-digit PIN';$('family-pin-label').textContent=state.configured?'New PIN (optional)':'Create a four-digit PIN';openModal($('family-pin-dialog'));});
+ $('family-open-pin').addEventListener('click',()=>openPIN().catch(error=>showNotification(error.message,'error')));
  for(const id of ['family-pin-close','family-pin-cancel'])$(id).addEventListener('click',()=>$('family-pin-dialog').close());
  $('family-pin-save').addEventListener('click',async()=>{
   const pin=$('family-new-pin').value,minutes=Number($('family-remember-minutes').value);
   if((!state.configured||pin)&&(!/^\d{4}$/.test(pin)||pin!==$('family-confirm-pin').value)){showNotification('Enter the same four-digit PIN twice.','error');return;}
   if(!Number.isInteger(minutes)||minutes<1||minutes>60){showNotification('Choose 1–60 minutes.','error');return;}
-  if(await savePolicy(pin,{enabled:$('family-remember-enabled').checked,minutes},$('family-pin-save'))){$('family-pin-dialog').close();$('family-dialog').close();if(pin)$('settings-dialog').close();}
+  if(await savePolicy(pin,{enabled:$('family-remember-enabled').checked,minutes},$('family-pin-save'))){pinSettingsSaved=true;$('family-pin-dialog').close();$('family-dialog').close();if(pin)$('settings-dialog').close();}
  });
+ $('family-pin-dialog').addEventListener('close',()=>{$('family-new-pin').value='';$('family-confirm-pin').value='';const resolve=pinSettingsResolve;pinSettingsResolve=null;resolve?.(pinSettingsSaved);});
  addEventListener('DOMContentLoaded',()=>closeOnBackdropClick($('family-pin-dialog')));
  $('family-remove').addEventListener('click',()=>openModal($('family-remove-dialog')));for(const id of ['family-remove-close','family-remove-cancel'])$(id).addEventListener('click',()=>$('family-remove-dialog').close());
  $('family-remove-confirm').addEventListener('click',async()=>{if(!await ask(['admin']))return;const response=await window.fetch('/api/access',{method:'DELETE'});if(!response.ok){showNotification('Could not remove family controls.');return;}await refresh();await loadServerSettings();$('family-remove-dialog').close();$('family-dialog').close();showNotification('Family controls removed.');});
@@ -167,5 +170,6 @@
 
  for(const [id,scope,dialog]of [['open-server-settings','sources','server-settings-dialog'],['open-refresh-settings','refresh','refresh-settings-dialog'],['configure-logs','logging','logs-settings-dialog'],['view-logs','logs','logs-dialog'],['open-library-health','healthView','health-dialog'],['health-configure','health','health-config-dialog'],['export-library-data','export','export-dialog'],['open-library-restore','restore','restore-dialog'],['edit-game-cover','covers','cover-editor-dialog'],['open-recent-settings','recentRange','recent-settings-dialog']]){if($(id))$(id).dataset.menuScope=scope;if($(dialog))$(dialog).addEventListener('close',()=>leave(scope).catch(()=>{}));}
  $('family-dialog').addEventListener('close',()=>refresh().catch(()=>{}));
- window.GameShelfAccess={initialize:refresh,refresh,refreshUI,mode,ask,enter,openFamily,leave,canUse:action=>mode(action)==='allow'||unlocked(action)};
+ async function promptPIN(label,handler){if(promptPromise)await promptPromise;pinHandler=handler;promptActions=[];$('pin-title').textContent='PIN Required';$('pin-action-label').textContent=label;$('pin-entry').setAttribute('aria-label','PIN for '+label);$('pin-remember-option').hidden=true;$('pin-entry').value='';promptPromise=new Promise(resolve=>promptResolve=resolve);openModal($('pin-dialog'));setTimeout(()=>$('pin-entry').focus({preventScroll:true}),100);return promptPromise;}
+ window.GameShelfAccess={configured:()=>state.configured,help:controlHelp,openPIN,promptPIN,initialize:refresh,refresh,refreshUI,mode,ask,enter,openFamily,leave,canUse:action=>mode(action)==='allow'||unlocked(action)};
 })();

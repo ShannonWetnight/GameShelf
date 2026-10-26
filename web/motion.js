@@ -9,7 +9,9 @@
   const next=measure(element);if(!state.previous){state.previous=next;return;}
   const before=state.previous;state.previous=next;if(Math.abs(before.height-next.height)<1||!enabled())return;
   let top=next.top;const frames=[{height:before.height+'px'},{height:next.height+'px'}];
-  if(element.tagName!=='DIALOG'){frames[0].transform='translateY('+(before.top-next.top)+'px)';frames[1].transform='translateY(0)';}
+  // A centered setup stage already follows the animated height. Translating
+  // it again double-counts that movement, especially while collapsing.
+  if(element.tagName!=='DIALOG'&&element.id!=='setup-form'){frames[0].transform='translateY('+(before.top-next.top)+'px)';frames[1].transform='translateY(0)';}
   if(element.tagName==='DIALOG'){
    top=Math.max(16,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-next.height-16));element.style.marginBlock='0';element.style.top=top+'px';
    frames[0].top=before.top+'px';frames[1].top=top+'px';

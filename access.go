@@ -884,7 +884,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 	accessMu.Unlock()
 	logEvent("system", "Family-control policy saved")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"saved": true, "configured": true})
+	json.NewEncoder(w).Encode(map[string]any{"saved": true, "configured": true, "created": oldRecord == nil})
 }
 func sortedAccessActions() []string {
 	keys := make([]string, 0, len(accessActions))
