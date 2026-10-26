@@ -15,7 +15,8 @@
     }
     return response.status === 204 ? null : response.json();
   }
-  const post = body => request('/api/profiles', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  async function ownerAccess(){if(!await GameShelfAccess.enter('admin'))throw new Error('Guardian approval is required.');}
+  const post = async body => {await ownerAccess();return request('/api/profiles', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});};
   function button(text, action, danger = false) {
     const node = document.createElement('button'); node.type = 'button'; node.className = danger ? 'gs-danger-action' : 'gs-detail-action';
     node.textContent = text; node.addEventListener('click', () => Promise.resolve(action()).catch(notifyError)); return node;
@@ -115,7 +116,7 @@
       if(!builtins.has(role.id))actions.append(button('Remove',()=>confirmRemove('Remove '+role.name+'?',{operation:'deleteRole',role:{id:role.id}}),true));row.append(name,actions);$('roles-list').append(row);
     }
   }
-  async function reloadManagement(){management=await request('/api/profiles?manage=1');renderManagement();}
+  async function reloadManagement(){await ownerAccess();management=await request('/api/profiles?manage=1');renderManagement();}
   async function openManager(){
     if(!await GameShelfAccess.enter('admin'))return;
     await reloadManagement(); openModal($('profiles-dialog'));
@@ -144,7 +145,7 @@
     renderGameChoices();
   }
   async function editProfile(profile){
-    catalog=await request('/api/profiles/catalog');editing={...(profile||{}),selectedGames:new Set(profile?.games||[])};
+    await ownerAccess();catalog=await request('/api/profiles/catalog');editing={...(profile||{}),selectedGames:new Set(profile?.games||[])};
     $('profile-editor-title').textContent=profile?'Edit Profile':'Add Profile';$('profile-nickname').value=profile?.nickname||'';
     $('profile-new-pin').value='';$('profile-confirm-pin').value='';$('profile-new-pin').placeholder=profile?'Keep current PIN':'';
     $('profile-role-choices').replaceChildren();

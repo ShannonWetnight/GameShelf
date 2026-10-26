@@ -160,7 +160,7 @@
   const level=action==='settings'&&typeof settingsLevel!=='undefined'?settingsLevel:undefined;
   const response=await window.fetch('/api/access/enter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,level})});
   if(response.status===428&&!state.configured&&['settings','advanced'].includes(action)){await openFamily();$('family-open-pin').click();return false;}
-  if(response.ok&&response.status!==204){const result=await read(response);if(result?.lease)menuLease=result;refreshUI();}return response.ok;
+  if(response.ok&&response.status!==204){const result=await read(response);if(result?.lease)menuLease=result;refreshUI();}if(response.ok&&['libraryManager','sources','storage','refresh','logging','health'].includes(action)&&!await loadServerSettings()){showNotification('Could not load settings. Please try again.','error');return false;}return response.ok;
  }
  async function leave(scope){if(!menuLease)return;const headers={'Content-Type':'application/json','X-GameShelf-Menu':menuLease.lease};if(scope==='settings')menuLease=null;else delete menuLease.gates[scope];await nativeFetch('/api/access/leave',{method:'POST',headers,body:JSON.stringify({scope})});refreshUI();}
  for(const [id,scope]of [['settings-dialog','settings'],['family-dialog','admin'],['library-manager-dialog','libraryManager']])$(id).addEventListener('close',()=>leave(scope).catch(()=>{}));

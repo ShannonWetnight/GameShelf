@@ -218,9 +218,9 @@ async function loadServerSettings() {
   try {
     const response = await fetch('/api/server-settings', { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    serverSettings = await response.json();syncSetupResume();
+    serverSettings = await response.json();syncSetupResume();return true;
   } catch {
-    document.getElementById('settings-save-status').textContent = 'Could not load server settings.';
+    document.getElementById('settings-save-status').textContent = 'Could not load server settings.';return false;
   }
 }
 
@@ -1701,6 +1701,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportDialog = document.getElementById('export-dialog');
   const exportOptions = document.getElementById('export-options');
   const exportAll = document.getElementById('export-all');
+  function syncExportSelection(){const options=[...exportOptions.querySelectorAll('input')].filter(input=>!input.disabled);if(!document.getElementById('export-profile-options').hidden)options.push(document.getElementById('export-profiles'));exportAll.checked=options.length>0&&options.every(input=>input.checked);exportAll.indeterminate=!exportAll.checked&&options.some(input=>input.checked);}
   document.getElementById('export-library-data').addEventListener('click', async () => {
     exportOptions.replaceChildren();
     const groups = [
@@ -1725,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.createElement('input');
         input.type = 'checkbox'; input.value = item.id; input.dataset.kind = item.kind; input.checked = true;
         const action=item.kind==='logs'?'logs':item.kind==='health'?'healthView':null;if(action&&window.GameShelfAccess?.mode(action)==='disable'){input.checked=false;input.disabled=true;}
-        input.addEventListener('change', () => { const options = [...exportOptions.querySelectorAll('input')]; exportAll.checked = options.every(option => option.checked); exportAll.indeterminate = !exportAll.checked && options.some(option => option.checked); });
+        input.addEventListener('change', syncExportSelection);
         label.append(input, document.createTextNode(item.name));
         section.appendChild(label);
       }
@@ -1739,7 +1740,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal(exportDialog);
   });
   exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { if(!input.disabled)input.checked = exportAll.checked; }); exportAll.indeterminate = false;if(!document.getElementById('export-profile-options').hidden){document.getElementById('export-profiles').checked=exportAll.checked;document.getElementById('export-profile-key-field').hidden=!exportAll.checked;} });
-  document.getElementById('export-profiles').addEventListener('change',()=>{document.getElementById('export-profile-key-field').hidden=!document.getElementById('export-profiles').checked;});
+  document.getElementById('export-profiles').addEventListener('change',()=>{document.getElementById('export-profile-key-field').hidden=!document.getElementById('export-profiles').checked;syncExportSelection();});
   exportDialog.addEventListener('close',()=>document.getElementById('export-profile-key').value='');
   document.getElementById('export-confirm').addEventListener('click', exportLibraryData);
   for (const id of ['export-close', 'export-cancel']) document.getElementById(id).addEventListener('click', () => exportDialog.close());

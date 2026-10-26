@@ -424,3 +424,26 @@ func TestFamilyProfilesRestoreRequiresKeyAndFreshImportDoesNotEnableAuthority(t 
 		t.Fatal("existing PIN replaced")
 	}
 }
+
+func TestFamilyProfileConfigurationShowsFullSnapshotOnlyAfterGuardianApproval(t *testing.T) {
+	root, _ := setupFreshServer(t)
+	cookie := familyCreate(t, nil)
+	profile := familyProfile{ID: "test", AllLibraries: false, AllGames: true, Preferences: map[string]string{"theme": "rose"}}
+	view := &profileContext{Profile: profile, Rules: map[string]accessRule{"logging": {Mode: "pin"}}}
+	r := httptest.NewRequest("GET", "/api/server-settings", nil).WithContext(context.WithValue(context.Background(), profileContextKey{}, view))
+	r.AddCookie(cookie)
+	settings := serverSettings{RootDir: root, RootDirs: []string{root}, DataDir: "private-data", Preferences: map[string]string{"theme": "classic"}}
+	if safe := profileSafeSettings(r, settings); safe.RootDir != "" {
+		t.Fatal("restricted snapshot leaked without approval")
+	}
+	familyUnlock(t, "7392", []string{"logging"}, cookie)
+	if safe := profileSafeSettings(r, settings); safe.RootDir != root || safe.DataDir != "private-data" || safe.Preferences["theme"] != "classic" {
+		t.Fatal("approved configuration received incomplete settings")
+	}
+	accessMu.Lock()
+	delete(accessSessions[cookie.Value].Grants, "logging")
+	accessMu.Unlock()
+	if safe := profileSafeSettings(r, settings); safe.RootDir != "" {
+		t.Fatal("expired configuration approval leaked snapshot")
+	}
+}

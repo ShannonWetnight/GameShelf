@@ -777,10 +777,11 @@ func saveProfileFavorite(w http.ResponseWriter, r *http.Request, id string, favo
 
 func profileSafeSettings(r *http.Request, value serverSettings) serverSettings {
 	view := profileView(r)
-	if view != nil {
-		value.Preferences = view.Profile.Preferences
+	configurationApproved := false
+	for _, action := range []string{"libraryManager", "sources", "storage", "refresh", "logging", "health"} {
+		configurationApproved = configurationApproved || hasPINGrant(r, action)
 	}
-	if view == nil || view.Profile.AllLibraries && view.Profile.AllGames || hasPINGrant(r, "libraryManager") || guardianMenu(r) {
+	if view == nil || view.Profile.AllLibraries && view.Profile.AllGames || configurationApproved || guardianMenu(r) {
 		return value
 	}
 	value.RootDir = ""

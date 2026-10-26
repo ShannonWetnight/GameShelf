@@ -922,7 +922,7 @@ func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
 	if value.Action == "advanced" || value.Action == "settings" && value.Level == "advanced" {
 		actions = append(actions, "settings", "advanced")
 	}
-	if value.Action != "admin" && isMenuScope(value.Action) && value.Action != "settings" && value.Action != "advanced" {
+	if value.Action != "admin" && value.Action != "covers" && isMenuScope(value.Action) && value.Action != "settings" && value.Action != "advanced" {
 		policy, _, _ := currentAccessPolicy()
 		actions = accessDependencies(combinedAccessPolicy(r, policy), actions, true)
 	}
