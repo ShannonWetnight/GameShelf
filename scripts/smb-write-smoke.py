@@ -30,7 +30,7 @@ def main(image):
     fixture_image = 'gameshelf:smb-write-test-server'
     subprocess.run(['docker', 'build', '--tag', fixture_image, str(repo / 'tests/smb-write-fixture')], check=True)
     network = 'gameshelf-smb-write-' + uuid.uuid4().hex[:12]
-    server = app = None
+    server = app = control_network = None
     docker('network', 'create', '--internal', network)
     try:
         # tmpfs, not a user bind mount; nothing persists after the container exits.
@@ -77,11 +77,16 @@ def main(image):
         def unchanged(label):
             actual = snapshot()
             changed = sorted(key for key in baseline.keys() | actual.keys() if baseline.get(key) != actual.get(key))
-            assert not changed, f'{label} modified remote fixture: {changed}'
+            assert not changed, f'{label} modified remote fixture: ' + json.dumps({key: {'before': baseline.get(key), 'after': actual.get(key)} for key in changed}, sort_keys=True)
             print('PASS: unchanged remote names/content/metadata after ' + label, flush=True)
 
-        app = docker('run', '--detach', '--network', network, '--read-only', '--cap-drop=ALL',
+        # Internal-only Docker networks do not publish host ports. Keep Samba
+        # there and give only the app a second, disposable HTTP network.
+        control_network = network + '-http'
+        docker('network', 'create', control_network)
+        app = docker('run', '--detach', '--network', control_network, '--read-only', '--cap-drop=ALL',
                      '--security-opt', 'no-new-privileges:true', '--publish', '127.0.0.1::8080', image)
+        docker('network', 'connect', network, app)
         base = 'http://' + docker('port', app, '8080/tcp').splitlines()[0]
 
         def request(path, value=None, method=None, raw=False, headers=None):
@@ -169,6 +174,8 @@ def main(image):
                     print(docker('logs', cid))
                 finally:
                     docker('rm', '--force', '--volumes', cid)
+        if control_network:
+            docker('network', 'rm', control_network)
         docker('network', 'rm', network)
 
 

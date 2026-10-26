@@ -6,7 +6,8 @@ application image. Docker, Python 3, Node.js and Google Chrome are required;
 test alongside the existing six-protocol network smoke test.
 
 The script creates a fresh internal Docker network and a Samba container whose
-library exists only in a disposable tmpfs. It accepts an application image name,
+library exists only in a disposable tmpfs. A second temporary network publishes
+only the application HTTP port to loopback; Samba stays on the internal network. It accepts an application image name,
 with no option to target an existing server, credentials or library. Cleanup
 removes both containers, application volumes and the network, including on test
 failure. The application runs without root, capabilities or a mounted library.

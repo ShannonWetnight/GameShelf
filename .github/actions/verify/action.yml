@@ -12,6 +12,12 @@ runs:
         docker build --platform linux/amd64 --target build --tag gameshelf:builder .
         docker image inspect gameshelf:candidate > reports/runtime-image.json
         docker image inspect gameshelf:builder > reports/builder-image.json
+    - name: Test writable SMB security boundary
+      shell: bash
+      working-directory: ${{ env.VERIFY_WORKSPACE }}
+      run: |
+        set -o pipefail
+        python3 scripts/smb-write-smoke.py gameshelf:candidate | tee reports/smb-write-smoke.log
     - name: Go and frontend checks
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}
@@ -46,7 +52,6 @@ runs:
         set -o pipefail
         python3 scripts/docker-smoke.py gameshelf:candidate | tee reports/docker-smoke.log
         python3 scripts/network-smoke.py gameshelf:candidate | tee reports/network-smoke.log
-        python3 scripts/smb-write-smoke.py gameshelf:candidate | tee reports/smb-write-smoke.log
     - name: Scan builder and runtime
       if: ${{ !cancelled() }}
       shell: bash
