@@ -87,7 +87,11 @@ func main() {
 		logEvent("system", "Library setup deferred; add locations in Advanced Settings")
 	} else if len(settings.Sources) > 0 {
 		setScanProgress(true, "Connecting to your libraries…")
-		go func(){if err:=refreshGames();err!=nil{logEvent("errors","initial network scan: %v",err)}}()
+		go func() {
+			if err := refreshGames(); err != nil {
+				logEvent("errors", "initial network scan: %v", err)
+			}
+		}()
 	} else if err := refreshGames(); err != nil {
 		setupRequired.Store(true)
 		log.Printf("Library unavailable; open GameShelf to update your folders: %v", err)
@@ -98,7 +102,12 @@ func main() {
 	mux := http.NewServeMux()
 
 	// API endpoints
+	mux.HandleFunc("/api/profiles", handleProfiles)
+	mux.HandleFunc("/api/profiles/login", handleProfileLogin)
+	mux.HandleFunc("/api/profiles/logout", handleProfileLogout)
+	mux.HandleFunc("/api/profiles/catalog", handleProfileCatalog)
 	mux.HandleFunc("/api/access", handleAccess)
+	mux.HandleFunc("/api/access/leave", handleAccessLeave)
 	mux.HandleFunc("/api/access/unlock", handleAccessUnlock)
  mux.HandleFunc("/api/access/enter",handleAccessEnter)
 	mux.HandleFunc("/api/health", handleHealth)
@@ -142,7 +151,7 @@ func main() {
 	addr := ":8080"
 
 	logEvent("system", "GameShelf serving %s on %s", rootDir, addr)
-	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(accessGate(mux)))); err != nil {
+	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(profileGate(accessGate(mux))))); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -765,13 +774,27 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	includeLogs := false
 	includeSettings := false
 	includeHealth := r.URL.Query().Get("health") == "1"
+	var profileArchive []byte
+	if r.URL.Query().Get("profiles") == "1" {
+		var err error
+		profileArchive, err = encodeProfilesBackup(r.Header.Get("X-GameShelf-Backup-Key"))
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+	}
 	if r.URL.Query().Has("select") {
 		includeState = r.URL.Query().Get("state") == "1"
 		includeLogs = r.URL.Query().Get("logs") == "1"
 		includeSettings = r.URL.Query().Get("settings") == "1"
 		selected = make(map[string]bool)
-		for _, id := range r.URL.Query()["cover"] { selected[id] = true }
-		if !includeState && !includeLogs && !includeSettings && !includeHealth && len(selected) == 0 { http.Error(w, "select at least one item", http.StatusBadRequest); return }
+		for _, id := range r.URL.Query()["cover"] {
+			selected[id] = true
+		}
+		if !includeState && !includeLogs && !includeSettings && !includeHealth && len(profileArchive) == 0 && len(selected) == 0 {
+			http.Error(w, "select at least one item", http.StatusBadRequest)
+			return
+		}
 	}
 	var preferences map[string]string
 	if raw := r.Header.Get("X-GameShelf-Preferences"); raw != "" {
@@ -780,7 +803,7 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	file, size, err := prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings, selected, preferences, includeHealth)
+	file, size, err := prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings, selected, preferences, includeHealth, profileArchive)
 	if err != nil {
 		logEvent("errors", "library backup unavailable: %v", err)
 		http.Error(w, "Library backup failed. No backup was downloaded. Check the container logs and try again.", http.StatusServiceUnavailable)
@@ -815,7 +838,7 @@ func prepareLibraryBackupSelectionExtra(includeState, includeLogs, includeSettin
 	if len(preferences) > 0 { value = preferences[0] }
 	return prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings, selected, value, false)
 }
-func prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences map[string]string, includeHealth bool) (*os.File, int64, error) {
+func prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences map[string]string, includeHealth bool, profiles ...[]byte) (*os.File, int64, error) {
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 
@@ -834,7 +857,7 @@ func prepareLibraryBackupWithHealth(includeState, includeLogs, includeSettings b
 			os.Remove(file.Name())
 		}
 	}()
-	if err := writeLibraryBackupWithHealth(file, includeState, includeLogs, includeSettings, selected, preferences, includeHealth); err != nil {
+	if err := writeLibraryBackupWithHealth(file, includeState, includeLogs, includeSettings, selected, preferences, includeHealth, profiles...); err != nil {
 		return nil, 0, err
 	}
 	info, err := file.Stat()
@@ -895,39 +918,74 @@ func writeLibraryBackupSelectionExtra(dst io.Writer, includeState, includeLogs, 
 	if len(preferences) > 0 { value = preferences[0] }
 	return writeLibraryBackupWithHealth(dst, includeState, includeLogs, includeSettings, selected, value, false)
 }
-func writeLibraryBackupWithHealth(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences map[string]string, includeHealth bool) error {
+func writeLibraryBackupWithHealth(dst io.Writer, includeState, includeLogs, includeSettings bool, selected map[string]bool, preferences map[string]string, includeHealth bool, profiles ...[]byte) error {
 	archive := zip.NewWriter(dst)
 	var err error
+	if len(profiles) > 0 && len(profiles[0]) > 0 {
+		member, e := archive.Create("family-profiles.enc.json")
+		if e != nil {
+			return e
+		}
+		if _, e = member.Write(profiles[0]); e != nil {
+			return e
+		}
+	}
 	if includeState {
 		state, readErr := readLibraryMetadata()
-		if readErr != nil { return readErr }
+		if readErr != nil {
+			return readErr
+		}
 		contents, marshalErr := json.MarshalIndent(state, "", "  ")
-		if marshalErr != nil { return marshalErr }
+		if marshalErr != nil {
+			return marshalErr
+		}
 		stateFile, createErr := archive.Create("library-state.json")
 		err = createErr
-		if err == nil { _, err = stateFile.Write(append(contents, '\n')) }
+		if err == nil {
+			_, err = stateFile.Write(append(contents, '\n'))
+		}
 	}
 	if err == nil && includeSettings {
 		settingsMu.RLock()
 		settings := configuredSettings
 		settingsMu.RUnlock()
-		if preferences != nil { settings.Preferences = preferences }
-		if err := validatePreferences(settings.Preferences); err != nil { return err }
+		if preferences != nil {
+			settings.Preferences = preferences
+		}
+		if err := validatePreferences(settings.Preferences); err != nil {
+			return err
+		}
 		contents, marshalErr := json.MarshalIndent(publicSettings(settings), "", "  ")
-		if marshalErr != nil { err = marshalErr } else {
+		if marshalErr != nil {
+			err = marshalErr
+		} else {
 			member, createErr := archive.Create("server-settings.json")
-			if createErr != nil { err = createErr } else { _, err = member.Write(append(contents, '\n')) }
+			if createErr != nil {
+				err = createErr
+			} else {
+				_, err = member.Write(append(contents, '\n'))
+			}
 		}
 	}
 	if err == nil && includeLogs {
 		member, createErr := archive.Create("logs.txt")
-		if createErr != nil { err = createErr } else { _, err = member.Write(logSnapshotForExport("Application logs included in library backup export")) }
+		if createErr != nil {
+			err = createErr
+		} else {
+			_, err = member.Write(logSnapshotForExport("Application logs included in library backup export"))
+		}
 	}
 	if err == nil && includeHealth {
 		contents, readErr := healthArchiveBytes()
-		if readErr != nil { err = readErr } else {
+		if readErr != nil {
+			err = readErr
+		} else {
 			member, createErr := archive.Create("library-health.json")
-			if createErr != nil { err = createErr } else { _, err = member.Write(contents) }
+			if createErr != nil {
+				err = createErr
+			} else {
+				_, err = member.Write(contents)
+			}
 		}
 	}
 	gamesMu.RLock()
@@ -1032,19 +1090,46 @@ func handleGameTitle(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFavorite(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	id := strings.TrimPrefix(r.URL.Path, "/api/favorite/")
-	if id == "" { http.NotFound(w, r); return }
-	var payload struct { Favorite bool `json:"favorite"` }
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil { http.Error(w, "invalid favorite", http.StatusBadRequest); return }
+	if id == "" {
+		http.NotFound(w, r)
+		return
+	}
+	var payload struct {
+		Favorite bool `json:"favorite"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil {
+		http.Error(w, "invalid favorite", http.StatusBadRequest)
+		return
+	}
+	if saveProfileFavorite(w, r, id, payload.Favorite) {
+		return
+	}
 	refreshMu.Lock()
 	defer refreshMu.Unlock()
 	entry := getGameEntryByID(id)
-	if entry == nil { http.NotFound(w, r); return }
+	if entry == nil {
+		http.NotFound(w, r)
+		return
+	}
 	state, err := readLibraryMetadata()
-	if err != nil { http.Error(w, "library state unavailable", http.StatusServiceUnavailable); return }
-	if payload.Favorite { state.Favorites[entry.Game.Path] = true } else { delete(state.Favorites, entry.Game.Path) }
-	if err := writeLibraryMetadata(state); err != nil { http.Error(w, "could not save favorite", http.StatusServiceUnavailable); return }
+	if err != nil {
+		http.Error(w, "library state unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	if payload.Favorite {
+		state.Favorites[entry.Game.Path] = true
+	} else {
+		delete(state.Favorites, entry.Game.Path)
+	}
+	if err := writeLibraryMetadata(state); err != nil {
+		http.Error(w, "could not save favorite", http.StatusServiceUnavailable)
+		return
+	}
 	gamesMu.Lock()
 	if current := gamesMap[id]; current != nil && current.DirName == entry.DirName {
 		updated := *current
@@ -1165,7 +1250,9 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 
 	// forceRefresh enables client to bypass auto-scan timer
 	if r.URL.Query().Has("forceRefresh") {
-        if !admitManualRefresh(w,r){return}
+		if !admitManualRefresh(w, r) {
+			return
+		}
         // Release discovery admission as soon as the scan finishes. A slow
         // reader of the JSON response must not hold the manual-scan slot.
         err := func() error { defer finishManualRefresh(); return refreshGames() }()
@@ -1181,7 +1268,9 @@ func handleGames(w http.ResponseWriter, r *http.Request) {
 
 	list := make([]Game, 0, len(gamesMap))
 	for _, e := range gamesMap {
-		list = append(list, e.Game)
+		if profileAllows(r, e) {
+			list = append(list, profileGame(r, e))
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1207,11 +1296,15 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gamesMu.RLock()
-	stats := LibraryStats{GameCount: len(gamesMap)}
+	stats := LibraryStats{}
 	if !lastIndexedAt.IsZero() {
 		stats.LastIndexedAt = lastIndexedAt.Format(time.RFC3339)
 	}
 	for _, entry := range gamesMap {
+		if !profileAllows(r, entry) {
+			continue
+		}
+		stats.GameCount++
 		stats.FileCount += entry.Game.FileCount
 		stats.TotalSizeBytes += entry.Game.SizeBytes
 		if entry.Game.HasCover {
@@ -1803,28 +1896,49 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 		value := configuredSettings
 		settingsMu.RUnlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(publicSettings(value))
+		json.NewEncoder(w).Encode(profileSafeSettings(r, publicSettings(value)))
 	case http.MethodPut:
-		setupMu.Lock(); defer setupMu.Unlock()
+		setupMu.Lock()
+		defer setupMu.Unlock()
 		var value serverSettings
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 524288))
 		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&value); err != nil { http.Error(w, "invalid settings", http.StatusBadRequest); return }
+		if err := decoder.Decode(&value); err != nil {
+			http.Error(w, "invalid settings", http.StatusBadRequest)
+			return
+		}
 		settingsMu.RLock()
 		old := configuredSettings
 		settingsMu.RUnlock()
 		value.Access=publicAccessPolicy(old.Access)
-		if !hasLibrary(value) && !value.SetupCompleted && !setupRequired.Load() { http.Error(w, "choose at least one library folder", http.StatusBadRequest); return }
-		if err := saveServerSettings(value); err != nil { http.Error(w, err.Error(), http.StatusBadRequest); return }
-		settingsMu.RLock();saved:=configuredSettings;settingsMu.RUnlock()
+		if !hasLibrary(value) && !value.SetupCompleted && !setupRequired.Load() {
+			http.Error(w, "choose at least one library folder", http.StatusBadRequest)
+			return
+		}
+		if err := saveServerSettings(value); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		settingsMu.RLock()
+		saved := configuredSettings
+		settingsMu.RUnlock()
 		restart:=old.DataDir!=saved.DataDir
 		libraryChanged:=old.RootDir!=saved.RootDir||strings.Join(libraryRoots(old),"\x00")!=strings.Join(libraryRoots(saved),"\x00")||!sourcesEqual(old.Sources,saved.Sources)
-		if libraryChanged&&!restart&&!setupRequired.Load(){if err:=activateLibrary(saved);err!=nil{logEvent("errors","library source scan: %v",err)}}
-		if old.RefreshInterval!=saved.RefreshInterval{notifyRefreshSchedule()}
+		if libraryChanged && !restart && !setupRequired.Load() {
+			if err := activateLibrary(saved); err != nil {
+				logEvent("errors", "library source scan: %v", err)
+			}
+		}
+		if old.RefreshInterval != saved.RefreshInterval {
+			notifyRefreshSchedule()
+		}
  logServerSettingsChanges(old,saved)
 	notifyHealthSchedule()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct{RestartRequired bool `json:"restartRequired"`;Settings serverSettings `json:"settings"`}{restart,publicSettings(saved)})
+		json.NewEncoder(w).Encode(struct {
+			RestartRequired bool           `json:"restartRequired"`
+			Settings        serverSettings `json:"settings"`
+		}{restart, publicSettings(saved)})
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -1996,6 +2110,10 @@ func handleSettingsEvent(w http.ResponseWriter, r *http.Request) {
 	var preferences map[string]string
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&preferences); err != nil || validatePreferences(preferences) != nil || len(preferences) == 0 {
 		http.Error(w, "invalid setting change", 400)
+		return
+	}
+	if err := saveProfilePreferences(r, preferences); err != nil {
+		http.Error(w, err.Error(), 409)
 		return
 	}
 	keys := make([]string, 0, len(preferences))

@@ -22,7 +22,7 @@ WORKDIR /app
 COPY go.mod ./
 RUN go mod download
 
-COPY main.go restore.go setup.go network.go access.go health.go refresh_limit.go ./
+COPY main.go restore.go setup.go network.go access.go menu_access.go profiles.go profile_backup.go health.go refresh_limit.go ./
 COPY web/ ./web/
 
 ARG GAMESHELF_BUILD_VERSION=Development

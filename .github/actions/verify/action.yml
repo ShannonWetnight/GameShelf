@@ -26,11 +26,15 @@ runs:
         node --check web/motion.js
         node --check web/selects.js
         node --check web/tooltips.js
+        node --check web/profiles.js
+        node --check tests/profiles-live.cjs
+        node --check web/settings-ui.js
         node --test tests/frontend.test.cjs
         node --test tests/header-layout.test.cjs
         node --test tests/card-layout.test.cjs
         node --test tests/spotlight-layout.test.cjs
         node --test tests/family-health.test.cjs
+        node --test tests/profiles.test.cjs
         bash "$GITHUB_WORKSPACE/tooling/tests/test-publish-edge.sh"
         PUBLIC_RELEASE_SCRIPT="$GITHUB_WORKSPACE/candidate/.github/scripts/release.py" python3 -m unittest discover -s "$GITHUB_WORKSPACE/tooling/tests" -p 'test_*.py' -v
     - name: Test Docker behavior and non-root restrictions

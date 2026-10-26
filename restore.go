@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 const maxRestoreArchive = 64 << 20
@@ -27,6 +28,7 @@ type restoreArchive struct {
 	covers       map[string][]byte
 	folderCovers int
 	health       []byte
+	profiles     []byte
 	logs         bool
 }
 
@@ -55,6 +57,8 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 		seen[name] = true
 		limit := uint64(8 << 20)
 		switch name {
+		case "family-profiles.enc.json":
+			limit = 48 << 20
 		case "library-state.json":
 			limit = 4 << 20
 		case "server-settings.json":
@@ -104,6 +108,12 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 				return result, err
 			}
 			result.health = contents
+		case "family-profiles.enc.json":
+			var envelope protectedProfiles
+			if json.Unmarshal(contents, &envelope) != nil || envelope.Version != 1 {
+				return result, errors.New("Invalid protected family profile backup")
+			}
+			result.profiles = contents
 		case "logs.txt":
 			result.logs = true
 		default:
@@ -121,7 +131,7 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 			result.covers[strings.Split(name, "/")[1]] = contents
 		}
 	}
-	if len(result.state) == 0 && len(result.settings) == 0 && len(result.covers) == 0 && len(result.health) == 0 {
+	if len(result.state) == 0 && len(result.settings) == 0 && len(result.covers) == 0 && len(result.health) == 0 && len(result.profiles) == 0 {
 		return result, errors.New("archive has no restorable data")
 	}
 	return result, nil
@@ -235,6 +245,11 @@ func rollbackRestore(files []restoreFile) {
 }
 
 func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
+	// An imported profile database must not race removal/rotation of its Guardian authority.
+	if r.URL.Query().Get("apply") == "1" && r.URL.Query().Get("profiles") == "1" {
+		accessConfigMu.Lock()
+		defer accessConfigMu.Unlock()
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -256,15 +271,43 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var saved serverSettings
 		json.Unmarshal(archive.settings, &saved)
-		json.NewEncoder(w).Encode(map[string]any{"sha256": sha, "state": len(archive.state) > 0, "settings": len(archive.settings) > 0, "covers": len(archive.covers), "folderCoversSkipped": archive.folderCovers, "logsSkipped": archive.logs, "requiresLogin": sourcesNeedLogin(saved.Sources), "preferences": saved.Preferences, "health": len(archive.health) > 0, "requiresPIN": saved.Access != nil && len(saved.Access.Rules) > 0})
+		json.NewEncoder(w).Encode(map[string]any{"sha256": sha, "state": len(archive.state) > 0, "settings": len(archive.settings) > 0, "covers": len(archive.covers), "folderCoversSkipped": archive.folderCovers, "logsSkipped": archive.logs, "requiresLogin": sourcesNeedLogin(saved.Sources), "preferences": saved.Preferences, "health": len(archive.health) > 0, "profiles": len(archive.profiles) > 0, "requiresPIN": saved.Access != nil && len(saved.Access.Rules) > 0})
 		return
 	}
 	if r.Header.Get("X-Preview-SHA256") != sha {
 		http.Error(w, "backup changed since preview", http.StatusConflict)
 		return
 	}
+	profilesSelected := r.URL.Query().Get("profiles") == "1" && len(archive.profiles) > 0
+	var restoredProfiles *profileDatabase
+	if profilesSelected {
+		if !checkAccess(w, r, []string{"admin"}) {
+			return
+		}
+		profileMu.Lock()
+		allowed := allowProfileAttempt(r)
+		profileMu.Unlock()
+		if !allowed {
+			http.Error(w, "Too many restore attempts. Wait one minute.", 429)
+			return
+		}
+		restoredProfiles, err = decodeProfilesBackup(archive.profiles, r.Header.Get("X-GameShelf-Backup-Key"))
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		record, readErr := readPINRecord()
+		if readErr != nil {
+			http.Error(w, "Guardian PIN storage unavailable.", 503)
+			return
+		}
+		if record == nil {
+			restoredProfiles.Enabled = false
+		}
+		restoredProfiles.Epoch = uint64(time.Now().UnixNano())
+	}
 	selection := restoreSelection{r.URL.Query().Get("state") == "1", r.URL.Query().Get("settings") == "1", r.URL.Query().Get("covers") == "1", r.URL.Query().Get("health") == "1"}
-	if (!selection.State || len(archive.state) == 0) && (!selection.Settings || len(archive.settings) == 0) && (!selection.Covers || len(archive.covers) == 0) && (!selection.Health || len(archive.health) == 0) {
+	if (!selection.State || len(archive.state) == 0) && (!selection.Settings || len(archive.settings) == 0) && (!selection.Covers || len(archive.covers) == 0) && (!selection.Health || len(archive.health) == 0) && !profilesSelected {
 		http.Error(w, "select available data to restore", http.StatusBadRequest)
 		return
 	}
@@ -312,6 +355,10 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 	if writeSettings {
 		archive.settings, _ = json.MarshalIndent(effective, "", "  ")
 	}
+	if profilesSelected {
+		profileMu.Lock()
+		defer profileMu.Unlock()
+	}
 	refreshMu.Lock()
 	files := make([]restoreFile, 0, len(archive.covers)+2)
 	add := func(destination string, contents []byte) error {
@@ -319,7 +366,11 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		files = append(files, item)
 		return err
 	}
-	if selection.State && len(archive.state) > 0 {
+	if profilesSelected {
+		contents, _ := json.Marshal(restoredProfiles)
+		err = add(profilePath(), contents)
+	}
+	if err == nil && selection.State && len(archive.state) > 0 {
 		err = add(filepath.Join(dataDir, "library-state.json"), archive.state)
 	}
 	if err == nil && writeSettings {
@@ -365,6 +416,10 @@ func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
 		logEvent("errors", "library restore failed: %v", err)
 		http.Error(w, "Restore failed; existing data was retained.", http.StatusServiceUnavailable)
 		return
+	}
+	if profilesSelected {
+		profileCache = nil
+		profileSessions = map[string]profileSession{}
 	}
 	if firstSetup {
 		setupRequired.Store(false)

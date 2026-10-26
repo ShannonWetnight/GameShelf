@@ -30,7 +30,7 @@ func TestGuardianMenuGatesAndCategoryPersistence(t *testing.T) {
 	if r := familyUnlock(t, "7392", []string{"settings"}, cookie); r.Code != 200 {
 		t.Fatal(r.Code)
 	}
-	if r := enter("settings"); r.Code != 204 {
+	if r := enter("settings"); r.Code != 200 {
 		t.Fatal(r.Code)
 	}
 	if r := enter("advanced"); r.Code != 423 {

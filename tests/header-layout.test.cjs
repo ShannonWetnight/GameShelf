@@ -574,7 +574,7 @@ test('advanced sliders align and every theme respects row transparency and share
     const source=html.replace('<link rel="stylesheet" href="/styles.css">',`<style>${css.replaceAll(':hover',':is(:hover,.qa-hover)')}*{transition:none!important}</style>`).replace('<script src="/app.js"></script>',probe);
     const file=path.join(dir,'surfaces.html');fs.writeFileSync(file,source);const r=readLayoutProbe(file,1280,'surfaces-report');
     const mobile=readLayoutProbe(file,390,'surfaces-report');assert.equal(mobile.sliders.equal,true);assert.equal(mobile.sliders.speedBelow,true);assert.equal(mobile.sliders.opacityBelow,true);
-    assert.equal(r.sliders.speedBelow,true);assert.equal(r.sliders.opacityBelow,true);assert.equal(r.sliders.equal,true);assert.equal(r.sliders.aligned,true);assert.equal(r.sliders.subtitles,0);assert.equal(r.speedHidden,true);assert.equal(r.opacityHidden,true);
+    assert.equal(r.sliders.speedBelow,true);assert.equal(r.sliders.opacityBelow,true);assert.equal(r.sliders.equal,true);assert.equal(r.sliders.aligned,true,JSON.stringify(r.sliders));assert.equal(r.sliders.subtitles,0);assert.equal(r.speedHidden,true);assert.equal(r.opacityHidden,true);
     for(const theme of r.themes){assert.ok(theme.empty<.01&&theme.full>.99&&Math.abs(theme.middle-.8)<.01,JSON.stringify(theme));assert.equal(theme.backdrop,'none',theme.theme);assert.equal(theme.body,0,theme.theme);assert.equal(theme.tray,0,theme.theme);assert.equal(theme.surface,theme.select,theme.theme);assert.ok(theme.idle&&theme.focus&&theme.filtering,JSON.stringify(theme));}
     assert.notEqual(r.checkout.enabled,'none');assert.equal(r.checkout.disabled,'none');
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
