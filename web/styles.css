@@ -2660,3 +2660,9 @@ body.gs-needs-setup{height:calc(100dvh / var(--ui-scale));min-height:0;overflow:
 .gs-avatar-dialog button.gs-detail-action{min-height:40px;padding:0 .8rem;font-size:.85rem;line-height:1;}
 
 @media(max-width:560px){#profiles-list{grid-template-columns:1fr;}.gs-profile-entry>img{width:100px;}}
+
+.gs-profile-pin-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .22s cubic-bezier(.2,.7,.2,1),opacity .18s;}
+.gs-profile-pin-collapse>div{min-height:0;overflow:hidden;}
+.gs-profile-pin-collapse.is-expanded{grid-template-rows:1fr;opacity:1;}
+.gs-no-animations .gs-profile-pin-collapse{transition:none;}
+@media(prefers-reduced-motion:reduce){.gs-profile-pin-collapse{transition:none;}}

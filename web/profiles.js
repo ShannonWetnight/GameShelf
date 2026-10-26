@@ -48,7 +48,7 @@
   function avatarImage(value,label=''){const img=document.createElement('img');img.src=window.GameShelfAvatars?.url(value)||'/profile-avatars/pixel-robot.webp';img.alt=label;img.loading='lazy';return img;}
   function renderPicker(canClose = false) {
     $('profile-picker-list').replaceChildren();$('profile-picker-close').hidden=!canClose;$('profile-sign-out').hidden=!state.active;
-    for(const profile of state.profiles){const item=button('',async()=>{await GameShelfAccess.promptPIN(profile.nickname,async pin=>{const result=await request('/api/profiles/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:profile.id,pin})});persistIdentity(result.profile);localStorage.setItem('gameshelf:profile-change',String(Date.now()));location.reload();});});item.classList.add('gs-profile-tile');item.setAttribute('aria-label',profile.nickname);const name=document.createElement('span');name.textContent=profile.nickname;item.append(avatarImage(profile.avatar),name);$('profile-picker-list').append(item);}
+    for(const profile of state.profiles){const item=button('',async()=>{const login=async pin=>{const result=await request('/api/profiles/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:profile.id,pin})});persistIdentity(result.profile);localStorage.setItem('gameshelf:profile-change',String(Date.now()));location.reload();};if(profile.pinRequired===false)await login('');else await GameShelfAccess.promptPIN(profile.nickname,login);});item.classList.add('gs-profile-tile');item.setAttribute('aria-label',profile.nickname);const name=document.createElement('span');name.textContent=profile.nickname;item.append(avatarImage(profile.avatar),name);$('profile-picker-list').append(item);}
     if(!state.profiles.length){const text=document.createElement('p');text.textContent='Ask a Guardian to add a profile.';$('profile-picker-list').append(text);}
     if(!$('profile-picker').open)openModal($('profile-picker'));
   }
@@ -126,25 +126,35 @@
     renderGameChoices();
   }
   async function editProfile(profile){
-    await ownerAccess();catalog=await request('/api/profiles/catalog');editing={...(profile||{}),avatar:profile?.avatar||'builtin:pixel-robot',selectedGames:new Set(profile?.games||[])};
+    await ownerAccess();catalog=await request('/api/profiles/catalog');editing={...(profile||{}),avatar:profile?.avatar||'builtin:pixel-robot',pinPreference:profile?.pinRequired!==false,selectedGames:new Set(profile?.games||[])};
     $('profile-photo-image').src=GameShelfAvatars.url(editing.avatar);$('profile-editor-title').textContent=profile?'Edit Profile':'Add Profile';$('profile-nickname').value=profile?.nickname||'';
-    $('profile-new-pin').value='';$('profile-confirm-pin').value='';$('profile-new-pin').placeholder=profile?'Keep current PIN':'';
+    $('profile-new-pin').value='';$('profile-confirm-pin').value='';$('profile-new-pin').placeholder=profile&&profile.pinRequired!==false?'Keep current PIN':'';
     $('profile-role-choices').replaceChildren();
     for(const role of Object.values(management.roles)){const selected=profile?profile.roles.includes(role.id):role.id==='child';$('profile-role-choices').append(choice(role.name,role.id,selected));}
-    $('profile-theme').replaceChildren(...[...$('theme-select').options].map(option=>option.cloneNode(true)));
+    syncProfilePIN();$('profile-theme').replaceChildren(...[...$('theme-select').options].map(option=>option.cloneNode(true)));
     $('profile-theme').value=profile?.preferences?.theme||'classic';
     $('profile-all-libraries').checked=profile?.allLibraries??true;$('profile-all-games').checked=profile?.allGames??true;
     $('profile-library-choices').replaceChildren();
     for(const library of management.libraries){const row=choice(library.name||library.location,library.id,profile?.libraries?.includes(library.id)||false);row.dataset.tooltip=library.location;row.querySelector('input').addEventListener('change',renderGameChoices);$('profile-library-choices').append(row);}
     $('profile-game-search').value='';syncAssignments();openModal($('profile-editor-dialog'));
   }
+  function syncProfilePIN(){
+    const ids=[...$('profile-role-choices').querySelectorAll('input:checked')].map(n=>n.value),protectedActions=management.pinProtectedActions||['settings','advanced','admin','libraryManager','sources','storage','refresh','logging','health','export','restore','wipe','setup','covers','titles','metadata'];
+    const forced=protectedActions.some(action=>!ids.some(id=>management.roles[id]?.rules?.[action]?.mode==='disable'));
+    const checkbox=$('profile-require-pin');checkbox.checked=forced||editing.pinPreference;checkbox.disabled=forced;
+    $('profile-require-pin-option').dataset.tooltip=forced?'Administrative permissions require a profile PIN.':'Ask for a four-digit PIN when opening this profile.';
+    const area=$('profile-pin-fields');area.classList.toggle('is-expanded',checkbox.checked);area.inert=!checkbox.checked;area.setAttribute('aria-hidden',String(!checkbox.checked));
+    if(!checkbox.checked){$('profile-new-pin').value='';$('profile-confirm-pin').value='';}
+  }
+  $('profile-role-choices').addEventListener('change',syncProfilePIN);
+  $('profile-require-pin').addEventListener('change',()=>{editing.pinPreference=$('profile-require-pin').checked;syncProfilePIN();});
   for(const id of ['profile-all-libraries','profile-all-games'])$(id).addEventListener('change',syncAssignments);
   $('profile-game-search').addEventListener('input',renderGameChoices);
   for(const id of ['profile-photo','profile-photo-change'])$(id).addEventListener('click',async()=>{const chosen=await GameShelfAvatars.choose(editing.avatar);if(chosen){editing.avatar=chosen;$('profile-photo-image').src=GameShelfAvatars.url(chosen);showNotification('Profile photo selected. Save the profile to apply.');}});
   $('profile-editor-save').addEventListener('click',async()=>{
     const save=$('profile-editor-save');if(save.disabled)return;save.disabled=true;
     try{
-      const profile={id:editing.id||'',avatar:editing.avatar,nickname:$('profile-nickname').value.trim(),roles:[...$('profile-role-choices').querySelectorAll('input:checked')].map(n=>n.value),allLibraries:$('profile-all-libraries').checked,libraries:[...$('profile-library-choices').querySelectorAll('input:checked')].map(n=>n.value),allGames:$('profile-all-games').checked,games:[...editing.selectedGames],preferences:{theme:$('profile-theme').value}};
+      const profile={id:editing.id||'',avatar:editing.avatar,pinRequired:$('profile-require-pin').checked,nickname:$('profile-nickname').value.trim(),roles:[...$('profile-role-choices').querySelectorAll('input:checked')].map(n=>n.value),allLibraries:$('profile-all-libraries').checked,libraries:[...$('profile-library-choices').querySelectorAll('input:checked')].map(n=>n.value),allGames:$('profile-all-games').checked,games:[...editing.selectedGames],preferences:{theme:$('profile-theme').value}};
       await post({operation:'profile',profile,pin:$('profile-new-pin').value,confirmPIN:$('profile-confirm-pin').value});
       await reloadManagement();if(management.enabled)clearIdentityState();$('profile-editor-dialog').close();showNotification('Family profile saved. Active profile sessions must sign in again.');
     }catch(error){notifyError(error);}finally{save.disabled=false;}

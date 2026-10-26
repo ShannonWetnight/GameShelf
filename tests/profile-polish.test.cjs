@@ -46,3 +46,17 @@ test('ordinary password placeholders retain normal spacing and error symbols are
 test('built-in profile artwork ships as exactly 25 compact square WebP assets',()=>{
  const dir=path.join(__dirname,'../web/profile-avatars'),files=fs.readdirSync(dir).filter(n=>n.endsWith('.webp'));assert.equal(files.length,25);assert.ok(files.reduce((sum,name)=>sum+fs.statSync(path.join(dir,name)).size,0)<1024*1024);
 });
+
+test('Require PIN expands its fields and administrative roles enforce it',()=>{
+ const r=fullUI(`await GameShelfProfiles.open();$('profile-add').click();await pause(250);const checkbox=$('profile-require-pin');result.optional=!checkbox.disabled;checkbox.click();await pause(300);result.collapsed=$('profile-pin-fields').getBoundingClientRect().height<2;result.inert=$('profile-pin-fields').inert;$('profile-role-choices').querySelector('[value="adult"]').click();await pause(300);result.forced=checkbox.checked&&checkbox.disabled;$('profile-role-choices').querySelector('[value="child"]').click();await pause(300);result.expanded=$('profile-pin-fields').getBoundingClientRect().height>50;result.adultOnly=checkbox.checked&&checkbox.disabled;`,{withProfiles:true,configured:false,motion:1.1,live:true});
+ assert.equal(r.optional,true);assert.equal(r.collapsed,true);assert.equal(r.inert,true);assert.equal(r.forced,false); // Child restrictions still win while both roles are assigned.
+ assert.equal(r.adultOnly,true);assert.equal(r.expanded,true);
+});
+test('a non-administrative profile can be saved without creating a PIN',()=>{
+ const r=fullUI(`await GameShelfProfiles.open();$('profile-add').click();await pause();$('profile-nickname').value='Open Shelf';$('profile-require-pin').click();$('profile-editor-save').click();await pause(180);result.profile=profileState.profiles[0];result.body=JSON.parse(requests.filter(r=>r.url==='/api/profiles'&&r.method==='POST').at(-1).body);`,{withProfiles:true,configured:false,live:true});
+ assert.equal(r.profile.pinRequired,false);assert.equal(r.body.pin,'');assert.equal(r.body.confirmPIN,'');
+});
+test('an open profile starts its session directly without showing the PIN prompt',()=>{
+ const r=fullUI(`profileState.enabled=true;profileState.profiles=[{id:'open',nickname:'Open Shelf',roles:['child'],pinRequired:false}];await GameShelfProfiles.initialize();const previous=window.fetch;window.fetch=(url,options)=>{if(url==='/api/profiles/login'){window.loginAttempt=JSON.parse(options.body);return new Promise(()=>{});}return previous(url,options);};$('profile-picker-list').querySelector('button').click();await pause();result.login=window.loginAttempt;result.prompt=$('pin-dialog').open;`,{withProfiles:true,configured:false,profileNeeded:true});
+ assert.deepEqual(r.login,{id:'open',pin:''});assert.equal(r.prompt,false);
+});

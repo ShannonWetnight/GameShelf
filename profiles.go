@@ -31,6 +31,7 @@ type familyProfile struct {
 	ID           string            `json:"id"`
 	Nickname     string            `json:"nickname"`
 	Avatar       string            `json:"avatar,omitempty"`
+	PINRequired  *bool             `json:"pinRequired,omitempty"`
 	Roles        []string          `json:"roles"`
 	AllLibraries bool              `json:"allLibraries"`
 	Libraries    []string          `json:"libraries"`
@@ -183,10 +184,19 @@ func validateProfileDB(value *profileDatabase) error {
 				return errors.New("A selected role is unavailable")
 			}
 		}
-		salt, e1 := base64.StdEncoding.DecodeString(profile.Salt)
-		hash, e2 := base64.StdEncoding.DecodeString(profile.Hash)
-		if e1 != nil || e2 != nil || len(salt) != 16 || len(hash) != 32 {
-			return errors.New("Invalid profile PIN verifier")
+		if !profileRequiresPIN(profile) {
+			if profileHasAdministrativeActions(value, profile) {
+				return fmt.Errorf("Set a PIN for %s before granting administrative permissions", profile.Nickname)
+			}
+			if profile.Salt != "" || profile.Hash != "" {
+				return errors.New("Unprotected profiles must not retain a PIN verifier")
+			}
+		} else {
+			salt, e1 := base64.StdEncoding.DecodeString(profile.Salt)
+			hash, e2 := base64.StdEncoding.DecodeString(profile.Hash)
+			if e1 != nil || e2 != nil || len(salt) != 16 || len(hash) != 32 {
+				return errors.New("Invalid profile PIN verifier")
+			}
 		}
 		if err := validateProfileAvatar(profile.Avatar); err != nil {
 			return err
@@ -455,14 +465,14 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			for action := range accessActions {
 				groups[action] = accessGroup(action)
 			}
-			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "libraries": profileLibraries(), "actions": accessActions, "groups": groups})
+			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "libraries": profileLibraries(), "actions": accessActions, "groups": groups, "pinProtectedActions": profileAdministrativeActions})
 			return
 		}
-		profiles := []map[string]string{}
+		profiles := []map[string]any{}
 		for _, p := range db.Profiles {
-			profiles = append(profiles, map[string]string{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar})
+			profiles = append(profiles, map[string]any{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar, "pinRequired": profileRequiresPIN(p)})
 		}
-		sort.Slice(profiles, func(i, j int) bool { return profiles[i]["nickname"] < profiles[j]["nickname"] })
+		sort.Slice(profiles, func(i, j int) bool { return profiles[i]["nickname"].(string) < profiles[j]["nickname"].(string) })
 		p, active := currentProfileLocked(r, db)
 		var current any
 		if active {
@@ -516,6 +526,9 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			}
 			p.ID = "p-" + key[:24]
 		}
+		if exists && p.PINRequired == nil {
+			p.PINRequired = old.PINRequired
+		}
 		if exists && p.Avatar == "" {
 			p.Avatar = old.Avatar
 		}
@@ -541,7 +554,14 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p.Avatar = avatar
-		if !exists || body.PIN != "" {
+		if !profileRequiresPIN(p) {
+			if profileHasAdministrativeActions(copy, p) {
+				http.Error(w, "Administrative profiles require a PIN.", 400)
+				return
+			}
+			p.Salt = ""
+			p.Hash = ""
+		} else if !exists || old.Hash == "" || body.PIN != "" {
 			if !validPIN(body.PIN) || body.PIN != body.ConfirmPIN {
 				http.Error(w, "Enter the same four-digit PIN twice.", 400)
 				return
@@ -645,10 +665,7 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 	if !decodeProfileBody(w, r, &value) {
 		return
 	}
-	if !validPIN(value.PIN) {
-		http.Error(w, "Enter a four-digit PIN.", 400)
-		return
-	}
+
 	profileMu.Lock()
 	defer profileMu.Unlock()
 	if !allowProfileAttempt(r) {
@@ -666,13 +683,19 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Profile or PIN did not match.", 401)
 		return
 	}
-	salt, _ := base64.StdEncoding.DecodeString(p.Salt)
-	expected, _ := base64.StdEncoding.DecodeString(p.Hash)
-	actual, err := pbkdf2.Key(sha256.New, value.PIN, salt, pinIterations, 32)
-	if err != nil || subtle.ConstantTimeCompare(actual, expected) != 1 {
-		logEvent("errors", "Family profile PIN rejected")
-		http.Error(w, "Profile or PIN did not match.", 401)
-		return
+	if profileRequiresPIN(p) {
+		if !validPIN(value.PIN) {
+			http.Error(w, "Enter a four-digit PIN.", 400)
+			return
+		}
+		salt, _ := base64.StdEncoding.DecodeString(p.Salt)
+		expected, _ := base64.StdEncoding.DecodeString(p.Hash)
+		actual, err := pbkdf2.Key(sha256.New, value.PIN, salt, pinIterations, 32)
+		if err != nil || subtle.ConstantTimeCompare(actual, expected) != 1 {
+			logEvent("errors", "Family profile PIN rejected")
+			http.Error(w, "Profile or PIN did not match.", 401)
+			return
+		}
 	}
 	now := time.Now()
 	for token, session := range profileSessions {
