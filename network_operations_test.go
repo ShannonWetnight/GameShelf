@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"os"
+ "net/http"
+ "net/http/httptest"
+ "encoding/json"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -133,4 +136,43 @@ func TestRemoteCommandReadOperationsForBothAdapters(t *testing.T) {
 			}
 		})
 	}
+}
+
+// HTTP boundaries must reject mutation methods or operation injection without
+// even starting the password-obscuring subprocess. No real share is contacted.
+func TestNetworkHTTPMutationAttemptsDoNotLaunchConnectors(t *testing.T) {
+ _, log := operationFixture(t)
+ handlers := map[string]http.HandlerFunc{
+  "/api/game-files/game": handleGameFiles,
+  "/api/game-file/game?path=game.bin": handleGameFileDownload,
+  "/covers/game": handleCover,
+  "/download/game": handleDownload,
+  "/download-playlist?game=game": handleDownloadCart,
+  "/download-cart?game=game": handleDownloadCart,
+ }
+ for route, handler := range handlers {
+  for _, method := range []string{"PUT", "POST", "PATCH", "DELETE", "MOVE", "COPY"} {
+   w := httptest.NewRecorder()
+   handler(w, httptest.NewRequest(method, route, strings.NewReader(`{"operation":"delete","destination":"renamed.bin"}`)))
+   if w.Code != http.StatusMethodNotAllowed { t.Fatalf("%s %s: status %d", method, route, w.Code) }
+  }
+ }
+ for _, method := range []string{"PUT", "PATCH", "DELETE", "MOVE", "COPY"} {
+  w := httptest.NewRecorder()
+  handleNetworkTest(w, httptest.NewRequest(method, "/api/network-test", strings.NewReader(`{}`)))
+  if w.Code != http.StatusMethodNotAllowed { t.Fatalf("network-test %s: status %d", method, w.Code) }
+ }
+ for _, operation := range []string{"write", "delete", "rename", "copy", "move", "purge", "mkdir"} {
+  data, err := json.Marshal(operationSource("smb"))
+  if err != nil { t.Fatal(err) }
+  var input map[string]any
+  if err := json.Unmarshal(data, &input); err != nil { t.Fatal(err) }
+  input["operation"] = operation
+  data, err = json.Marshal(input)
+  if err != nil { t.Fatal(err) }
+  w := httptest.NewRecorder()
+  handleNetworkTest(w, httptest.NewRequest("POST", "/api/network-test", bytes.NewReader(data)))
+  if w.Code != http.StatusBadRequest { t.Fatalf("injected %q: status %d", operation, w.Code) }
+ }
+ if _, err := os.Stat(log); !os.IsNotExist(err) { t.Fatalf("HTTP mutation reached connector: %v", err) }
 }
