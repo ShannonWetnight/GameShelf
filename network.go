@@ -377,6 +377,13 @@ func connectionError(stderr string, err error) error {
 	return errors.New("Could not read this network folder. Check the address, share name, connection type, and server availability")
 }
 func remoteCommand(ctx context.Context, source networkSource, operation, relative string, recursive bool, offset, count int64) (*exec.Cmd, func(), error) {
+	// Validate before credentials, connector processes (including obscure), or slots.
+	// Do not echo the supplied operation: it may contain sensitive input.
+	switch operation {
+	case "list", "cat":
+	default:
+		return nil, func() {}, errors.New("unsupported network connector operation")
+	}
 	source, err := normalizeNetworkSource(source)
 	if err != nil {
 		return nil, func() {}, err
