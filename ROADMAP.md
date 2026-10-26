@@ -99,7 +99,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external se
 ### Network Library Read-Only Safeguards (Future Review)
 GameShelf currently limits network library access to read operations, but a network account with write permissions retains those permissions on the remote server. Application safeguards do not replace server-enforced read-only access.
 
-* [ ] **First: add a clear disclaimer** in first-time Network setup and the Library Sources editor. Explain that GameShelf only performs read operations, but supplied credentials may still have write permissions; recommend a dedicated read-only account/share. Keep the wording consistent with the README.
+* [x] **First: add a clear disclaimer** in first-time Network setup and the Library Sources editor. Explain that GameShelf only performs read operations, but supplied credentials may still have write permissions; recommend a dedicated read-only account/share. Keep the wording consistent with the README.
 * [ ] Explicitly reject unsupported network connector operations at the backend boundary rather than treating every non-list operation as a read.
 * [ ] Review remote path validation and containment across scans, artwork, individual downloads, and ZIP streams, including symlinks and paths that change during a request.
 * [ ] Expand network smoke and regression tests using isolated SMB credentials that have read/write access. Verify scans, previews, and downloads leave the remote library unchanged; test that write/delete/rename operations are unavailable. Never perform destructive tests against a user's library.

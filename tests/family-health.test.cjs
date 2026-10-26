@@ -151,3 +151,53 @@ test('setup background art remains viewport-sized independently of the UI scale'
  const r=fullUI(`result.bounds=[];for(const scale of [.75,1.25,1.5]){uiScale=scale;applyUIScale();dispatchEvent(new Event('resize'));await pause();const rect=document.querySelector('.gs-onboarding-ambient').getBoundingClientRect();result.bounds.push({scale,width:rect.width,height:rect.height,viewport:[innerWidth,innerHeight]});}`,{setup:true});
  for(const rect of r.bounds){assert.ok(Math.abs(rect.width-rect.viewport[0])<2,JSON.stringify(r));assert.ok(Math.abs(rect.height-rect.viewport[1])<2,JSON.stringify(r));}
 });
+
+for (const setup of [true, false]) for (const width of [320, 390, 1280]) {
+ test(`network credential guidance stays accessible when adding and editing in ${setup ? 'setup' : 'Library Sources'} at ${width}px`,()=>{
+  const r=fullUI(`
+   if(!${setup}){
+    config.sources=[{id:'saved-nas',protocol:'smb',url:'smb://nas/games',name:'Saved NAS',username:'reader',hasPassword:true}];
+    await loadServerSettings();$('build-info').click();$('settings-advanced').click();await pause();$('open-library-manager').click();await pause();$('open-server-settings').click();await pause();
+   }
+   $('${setup ? 'setup' : 'server'}-add-network').click();await pause();
+   const dialog=$('network-editor-dialog'),note=$('network-permissions-note');
+   result.single=document.querySelectorAll('#network-permissions-note').length;
+   result.description=dialog.ariaDescribedByElements?.map(el=>el.textContent).join(' ');
+   result.text=note.textContent;result.static=!note.hasAttribute('role')&&!note.hasAttribute('aria-live')&&note.tabIndex===-1;
+   result.beforeFields=!!(note.compareDocumentPosition($('network-protocol'))&Node.DOCUMENT_POSITION_FOLLOWING);
+   result.layouts=[];
+   for(const scale of [.75,1,1.5]){
+    document.documentElement.style.setProperty('--ui-scale',scale);await pause();
+    const box=note.getBoundingClientRect(),menu=dialog.getBoundingClientRect();
+    result.layouts.push({visible:box.width>0&&box.height>0&&box.top>=menu.top&&box.bottom<=menu.bottom,
+     fits:dialog.scrollWidth<=dialog.clientWidth+1&&note.scrollWidth<=note.clientWidth+1&&menu.left>=0&&menu.right<=innerWidth});
+   }
+   document.documentElement.style.setProperty('--ui-scale',1);
+   result.protocols=[];
+   for(const protocol of ['smb','nfs','sftp','webdav','ftp','ftps']){
+    $('network-protocol').value=protocol;$('network-protocol').dispatchEvent(new Event('change'));
+    result.protocols.push(!note.hidden&&getComputedStyle(note).display!=='none'&&note.textContent===result.text);
+   }
+   $('network-protocol').value='smb';$('network-protocol').dispatchEvent(new Event('change'));
+   $('network-url').value='smb://nas/new-games';$('network-url').dispatchEvent(new Event('input'));
+   $('network-username').value='read-only-user';$('network-password').value='test-secret';
+   result.noAcknowledgement=!dialog.querySelector('input[type="checkbox"]');
+   $('network-use').click();await pause(150);result.added=!dialog.open;
+   result.credentials=JSON.parse(requests.filter(r=>r.url==='/api/network-test').at(-1).body);
+   document.querySelector('#${setup ? 'setup' : 'server'}-source-list [aria-label="Edit Family NAS"]').click();await pause();
+   result.edit=dialog.open&&$('network-editor-title').textContent==='Edit Network Location'&&note.getBoundingClientRect().height>0;
+   result.editDescription=dialog.ariaDescribedByElements?.includes(note);
+   $('network-editor-cancel').click();await pause();result.cancelled=!dialog.open;result.cleared=$('network-password').value==='';
+   ${setup ? '' : `document.querySelector('#server-source-list [aria-label="Edit Saved NAS"]').click();await pause();result.savedWarning=dialog.open&&dialog.ariaDescribedByElements?.includes(note)&&note.getBoundingClientRect().height>0;result.savedPassword=$('network-password').value;result.savedPlaceholder=$('network-password').placeholder;`}
+  `,{setup,width,live:width<600});
+  assert.equal(r.single,1);assert.equal(r.description,r.text);
+  assert.match(r.text,/performs read operations/);assert.match(r.text,/cannot revoke write permissions/);
+  assert.match(r.text,/dedicated read-only account/);assert.match(r.text,/share configured as read-only on your server/);
+  assert.equal(r.static,true);assert.equal(r.beforeFields,true);
+  assert.ok(r.layouts.every(layout=>layout.visible&&layout.fits),JSON.stringify(r.layouts));
+  assert.deepEqual(r.protocols,[true,true,true,true,true,true]);assert.equal(r.noAcknowledgement,true);
+  assert.equal(r.added,true);assert.equal(r.credentials.username,'read-only-user');assert.equal(r.credentials.password,'test-secret');
+  assert.equal(r.edit,true);assert.equal(r.editDescription,true);assert.equal(r.cancelled,true);assert.equal(r.cleared,true);
+  if(!setup){assert.equal(r.savedWarning,true);assert.equal(r.savedPassword,'');assert.equal(r.savedPlaceholder,'••••••••');}
+ });
+}
