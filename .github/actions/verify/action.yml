@@ -27,6 +27,7 @@ runs:
         node --check web/selects.js
         node --check web/tooltips.js
         node --check web/profiles.js
+        node --check tests/profiles-live.cjs
         node --check web/settings-ui.js
         node --test tests/frontend.test.cjs
         node --test tests/header-layout.test.cjs

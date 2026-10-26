@@ -128,7 +128,7 @@ function openModal(dialog) {
       motion = dialog.animate([{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(10px) scale(.97)' }], { duration: motionDuration(160), easing: 'ease-in', fill: 'forwards' });
       closeTimer = setTimeout(() => { nativeClose(value); motion.cancel(); closing = false; delete dialog.dataset.closing; }, motionDuration(160));
     };
-    dialog.addEventListener('cancel', event => { if (event.target !== dialog) return; event.preventDefault(); dialog.close(); });
+    dialog.addEventListener('cancel', event => { if (event.target !== dialog || event.defaultPrevented) return; event.preventDefault(); dialog.close(); });
     dialog._cancelMotion = () => { clearTimeout(closeTimer); motion?.cancel(); dialog._openingMotion?.cancel(); closing = false; delete dialog.dataset.closing; };
     observedDialogs.add(dialog);
   }

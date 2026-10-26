@@ -424,6 +424,10 @@ func profileLibraries() []map[string]string {
 func handleProfiles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	manage := r.URL.Query().Get("manage") == "1" || r.Method != "GET"
+	if r.Method != "GET" {
+		accessConfigMu.Lock()
+		defer accessConfigMu.Unlock()
+	}
 	if manage && !checkAccess(w, r, []string{"admin"}) {
 		return
 	}

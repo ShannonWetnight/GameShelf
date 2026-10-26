@@ -2602,3 +2602,5 @@ body{min-height:calc(100dvh / var(--ui-scale));}
 .gs-profile-editor fieldset>label{display:flex;align-items:center;gap:8px;font-size:.85rem;}
 .gs-profile-editor input[type="checkbox"]{accent-color:var(--accent);}
 @media(max-width:560px){:is(.gs-profile-editor,.gs-profiles-dialog) .gs-role-rule select{width:122px;}}
+
+.gs-family-table-head{margin-inline:10px 18px;}

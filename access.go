@@ -896,6 +896,9 @@ func sortedAccessActions() []string {
 }
 
 func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
+	// Serialize approval-to-lease promotion with PIN rotation and policy revocation.
+	accessConfigMu.Lock()
+	defer accessConfigMu.Unlock()
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != "POST" {
 		http.Error(w, "method not allowed", 405)

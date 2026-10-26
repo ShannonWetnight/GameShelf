@@ -245,6 +245,11 @@ func rollbackRestore(files []restoreFile) {
 }
 
 func handleLibraryRestore(w http.ResponseWriter, r *http.Request) {
+	// An imported profile database must not race removal/rotation of its Guardian authority.
+	if r.URL.Query().Get("apply") == "1" && r.URL.Query().Get("profiles") == "1" {
+		accessConfigMu.Lock()
+		defer accessConfigMu.Unlock()
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

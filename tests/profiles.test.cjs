@@ -19,8 +19,8 @@ test('family roles can start with a template and customize individual permission
  assert.equal(r.open,true);assert.equal(r.role.name,'Guests');assert.equal(r.role.rules.downloads.mode,'disable');
 });
 test('profile picker holds the library closed until a person signs in',()=>{
- const r=fullUI(`result.picker=$('profile-picker').open;result.blocked=document.body.classList.contains('gs-profile-required');result.closeHidden=$('profile-picker-close').hidden;result.catalog=requests.some(item=>item.url==='/api/games');const event=new Event('cancel',{cancelable:true});$('profile-picker').dispatchEvent(event);result.prevented=event.defaultPrevented;`,{withProfiles:true,profileNeeded:true,configured:false});
- assert.equal(r.picker,true);assert.equal(r.blocked,true);assert.equal(r.closeHidden,true);assert.equal(r.catalog,false);assert.equal(r.prevented,true);
+ const r=fullUI(`result.picker=$('profile-picker').open;result.blocked=document.body.classList.contains('gs-profile-required');result.closeHidden=$('profile-picker-close').hidden;result.catalog=requests.some(item=>item.url==='/api/games');const event=new Event('cancel',{cancelable:true});$('profile-picker').dispatchEvent(event);result.prevented=event.defaultPrevented;await pause(200);result.stillOpen=$('profile-picker').open;`,{withProfiles:true,profileNeeded:true,configured:false});
+ assert.equal(r.picker,true);assert.equal(r.blocked,true);assert.equal(r.closeHidden,true);assert.equal(r.catalog,false);assert.equal(r.prevented,true);assert.equal(r.stillOpen,true);
 });
 test('dynamic resolution defaults and manual scale only commit after release',()=>{
  for(const [width,height,expected]of [[1920,1080,1],[2560,1440,1.25],[3840,2160,1.5],[0,0,1]]){
@@ -39,4 +39,14 @@ test('Family Controls show a dedicated PIN submenu and prevent PIN policies with
 test('required Settings and Advanced gates are authorized together for the open menu',()=>{
  const r=fullUI(`settingsLevel='advanced';$('build-info').click();await pause();result.title=$('pin-title').textContent;$('pin-entry').value='7392';$('pin-form').dispatchEvent(new Event('submit',{cancelable:true}));await pause(150);result.settings=$('settings-dialog').open;result.prompt=!$('pin-dialog').open;const inputs=requests.filter(x=>x.url==='/api/access/unlock').map(x=>JSON.parse(x.body));result.actions=inputs[0].actions;$('show-game-titles').click();await pause();result.noPrompt=!$('pin-dialog').open;result.unlocks=requests.filter(x=>x.url==='/api/access/unlock').length;`,{rules:{settings:{mode:'pin'},advanced:{mode:'pin'}}});
  assert.equal(r.title,'PIN Required');assert.equal(r.settings,true);assert.equal(r.prompt,true);assert.ok(r.actions.includes('settings')&&r.actions.includes('advanced'));assert.equal(r.noPrompt,true);assert.equal(r.unlocks,1);
+});
+
+test('Family Controls column labels center over their corresponding controls',()=>{
+ const r=fullUI(`$('build-info').click();$('settings-advanced').click();$('open-family-controls').click();await pause();const header=[...document.querySelectorAll('.gs-family-table-head strong')],row=[...document.querySelector('.gs-family-rule').children];const center=node=>{const rect=node.getBoundingClientRect();return rect.left+rect.width/2;};result.gaps=header.slice(1).map((node,i)=>Math.abs(center(node)-center(row[i+1])));`,{configured:false});
+ assert.ok(r.gaps.every(gap=>gap<2),JSON.stringify(r));
+});
+
+test('a fresh restore with locked menus offers PIN creation without opening those menus',()=>{
+ const r=fullUI(`$('build-info').click();await pause(100);result.settings=$('settings-dialog').open;result.family=$('family-dialog').open;result.create=$('family-pin-dialog').open;`,{configured:false,rules:{settings:{mode:'pin'}}});
+ assert.equal(r.settings,false);assert.equal(r.family,true);assert.equal(r.create,true);
 });
