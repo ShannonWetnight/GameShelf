@@ -108,7 +108,7 @@ GameShelf currently limits network library access to read operations, but a netw
 * [ ] Document the security boundary: container read-only filesystems and unprivileged execution do not revoke remote SMB account permissions. Server-side read-only credentials remain the strongest enforcement.
 
 ### Administration, Security & LAN
-* [ ] **Family Controls user PINs:** optional local nicknames and unique PINs, with per-session themes, Guardian policies, allowed libraries, and potentially individual game access. Keep the default shared shelf free of mandatory sign-ins or external account services.
+* [x] **Family Controls user PINs:** optional local nicknames and unique PINs, with per-session themes, Guardian policies, allowed libraries, and potentially individual game access. Keep the default shared shelf free of mandatory sign-ins or external account services.
 * [x] Add optional Settings-menu and Advanced-tab PIN gates, configurable Basic/Advanced placement, grouped Guardian controls, and complete session invalidation on PIN changes.
 * [x] Consolidate library sources, health monitoring/history, and refresh into Library Manager; rate-limit manual discovery on the server.
 
@@ -149,8 +149,11 @@ Security is an ongoing product requirement, including server-enforced access rul
 * [x] Automated browser/layout checks, real fixtures for six network protocols, restricted-container tests, and builder/runtime vulnerability gates.
 
 ### Family profiles and sharing
-- [ ] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
-- [ ] Starter permission roles (Child, Adult, Administrator, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
-- [ ] Assign libraries and individual games to profiles/groups; retain each profile's preferences.
-- [ ] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Design authenticated/encrypted backup handling and explicit owner approval before restoring security authority.
+- [x] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
+- [x] Starter permission roles (Child, Adult, Administrator, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
+- [x] Assign libraries and individual games per profile; combine role/group permissions and retain each profile's preferences and favorites.
+- [x] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Require Guardian approval and a separate passphrase for AES-GCM protected profile exports/restores; keep imported profiles disabled on a fresh server until a new Guardian PIN is created.
 - [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.
+
+- [x] Compact settings with themed help, menu-scoped PIN approval, a separate PIN configurator, and release-only UI scaling with resolution-aware defaults.
+- [ ] Extend role/group templates with shared library assignments (individual profile assignments are available).

@@ -1034,7 +1034,7 @@ for (const next of ['cancel', 'same game', 'another game']) {
     assert.equal(ui.element('cover-editor-dialog').open, next !== 'cancel');
     if (next === 'cancel') assert.equal(ui.element('game-details-dialog').open, true);
     else {
-      assert.equal(ui.element('cover-editor-title').textContent, `Cover Art: ${next === 'same game' ? 'Alpha' : 'Beta'}`);
+      assert.equal(ui.element('cover-editor-title').textContent, `${next === 'same game' ? 'Alpha' : 'Beta'}`);
       assert.equal(ui.element('cover-editor-save').disabled, false);
     }
   });

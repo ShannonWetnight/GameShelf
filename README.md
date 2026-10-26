@@ -360,8 +360,26 @@ GameShelf is provided “as is”, without warranty of any kind, and is intended
 > If you choose to expose GameShelf publicly (for example, via port forwarding, reverse proxies, or tunneling services), you do so entirely at your own risk and are solely responsible for the consequences of that exposure.
 
 ### Interface size and PIN remembrance
-Advanced Appearance settings include **UI scale** (75–150%, default 125%). Use this slider to resize GameShelf; wheel gestures scroll instead of changing the app's scale. The preference is included in backups.
+Advanced Appearance settings include **UI Scale** (75–150%). Dynamic resolution scaling is enabled by default: 1080p uses 100%, 1440p uses 125%, and 4K uses 150%; unknown displays use 100%. Turn dynamic scaling off to choose a manual size. The slider commits when released, with a soft transition; wheel gestures scroll instead of changing the app's scale. The preference is included in backups.
 
 In **Family Controls**, enable PIN remembrance and choose 1–60 minutes (default 5). The unlock prompt offers an unchecked **Remember me** option. Without it, a PIN authorizes one protected request. Disabling remembrance hides the checkbox and requires a PIN for each protected action. Changing the PIN invalidates all existing unlocks; saving permission changes also clears grants and one-use approvals.
 
 New servers enable all logging sources by default. Customize logging to deselect sources. Existing servers retain their saved logging choices. Retention remains unlimited by days and limited to 10 MB by default.
+
+## Family profiles
+
+Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. Create a Guardian PIN through **Guardian PIN**, add the family members, then turn on **Use family profiles**. Each person chooses their nickname and enters their own four-digit PIN. The toolbar profile icon switches shelves or signs out.
+
+Each profile keeps its own favorites and appearance choices. The browser keeps a separate Playlist for each profile. Assign all libraries or selected libraries, then all games or selected games within those libraries. Library choices become available after the locations are saved. Catalogs, statistics, cover images, individual files, and ZIP routes all enforce assignments on the server; guessing a game URL does not bypass them.
+
+Starter roles are **Child**, **Adult**, **Elevated User**, and **Administrator**. Child keeps administration and metadata editing unavailable. Adult allows normal browsing and personal choices while protecting administration; Elevated User leaves most actions available but protects high-risk administration. Administrator permits normal actions, with the Guardian PIN still required to manage Family Controls. Inspect or edit each starter role, or create custom roles/groups from a template. A person can belong to several roles: **Disable wins over Require PIN, which wins over Allow**, and the shared Guardian policy can add restrictions. Library/game assignments are currently made per profile.
+
+Profiles have no fixed count limit; saved profile data is bounded to 32 MiB. Authentication is limited to ten attempts per connected client per minute and 120 across the server. Profile cookies are HttpOnly, SameSite Strict, and Secure on direct HTTPS. Sessions expire after eight hours, signing out removes the session, and changes to profiles or roles sign everyone out. Switching profiles also clears the previous Guardian unlock. PIN verifiers use independent random salts and PBKDF2-HMAC-SHA256; no plaintext PINs are stored or logged.
+
+**Guardian Controls** remains available on the profile picker for recovery. The Guardian PIN is separate from a person's profile PIN. Turn profiles off before removing the Guardian PIN. For offline owner recovery, stop the container and securely back up the data volume before changing private security records; do not expose these records publicly.
+
+### Protected profile backups
+
+Export Data offers **Family profiles, roles, and personal shelves** when profiles exist. This includes nicknames, salted profile PIN verifiers, roles and memberships, assignments, favorites, and preferences. It requires Guardian approval and a separate backup passphrase of at least 12 characters. The archive contains an AES-256-GCM encrypted profile document; its key is derived using PBKDF2-HMAC-SHA256 with 600,000 iterations. The passphrase and Guardian PIN verifier are never included.
+
+Keep the passphrase separately: it is required when restoring profiles, and cannot be recovered by GameShelf. A wrong passphrase or altered encrypted document is rejected before any selected data is replaced. On a fresh server, imported profiles stay disabled until you create a new Guardian PIN and explicitly enable them. On an existing protected server, the current Guardian PIN and controls remain authoritative. Restore server settings alongside profiles to preserve network source IDs and library assignments; local folder assignments require the same container paths.

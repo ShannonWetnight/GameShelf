@@ -1,15 +1,22 @@
-const preferenceKeys = ['ui-scale','theme','stretch-covers','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
+const preferenceKeys = ['dynamic-scale','ui-scale','theme','stretch-covers','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
 const hasSavedPreferences = preferenceKeys.some(key=>localStorage.getItem('gameshelf:'+key)!==null);
 function capturePreferences(){
-  const values = {'ui-scale':uiScale,theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
+  const values = {'dynamic-scale':dynamicScale,'ui-scale':uiScale,theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
   return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,String(value)]));
 }
 function importPreferences(values){for(const key of preferenceKeys)if(typeof values?.[key]==='string')localStorage.setItem('gameshelf:'+key,values[key]);}
 /* =============================
    Global State
    ============================= */
+function detectedUIScale(){
+ const display=globalThis.screen;const width=Number(display?.width),height=Number(display?.height),ratio=Number(globalThis.devicePixelRatio)||1;
+ if(!Number.isFinite(width)||!Number.isFinite(height)||width<1||height<1)return 1;
+ const short=Math.min(width,height)*ratio,long=Math.max(width,height)*ratio;
+ return short>=2100&&long>=3700?1.5:short>=1400&&long>=2500?1.25:1;
+}
+let dynamicScale=localStorage.getItem('gameshelf:dynamic-scale')!=='false';
 const savedUIScale=Number(localStorage.getItem('gameshelf:ui-scale'));
-let uiScale=Number.isFinite(savedUIScale)&&savedUIScale>=.75&&savedUIScale<=1.5?savedUIScale:1.25;
+let uiScale=dynamicScale?detectedUIScale():Number.isFinite(savedUIScale)&&savedUIScale>=.75&&savedUIScale<=1.5?savedUIScale:1;
 function applyUIScale(){document.documentElement?.style?.setProperty('--ui-scale',String(uiScale));window.GameShelfMotion?.reset();}
 applyUIScale();
 let manualRefreshUntil=0;
@@ -232,8 +239,10 @@ async function exportLibraryData() {
   const dialog = document.getElementById('export-dialog');
   if (button.disabled) return;
   const checked = [...document.querySelectorAll('#export-options input:checked')];
-  if (!checked.length) { document.getElementById('export-status').textContent = 'Select at least one item.'; return; }
-  const params = new URLSearchParams({ select: '1' });
+  const includeProfiles=!document.getElementById('export-profile-options').hidden&&document.getElementById('export-profiles').checked;
+  if (!checked.length&&!includeProfiles) { showNotification('Select at least one item.','error'); return; }
+  const backupKey=includeProfiles?profileBackupKey('export-profile-key'):'';if(includeProfiles&&!backupKey)return;
+  const params = new URLSearchParams({ select: '1' });if(includeProfiles)params.set('profiles','1');
   for (const input of checked) {
     if (input.dataset.kind === 'state') params.set('state', '1');
     else if (input.dataset.kind === 'logs') params.set('logs', '1');
@@ -245,7 +254,7 @@ async function exportLibraryData() {
   status.textContent = 'Preparing library backup…';
   let downloadURL;
   try {
-    const res = await fetch(`/api/library-backup?${params}`, { cache: 'no-store', headers: {'X-GameShelf-Preferences': JSON.stringify(capturePreferences())} });
+    const res = await fetch(`/api/library-backup?${params}`, { cache: 'no-store', headers: {'X-GameShelf-Preferences': JSON.stringify(capturePreferences()),...(backupKey?{'X-GameShelf-Backup-Key':backupKey}:{})} });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (res.headers.get('Content-Type') !== 'application/zip') throw new Error('Invalid backup response');
     const backup = await res.blob();
@@ -841,7 +850,7 @@ function openCoverEditor(game) {
   const openVersion = ++editorOpenVersion;
   editorRotation = 0;editorMirrored=false;
   editorPan = { x: 0, y: 0 };
-  document.getElementById('cover-editor-title').textContent = `Cover Art: ${game.name}`;
+  document.getElementById('cover-editor-title').textContent = game.name;
   document.getElementById('cover-editor-file').value = '';
   document.getElementById('cover-zoom').value = '1';
   document.getElementById('cover-tilt').value = '0';
@@ -1421,7 +1430,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.toggle('gs-show-list-images', showListImages);
   document.body.classList.toggle('gs-no-animations', disableEffects);
   loadVersion();
-  const begin=()=>{if(window.GameShelfSetup)window.GameShelfSetup.boot();else{document.body.classList.remove('gs-booting');loadServerSettings();loadGames();}};
+  const begin=async()=>{if(window.GameShelfProfiles&&!await window.GameShelfProfiles.initialize())return;if(window.GameShelfSetup)window.GameShelfSetup.boot();else{document.body.classList.remove('gs-booting');loadServerSettings();loadGames();}};
   if(window.GameShelfAccess)window.GameShelfAccess.initialize().then(begin).catch(()=>{document.getElementById('boot-message').textContent='Could not load family controls. Reload to try again.';document.getElementById('boot-retry').hidden=false;});else begin();
 
   /* -------- Search -------- */
@@ -1580,11 +1589,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* -------- Settings -------- */
+  document.getElementById('restore-browse').addEventListener('click',()=>document.getElementById('restore-file').click());
+  document.getElementById('restore-file').addEventListener('change',event=>{document.getElementById('restore-file-name').textContent=event.target.files?.[0]?.name||'No file chosen';});
   const settingsButton = document.getElementById('build-info');
   const settingsDialog = document.getElementById('settings-dialog');
   const detailsDialog = document.getElementById('game-details-dialog');
-  const scaleInput=document.getElementById('ui-scale');scaleInput.value=String(uiScale);document.getElementById('ui-scale-value').textContent=Math.round(uiScale*100)+'%';
-  scaleInput.addEventListener('input',()=>{uiScale=Math.max(.75,Math.min(1.5,Number(scaleInput.value)));document.getElementById('ui-scale-value').textContent=Math.round(uiScale*100)+'%';localStorage.setItem('gameshelf:ui-scale',String(uiScale));applyUIScale();});
+  const scaleInput=document.getElementById('ui-scale'),dynamicInput=document.getElementById('dynamic-scale');
+  function syncUIScale(){scaleInput.value=String(uiScale);scaleInput.disabled=dynamicScale;dynamicInput.checked=dynamicScale;document.getElementById('ui-scale-value').textContent=Math.round(uiScale*100)+'%';}
+  let scaleTransition=0,scaleMotions=[];
+  async function transitionScale(value){
+    const generation=++scaleTransition;scaleMotions.forEach(m=>m.cancel());
+    const surfaces=[document.body,...[...openDialogs].filter(dialog=>dialog.open)],reduced=disableEffects||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const fade=(from,to)=>surfaces.map(surface=>surface.animate?.([{opacity:from},{opacity:to}],{duration:motionDuration(110),easing:'ease',fill:'forwards'})).filter(Boolean);
+    let motions=[];if(!reduced){motions=fade(1,.35);scaleMotions=motions;await Promise.all(motions.map(m=>m.finished.catch(()=>{})));}if(generation!==scaleTransition)return;
+    uiScale=value;localStorage.setItem('gameshelf:ui-scale',String(uiScale));applyUIScale();syncUIScale();
+    motions.forEach(m=>m.cancel());if(!reduced){motions=fade(.35,1);scaleMotions=motions;await Promise.all(motions.map(m=>m.finished.catch(()=>{})));motions.forEach(m=>m.cancel());}
+  }
+  syncUIScale();
+  scaleInput.addEventListener('input',()=>{document.getElementById('ui-scale-value').textContent=Math.round(Number(scaleInput.value)*100)+'%';});
+  scaleInput.addEventListener('change',async()=>{if(dynamicScale)return;await transitionScale(Math.max(.75,Math.min(1.5,Number(scaleInput.value))));recordSettingChange({'ui-scale':String(uiScale)});showNotification('UI Scale saved.');});
+  dynamicInput.addEventListener('change',async()=>{dynamicScale=dynamicInput.checked;localStorage.setItem('gameshelf:dynamic-scale',String(dynamicScale));await transitionScale(dynamicScale?detectedUIScale():uiScale);recordSettingChange({'dynamic-scale':String(dynamicScale)});showNotification('Dynamic resolution scaling saved.');});
+  let displayResize;globalThis.addEventListener?.('resize',()=>{clearTimeout(displayResize);if(dynamicScale)displayResize=setTimeout(()=>{const next=detectedUIScale();if(next!==uiScale)transitionScale(next);},150);});
   document.addEventListener('wheel',event=>{if(event.ctrlKey||event.metaKey)event.preventDefault();},{passive:false});
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&['+','=','-','0'].includes(event.key))event.preventDefault();});
   const speedInput = document.getElementById('animation-speed');
@@ -1601,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const placeholderInput = document.getElementById('show-placeholder-images');
   const listImagesInput = document.getElementById('show-list-images');
   const instantPreferences = {
-    'ui-scale':'UI scale','theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
+    'theme-select': 'Theme', 'animation-speed': 'Animation speed', 'list-opacity': 'List tile opacity', 'card-depth': 'Card depth',
     'animate-tiles': 'Loaded game tile animation', 'show-hover-text': 'Button hints', 'show-game-titles': 'Game titles',
     'show-placeholder-images': 'Placeholder images', 'hover-game-titles': 'Hover game titles', 'favorites-first': 'Favorites order', 'show-list-images': 'List images',
     'stretch-covers':'Cover stretching', 'enable-playlist': 'Playlist downloads', 'favorite-stars-only': 'Favorite stars', 'expand-list-image': 'List image expansion'
@@ -1676,7 +1701,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportDialog = document.getElementById('export-dialog');
   const exportOptions = document.getElementById('export-options');
   const exportAll = document.getElementById('export-all');
-  document.getElementById('export-library-data').addEventListener('click', () => {
+  document.getElementById('export-library-data').addEventListener('click', async () => {
     exportOptions.replaceChildren();
     const groups = [
       { title: 'GameShelf data', items: [{ id: 'state', kind: 'state', name: 'Library state (JSON)' }, { id: 'settings', kind: 'settings', name: 'Server settings (JSON)' }, { id: 'logs', kind: 'logs', name: 'Recent logs (TXT)' },{id:'health',kind:'health',name:'Library health history (JSON)'}] },
@@ -1709,9 +1734,13 @@ document.addEventListener('DOMContentLoaded', () => {
     exportAll.checked = true; exportAll.indeterminate = false;
     document.getElementById('export-status').textContent = '';
     document.getElementById('export-credentials-note').hidden = !(serverSettings?.sources || []).some(source => source.protocol !== 'nfs' && (source.hasPassword || source.username));
+    document.getElementById('export-profile-key').value='';document.getElementById('export-profile-options').hidden=true;document.getElementById('export-profiles').checked=false;
+    if(window.GameShelfProfiles){try{const available=await GameShelfProfiles.hasProfiles();document.getElementById('export-profile-options').hidden=!available;document.getElementById('export-profiles').checked=available;document.getElementById('export-profile-key-field').hidden=!available;}catch{/* A normal export remains available. */}}
     openModal(exportDialog);
   });
-  exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { if(!input.disabled)input.checked = exportAll.checked; }); exportAll.indeterminate = false; });
+  exportAll.addEventListener('change', () => { exportOptions.querySelectorAll('input').forEach(input => { if(!input.disabled)input.checked = exportAll.checked; }); exportAll.indeterminate = false;if(!document.getElementById('export-profile-options').hidden){document.getElementById('export-profiles').checked=exportAll.checked;document.getElementById('export-profile-key-field').hidden=!exportAll.checked;} });
+  document.getElementById('export-profiles').addEventListener('change',()=>{document.getElementById('export-profile-key-field').hidden=!document.getElementById('export-profiles').checked;});
+  exportDialog.addEventListener('close',()=>document.getElementById('export-profile-key').value='');
   document.getElementById('export-confirm').addEventListener('click', exportLibraryData);
   for (const id of ['export-close', 'export-cancel']) document.getElementById(id).addEventListener('click', () => exportDialog.close());
   closeOnBackdropClick(exportDialog);
@@ -1720,7 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const restoreApply = document.getElementById('restore-apply');
   const restoreStatus = document.getElementById('restore-status');
   const restorePreviewPanel = document.getElementById('restore-preview');
-  const restoreChoices = ['restore-state', 'restore-covers', 'restore-settings','restore-health'].map(id => document.getElementById(id));
+  const restoreChoices = ['restore-state', 'restore-covers', 'restore-settings','restore-health','restore-profiles'].map(id => document.getElementById(id));
   let restorePreview = null;
   let restoreVersion = 0;
   const updateRestoreButton = () => {
@@ -1729,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('open-library-restore').addEventListener('click', () => {
     restoreVersion++;
     restorePreview = null;
-    restoreFile.value = '';
+    restoreFile.value = '';document.getElementById('restore-file-name').textContent='No file chosen';document.getElementById('restore-profile-key').value='';document.getElementById('restore-profile-option').hidden=true;document.getElementById('restore-profile-key-field').hidden=true;
     restorePreviewPanel.hidden = true;
     restoreStatus.textContent = '';
     document.getElementById('restore-ack').checked = false;
@@ -1743,8 +1772,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   for (const id of ['restore-close', 'restore-cancel']) document.getElementById(id).addEventListener('click', () => restoreDialog.close());
   closeOnBackdropClick(restoreDialog);
-  restoreDialog.addEventListener('close', () => { restoreVersion++; restorePreview = null; });
-  for (const input of [...restoreChoices, document.getElementById('restore-ack')]) input.addEventListener('change', updateRestoreButton);
+  restoreDialog.addEventListener('close', () => { restoreVersion++; restorePreview = null;document.getElementById('restore-profile-key').value=''; });
+  for (const input of [...restoreChoices, document.getElementById('restore-ack')]) input.addEventListener('change', ()=>{updateRestoreButton();document.getElementById('restore-profile-key-field').hidden=!restoreChoices[4].checked;});
   restoreFile.addEventListener('change', async () => {
     const file = restoreFile.files?.[0];
     const version = ++restoreVersion;
@@ -1762,9 +1791,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (version !== restoreVersion || !restoreDialog.open) return;
       restorePreview = preview;
       document.getElementById('restore-credentials-note').hidden=!preview.requiresLogin;
-      const available = [preview.state, preview.covers > 0, preview.settings,preview.health===true];
+      const available = [preview.state, preview.covers > 0, preview.settings,preview.health===true,preview.profiles===true];
       document.getElementById('restore-family-note').hidden=!preview.requiresPIN;
-      restoreChoices.forEach((input, index) => { input.checked = available[index]; input.disabled = !available[index]; });
+      restoreChoices.forEach((input, index) => { input.checked = available[index]; input.disabled = !available[index]; });document.getElementById('restore-profile-option').hidden=!preview.profiles;document.getElementById('restore-profile-key-field').hidden=!preview.profiles;
       document.getElementById('restore-cover-count').textContent = `${preview.covers} uploaded cover${preview.covers === 1 ? '' : 's'} will be replaced or added.`;
       document.getElementById('restore-skipped').textContent = `${preview.folderCoversSkipped} game-folder cover copies and ${preview.logsSkipped ? 'the log snapshot' : 'no log snapshot'} will be skipped; mounted game folders are never changed.`;
       document.getElementById('restore-ack').checked = false;
@@ -1775,18 +1804,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   restoreApply.addEventListener('click', async () => {
     if (restoreApply.disabled || !restorePreview || !restoreFile.files?.[0]) return;
+    const backupKey=restoreChoices[4].checked?profileBackupKey('restore-profile-key'):'';if(restoreChoices[4].checked&&!backupKey)return;
     restoreApply.disabled = true;
     restoreStatus.textContent = 'Restoring selected data…';
     const selected = new URLSearchParams({ apply: '1' });
-    for (const [index, key] of ['state', 'covers', 'settings','health'].entries()) if (restoreChoices[index].checked) selected.set(key, '1');
+    for (const [index, key] of ['state', 'covers', 'settings','health','profiles'].entries()) if (restoreChoices[index].checked) selected.set(key, '1');
     try {
-      const response = await fetch(`/api/library-restore?${selected}`, { method: 'POST', headers: { 'Content-Type': 'application/zip', 'X-Preview-SHA256': restorePreview.sha256 }, body: restoreFile.files[0] });
+      const response = await fetch(`/api/library-restore?${selected}`, { method: 'POST', headers: { 'Content-Type': 'application/zip', 'X-Preview-SHA256': restorePreview.sha256,...(backupKey?{'X-GameShelf-Backup-Key':backupKey}:{}) }, body: restoreFile.files[0] });
       if (!response.ok) throw new Error((await response.text()).trim());
       const result = await response.json();
       restoreDialog.close();
       if (restoreChoices[2].checked) importPreferences(result.preferences || restorePreview?.preferences);
       const message=result.restartRequired?'Library data restored. Restart the container to apply the data location.':result.requiresLogin?'Data restored. Enter share passwords in Advanced Settings → Library Manager → Library Sources.':result.scanWarning||'Library data restored.';
-      if(result.setupComplete || (restoreChoices[2].checked && result.preferences && Object.keys(result.preferences).length)) {
+      if(restoreChoices[4].checked||result.setupComplete || (restoreChoices[2].checked && result.preferences && Object.keys(result.preferences).length)) {
         localStorage.setItem('gameshelf:restore-notice',message);window.location.reload();return;
       }
       showNotification(message);loadServerSettings();loadGames();window.GameShelfSetup?.watchScan();
@@ -2323,3 +2353,5 @@ function syncSetupResume(){
  const value=serverSettings;if(!value)return;const hasLibrary=value.rootDir||value.rootDirs?.length||value.sources?.length;
  document.getElementById('resume-setup-option').hidden=!(value.setupStatus==='pending'||value.setupStatus==='skipped'||(!value.setupStatus&&!hasLibrary));
 }
+
+function profileBackupKey(id){const value=document.getElementById(id).value;if([...value].length<12||new TextEncoder().encode(value).length>1024){showNotification('Use a backup passphrase of at least 12 characters.','error');return '';}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}

@@ -2512,3 +2512,93 @@ body{min-height:calc(100dvh / var(--ui-scale));}
 .gs-tour-preparing>*{visibility:hidden;}
 
 .gs-header:has(.gs-search:is(:focus,.is-filtering)){border-bottom-color:var(--accent);}
+
+/* Compact shared controls and bounded artwork tools. */
+#cover-editor-dialog{width:min(360px,calc((100vw - 24px)/var(--ui-scale)));padding:20px;}
+#cover-editor-dialog .gs-settings-header{position:relative;display:block;text-align:center;padding-inline:32px;max-width:280px;margin-inline:auto;}
+#cover-editor-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;font-size:1.1rem;}
+#cover-editor-close{position:absolute;right:-32px;top:-6px;}
+#cover-preview,.gs-cover-editor-controls{width:min(100%,280px);margin-inline:auto;}
+.gs-cover-sliders{width:100%;max-width:280px;gap:16px;}
+.gs-restore-file-picker{display:flex;align-items:center;gap:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px;background:var(--input-background);font-size:.85rem;}
+.gs-restore-file-picker>span{pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gs-restore-file-picker #restore-browse{height:36px;min-width:0;flex:none;}
+.gs-health-badge,.gs-health-legend li{display:inline-flex;align-items:center;gap:8px;line-height:1.4;vertical-align:middle;}
+.gs-health-badge::before,.gs-health-dot{display:inline-block;align-self:center;vertical-align:middle;}
+.gs-health-legend{list-style:none;padding:0;display:grid;gap:7px;color:var(--text-muted);font-size:.8rem;}
+.gs-source-card-content>strong{align-items:center;line-height:1.4;}
+#network-password::placeholder{color:var(--text-muted);opacity:.5;letter-spacing:3px;}
+.gs-family-rules{border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px;}
+.gs-family-table-head>:not(:first-child),.gs-family-category-note{text-align:center;justify-self:center;}
+.gs-family-rule select{text-align:center;text-align-last:center;}
+.gs-family-toolbar{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px;}
+.gs-select-menu{padding-block:0;}
+.gs-select-menu [role="option"]:last-child{border-radius:0 0 var(--radius-sm) var(--radius-sm);}
+:root select.gs-select-closing{border-radius:var(--radius-sm)!important;transition:border-radius .12s ease;}
+#settings-dialog .gs-settings-section .gs-settings-option,#settings-dialog .gs-settings-section .gs-settings-backup{min-height:60px;padding:12px 16px;align-items:center;gap:14px;}
+#settings-dialog .gs-settings-section .gs-settings-option>span{display:flex;align-items:center;}
+#settings-dialog .gs-settings-section .gs-settings-range{display:flex;flex-direction:column;align-items:stretch;}
+#settings-dialog strong{font-size:.9rem;line-height:1.4;}
+#settings-dialog .gs-settings-option:not(.gs-settings-range)>span{flex:1;}
+#settings-dialog .gs-settings-section .gs-settings-range>span{display:flex;}
+#settings-dialog .gs-settings-section .gs-settings-range .gs-range-control{width:100%;}
+#settings-dialog [data-tooltip]{cursor:help;}
+#pin-dialog{width:min(310px,calc((100vw - 24px)/var(--ui-scale)));}
+
+/* Personal shelves and Guardian profile management use the shared theme tokens. */
+.gs-profile-required .gs-main,.gs-profile-required .gs-header-tools,.gs-profile-required #source-alert{visibility:hidden;}
+.gs-profile-picker{width:min(450px,calc(100vw - 32px));}
+.gs-profile-picker-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-height:48vh;overflow:auto;padding:4px;}
+.gs-profile-tile{min-height:80px!important;white-space:normal!important;overflow-wrap:anywhere;font-size:1rem!important;}
+.gs-profile-picker-footer{display:flex;justify-content:space-between;gap:12px;margin-top:22px;}
+.gs-profiles-dialog{width:min(660px,calc(100vw - 32px));max-height:85vh;overflow:auto;}
+.gs-profile-editor{width:min(590px,calc(100vw - 32px));max-height:85vh;overflow:auto;}
+.gs-profiles-dialog h3,.gs-profile-editor legend{color:var(--accent);font-size:.8rem;letter-spacing:.04em;}
+.gs-profile-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-block:16px;}
+.gs-profile-toolbar input{flex:1;min-width:120px;}
+.gs-profile-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);margin-block:8px;}
+.gs-profile-row>div:first-child{min-width:0;overflow-wrap:anywhere;}
+.gs-profile-row small{display:block;color:var(--text-muted);margin-top:4px;}
+.gs-profile-row-actions{display:flex;gap:8px;flex-shrink:0;}
+.gs-profile-choice{display:flex;align-items:center;gap:10px;padding:9px 8px;color:var(--text);cursor:pointer;overflow-wrap:anywhere;}
+.gs-profile-choice input{accent-color:var(--accent);flex-shrink:0;}
+.gs-profile-editor fieldset{margin:16px 0;padding:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);min-width:0;}
+.gs-profile-editor .gs-family-pin-fields{margin-top:12px;}
+#profile-role-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+#profile-library-choices,#profile-game-choices{max-height:210px;overflow:auto;}
+#profile-game-search,#profile-search{box-sizing:border-box;height:38px;padding:8px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--input-background);color:var(--text);font:inherit;}
+#profile-game-search{width:100%;}
+.gs-role-rule{display:grid;grid-template-columns:minmax(0,1fr) 145px;align-items:center;gap:12px;padding:10px 12px;font-size:.85rem;}
+.gs-role-rule+.gs-role-rule{border-top:1px solid var(--border-subtle);}
+.gs-role-rule select{height:38px;width:145px;text-align:center;text-align-last:center;}
+#role-rules{margin-top:16px;}
+#export-profile-options{margin-block:12px;padding:12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);}
+#export-profile-key-field,#restore-profile-key-field{margin-top:12px;}
+.gs-restore-file-picker{cursor:default;}.gs-restore-file-picker button{cursor:pointer;}
+@media(max-width:560px){.gs-profile-row{align-items:flex-start;flex-direction:column;gap:10px}.gs-profile-row-actions{align-self:flex-end}.gs-family-toolbar{flex-wrap:wrap}.gs-profile-picker-footer{flex-wrap:wrap}.gs-role-rule{grid-template-columns:minmax(0,1fr) 122px}.gs-role-rule select{width:122px}}
+
+#settings-dialog .gs-theme-option{min-height:60px;padding:12px 16px;gap:14px;align-items:center;}
+#settings-dialog .gs-theme-option>span{display:flex;align-items:center;}
+#settings-dialog .gs-theme-option strong{cursor:help;}
+/* Keep the shared header aligned while a personal shelf awaits a PIN. */
+.gs-profile-required .gs-search-wrapper,.gs-profile-required .gs-refresh{visibility:hidden;}
+
+#profile-switcher[hidden],#profile-picker [hidden],#profiles-dialog [hidden],#profile-editor-dialog [hidden],#export-profile-options[hidden],#export-profile-key-field[hidden],#restore-profile-option[hidden],#restore-profile-key-field[hidden]{display:none!important;}
+#settings-dialog[data-settings-level="basic"] .gs-settings-section [data-setting-level="advanced"]{display:none;}
+.gs-source-card-content>strong{display:flex;gap:8px;align-items:center;}
+
+#settings-dialog .gs-theme-option{box-sizing:border-box;border:0;}
+
+#settings-dialog .gs-settings-section .gs-settings-option>span:not(.gs-range-control){display:block;width:100%;text-align:left;}
+:is(.gs-profiles-dialog,.gs-profile-editor,.gs-profile-picker) button.gs-detail-action:not(.gs-title-save){min-height:40px;padding:0 .8rem;line-height:1;font-size:.85rem;}
+
+.gs-profile-picker{width:min(450px,calc((100vw - 32px)/var(--ui-scale)));}
+.gs-profiles-dialog{width:min(660px,calc((100vw - 32px)/var(--ui-scale)));}
+.gs-profile-editor{width:min(590px,calc((100vw - 32px)/var(--ui-scale)));}
+:is(.gs-profile-editor,.gs-profiles-dialog) select{box-sizing:border-box;width:100%;height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text);background-color:var(--input-background);font:inherit;}
+:is(.gs-profile-editor,.gs-profiles-dialog) select:is(:hover,:focus-visible){border-color:var(--accent);}
+:is(.gs-profile-editor,.gs-profiles-dialog) .gs-role-rule select{width:145px;}
+.gs-profile-editor .gs-profile-choice{font-size:.85rem;overflow-wrap:normal;word-break:normal;}
+.gs-profile-editor fieldset>label{display:flex;align-items:center;gap:8px;font-size:.85rem;}
+.gs-profile-editor input[type="checkbox"]{accent-color:var(--accent);}
+@media(max-width:560px){:is(.gs-profile-editor,.gs-profiles-dialog) .gs-role-rule select{width:122px;}}

@@ -1,29 +1,26 @@
 ## Added
 
-- Saved UI scaling from 75% to 150%, with a new default of 125%.
-- Optional PIN remembrance with a Guardian-configured duration of 1–60 minutes (default five); one-request approval when remembrance is unchecked or disabled.
-- Network reachability indicators beside library nicknames, a separate manual-refresh tour step, and an edge-snapping toggle in the cover editor.
+- Optional family nickname/PIN profiles during setup and in Family Controls, with personal favorites and preferences, starter/custom roles, and per-profile library/game assignments.
+- Protected profile backups include roles, memberships, assignments, preferences, favorites, and salted PIN verifiers under a separate backup passphrase.
+- Dynamic resolution scaling defaults to 100% for 1080p, 125% for 1440p, 150% for 4K, and 100% when detection is unavailable.
 
 ## Changes
 
-- Compact network setup/edit forms use success and error banners instead of inline test messages.
-- Dropdowns animate open and closed, retain their themed caret and joined edges, and stay anchored during scaling and scrolling.
-- Family Controls use equal dropdown widths, individually rounded categories, column/control hints, and Library Manager as the final category.
-- Cover tools are centered with rotate last, matched sliders with live value hints, and a vertically centered Cancel action.
-- New servers enable all logging sources by default; existing saved logging choices remain intact.
-- Setup requires a location before continuing, preserves smoother expansion/collapse, and transitions into the tour without exposing an intermediate bright background.
+- Settings descriptions move into themed hover hints with compact, aligned rows.
+- UI Scale commits on release with a soft transition; manual control is available when dynamic scaling is disabled.
+- PIN creation and remembrance settings have their own submenu; the unlock prompt is reduced to PIN Required.
+- Cover editing has a narrower dialog, centered truncated title, and sliders bounded to the preview.
+- Health icons align with text, and their meanings appear in three short rows. Saved passwords use generic placeholder dots.
+- Dropdown highlights fill their last row and closing parent corners remain rounded.
 
 ## Fixed
 
-- Refresh cooldown uses warning feedback and a soft red text glow without starting another client request.
-- Search focus has a thicker accent outline; all themes use a stronger header divider.
-- UI scale and PIN remembrance settings persist through supported backup/restore paths; private PIN secrets remain excluded from current backups.
+- Opening protected Settings in its saved Advanced view no longer causes repeated PIN prompts. Open menus retain approval for their saves while separate action restrictions remain enforced.
+- Restore file-picker feedback applies only to Choose File, without an extra tooltip.
+- Family Controls center columns and dropdown text, order Library Manager first in its section, and report missing-PIN policy errors in notification banners.
 
 ## Security
 
-- One-use PIN approvals are scoped, short-lived, session-bound, consumed atomically for a whole request, and cannot be replayed across concurrent requests.
-- Remembrance duration is enforced on the server. PIN/policy changes revoke existing grants and one-use approvals.
-
-## Other
-
-- Expanded the roadmap for optional family-profile setup, starter/custom roles, portable protected profile data, and an isolated anonymous public demo.
+- Profile restrictions are enforced on catalogs, statistics, cover/file routes, and single/bulk ZIP downloads.
+- Profile/role changes revoke sessions; switching profiles clears Guardian unlocks. Login is rate limited, and private records fail closed when unreadable.
+- AES-256-GCM profile exports use a separately derived passphrase key. Restore validates the authenticated document before replacement and never imports Guardian PIN authority.

@@ -102,6 +102,7 @@
   async function boot() {
     $('boot-retry').hidden = true; $('boot-message').textContent = 'Opening GameShelf…'; document.body.classList.add('gs-booting');
     try {
+      if(window.GameShelfProfiles&&!await GameShelfProfiles.initialize())return;
       current = await jsonRequest('/api/setup', { cache: 'no-store' });
       if (typeof current.required !== 'boolean' || !current.settings) throw new Error('GameShelf could not read its setup options.');
       serverSettings = current.settings;syncSetupResume();
@@ -121,7 +122,7 @@
         syncRefresh(); setStep(1, false); $('setup-status').textContent = '';
       }
       document.body.classList.remove('gs-booting');
-      if (!current.required) { await loadGames(); watchScan();const notice=localStorage.getItem('gameshelf:restore-notice');if(notice){localStorage.removeItem('gameshelf:restore-notice');showNotification(notice);} }
+      if (!current.required) { await loadGames(); watchScan();if(localStorage.getItem('gameshelf:pending-tour')==='true'){localStorage.removeItem('gameshelf:pending-tour');window.GameShelfTour?.prepare();window.GameShelfTour?.offer();}const notice=localStorage.getItem('gameshelf:restore-notice');if(notice){localStorage.removeItem('gameshelf:restore-notice');showNotification(notice);} }
     } catch {
       $('boot-message').textContent = 'Could not connect to GameShelf. Try again when the server is ready.'; $('boot-retry').hidden = false;
     }
@@ -160,6 +161,7 @@
     try {
       const result = await jsonRequest('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) });
       serverSettings = result.settings || value; drafts.setup = []; $('setup-roots').value = ''; current.required = false;
+      if(window.GameShelfProfiles&&!await GameShelfProfiles.initialize()){if(tour)localStorage.setItem('gameshelf:pending-tour','true');return;}
       if(tour)window.GameShelfTour?.prepare();$('setup-page').hidden = true; document.body.classList.remove('gs-needs-setup'); syncSetupHeader(false);await loadGames(); showNotification('Your shelf is ready. Welcome to GameShelf!'); watchScan();
       if (tour) window.GameShelfTour?.offer();
     } catch (error) { $('setup-status').textContent = error.message; }
@@ -190,7 +192,7 @@
     $('network-use').setAttribute('aria-label',index===null?'Add Location':'Save location');
     $('network-protocol').value = source.protocol || 'smb'; $('network-url').value = source.url || ''; $('network-name').value = source.name || '';
     $('network-username').value = source.username || ''; $('network-password').value = source.password || ''; $('network-domain').value = source.domain || '';
-    $('network-password').placeholder = editorHasPassword && !source.password ? 'Saved — leave blank to keep' : 'Optional';
+    $('network-password').placeholder = editorHasPassword && !source.password ? '••••••••' : 'Optional';
     $('network-nfs-version').value = String(source.nfsVersion || 0); $('network-uid').value = String(source.uid || 10001); $('network-gid').value = String(source.gid || 10001);
     $('network-advanced').open = false; invalidateTest(); updateProtocol(); openModal($('network-editor-dialog'));
   }
