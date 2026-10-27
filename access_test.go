@@ -143,7 +143,7 @@ func TestFamilyPreventsResetRestoreAndPreferenceDeletionBypass(t *testing.T) {
 	if err != nil || !configured || policyMode(policy, "sources") != "pin" {
 		t.Fatal("policy replaced", err)
 	}
-	if r := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", map[string]any{"confirm": "WIPE", "acknowledgeBackup": true}, cookie); r.Code != 403 {
+	if r := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", map[string]any{"confirm": "Game Over", "acknowledgeBackup": true}, cookie); r.Code != 403 {
 		t.Fatal("Wipe bypassed disabled favorite removal", r.Code, r.Body.String())
 	}
 	// Navigation is never a restriction, so owners can always reach Family Controls.
@@ -174,7 +174,7 @@ func TestFamilyAttemptLimitsAndCorruptionFailClosed(t *testing.T) {
 }
 func TestFamilyBackupRulesWithoutSecretsAndFreshRestoreRequiresNewPIN(t *testing.T) {
 	setupFreshServer(t)
-	familyCreate(t, map[string]accessRule{"wipe": {"pin", false, ""}})
+	familyCreate(t, map[string]accessRule{"wipe": {"pin", false, ""}, "downloads": {"pin", false, ""}})
 	var backup bytes.Buffer
 	if err := writeLibraryBackupWithHealth(&backup, false, true, true, map[string]bool{}, nil, true); err != nil {
 		t.Fatal(err)
@@ -201,8 +201,11 @@ func TestFamilyBackupRulesWithoutSecretsAndFreshRestoreRequiresNewPIN(t *testing
 	settingsMu.Lock()
 	configuredSettings.Access = saved.Access
 	settingsMu.Unlock()
-	if r := familyGate(t, "/api/server-settings/reset", "POST", nil, nil); r.Code != 428 {
-		t.Fatal("restored policy silently opened", r.Code)
+	if r := familyGate(t, "/download/game", "GET", nil, nil); r.Code != 428 {
+		t.Fatal("restored download policy silently opened", r.Code)
+	}
+	if r := familyGate(t, "/api/server-settings/reset", "POST", nil, nil); r.Code != 204 {
+		t.Fatal("unprotected shelf required a new PIN just to Wipe", r.Code)
 	}
 	if r := familyCall(t, handleAccess, "PUT", "/api/access", map[string]any{"newPin": "1abc", "policy": saved.Access}, nil); r.Code != 400 {
 		t.Fatal("invalid PIN accepted", r.Code)
