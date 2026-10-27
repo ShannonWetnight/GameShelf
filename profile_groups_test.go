@@ -23,6 +23,7 @@ func TestPersonalApprovalCannotBecomeGuardianApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := familyCreate(t, nil)
+	setupRequired.Store(false)
 	pc := profileLoginTest(t, p.ID, nil)
 	unlock := profileGate(http.HandlerFunc(handleAccessUnlock))
 	w := profileTestCall(t, unlock, "POST", "/api/access/unlock", map[string]any{"pin": "2468", "actions": []string{"theme"}, "remember": true}, []*http.Cookie{c, pc}, nil)

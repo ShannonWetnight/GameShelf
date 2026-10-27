@@ -130,6 +130,9 @@ func cloneProfileDB(value *profileDatabase) *profileDatabase {
 	data, _ := json.Marshal(value)
 	var copy profileDatabase
 	json.Unmarshal(data, &copy)
+	if copy.Groups == nil {
+		copy.Groups = map[string]familyGroup{}
+	}
 	return &copy
 }
 func readProfileDBLocked() (*profileDatabase, error) {
