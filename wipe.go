@@ -148,6 +148,14 @@ func performGameOver(w http.ResponseWriter, r *http.Request) {
 	rootDirs = nil
 	dataDir = settingsHome
 	setActiveSources(nil)
+	scanProgressMu.Lock()
+	connectionStates = make(map[string]connectionState)
+	scanBusy, scanMessage = false, ""
+	scanProgressMu.Unlock()
+	nfsVersions.Clear()
+	manualRefreshMu.Lock()
+	manualRefreshHome, manualRefreshLast, manualRefreshActive = settingsHome, time.Time{}, false
+	manualRefreshMu.Unlock()
 	cachedIDs = nil
 	cachedIDRoot = ""
 	cachedIDData = ""
