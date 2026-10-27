@@ -30,25 +30,6 @@ func checkFreshPIN(w http.ResponseWriter, r *http.Request, actions []string) boo
 	return false
 }
 
-// Destructive confirmations use a new, single-use PIN permit. Remembered
-// grants and open-menu leases never satisfy this check.
-func checkFreshPIN(w http.ResponseWriter, r *http.Request, actions []string) bool {
-	_, configured, err := currentAccessPolicy()
-	if err != nil {
-		writeAccessError(w, 503, "access_unavailable", nil, "Guardian PIN is unavailable.")
-		return false
-	}
-	if !configured {
-		writeAccessError(w, 428, "pin_setup_required", actions, "Create a Guardian PIN before continuing.")
-		return false
-	}
-	if usePINPermit(w, r, actions) {
-		return true
-	}
-	writeAccessError(w, 423, "pin_required", actions, "Enter your Guardian PIN for this action.")
-	return false
-}
-
 // Stage only known application-owned paths beneath the original data home.
 // A rename failure is rolled back before anything is deleted. OpenRoot keeps
 // symlinks from turning a Wipe into deletion of games or unrelated host files.

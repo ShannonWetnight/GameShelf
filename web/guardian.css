@@ -64,3 +64,9 @@
 :root .gs-profile-summary [data-role="adult"],:root .gs-profile-caption [data-role="adult"]{--role-color:#70b8ff!important;}
 :root .gs-settings-section>legend+*{border-top:0!important;}
 :root #family-pin-dialog .gs-auto-guardian span{line-height:1.35;}
+
+:root .gs-settings-dialog [hidden]{display:none!important;}
+:root .gs-server-field select{height:40px;padding:8px 30px 8px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text);background-color:var(--input-background);font:inherit;cursor:pointer;}
+:root #family-guardian-field select{text-align:center;}
+:root #health-dialog{bottom:auto;}
+:root #health-dialog:not([style*="top"]){top:50%;transform:translateY(-50%);}

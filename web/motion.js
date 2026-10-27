@@ -13,7 +13,7 @@
   // it again double-counts that movement, especially while collapsing.
   if(element.tagName!=='DIALOG'&&element.id!=='setup-form'){frames[0].transform='translateY('+(before.top-next.top)+'px)';frames[1].transform='translateY(0)';}
   if(element.tagName==='DIALOG'){
-   top=Math.max(16,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-next.height-16));element.style.marginBlock='0';element.style.top=top+'px';
+   top=Math.max(16,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-next.height-16));element.style.marginBlock='0';element.style.bottom='auto';element.style.top=top+'px';
    frames[0].top=Math.max(12,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-Math.min(before.height,limit)-12))+'px';frames[1].top=top+'px';
   }
   element.classList.add('gs-resizing');const duration=typeof motionDuration==='function'?motionDuration(240):240;
@@ -22,12 +22,12 @@
  }
  function track(element){
   if(states.has(element))return;tracked.add(element);const state={previous:null,animation:null};states.set(element,state);new ResizeObserver(()=>resize(element)).observe(element);
-  if(element.tagName==='DIALOG')element.addEventListener('close',()=>{state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');state.previous=null;element.style.removeProperty('top');element.style.removeProperty('margin-block');});
+  if(element.tagName==='DIALOG')element.addEventListener('close',()=>{state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');state.previous=null;element.style.removeProperty('top');element.style.removeProperty('margin-block');element.style.removeProperty('bottom');});
  }
  for(const element of document.querySelectorAll('dialog,#setup-form'))track(element);
  const observer=new MutationObserver(records=>{for(const record of records){if(record.target.tagName==='DIALOG'&&record.attributeName==='open'){const state=states.get(record.target);if(record.target.open){state.animation?.cancel();state.animation=null;record.target.classList.remove('gs-resizing');state.previous=measure(record.target);}else state.previous=null;}for(const child of record.addedNodes||[])if(child.nodeType===1){if(child.matches('dialog'))track(child);child.querySelectorAll('dialog').forEach(track);}}});
  observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
- function reset(){for(const element of tracked){const state=states.get(element);state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');element.style.removeProperty('top');element.style.removeProperty('margin-block');state.previous=ready(element)?measure(element):null;}}
+ function reset(){for(const element of tracked){const state=states.get(element);state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');element.style.removeProperty('top');element.style.removeProperty('margin-block');element.style.removeProperty('bottom');state.previous=ready(element)?measure(element):null;}}
  for(const type of ['pointerdown','keydown'])document.addEventListener(type,()=>{for(const element of tracked){const state=states.get(element);if(ready(element)&&!state.animation)state.previous=measure(element);}},true);
 
  const detailsState=new WeakMap();

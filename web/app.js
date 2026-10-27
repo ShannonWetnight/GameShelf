@@ -2356,7 +2356,7 @@ function syncSetupResume(){
 
 function profileBackupKey(id){const value=document.getElementById(id).value;if(!value)return '';if([...value].length<8||new TextEncoder().encode(value).length>1024){showNotification('Use a backup passphrase of at least 8 characters.','error');return null;}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}
 
-addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),field=$('export-profile-key');
  field.addEventListener('input',()=>{$('export-unprotected-option').hidden=!!field.value;});
  $('backup-key-generate').addEventListener('click',()=>{const bytes=crypto.getRandomValues(new Uint8Array(20)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_';field.value=[...bytes].map(b=>alphabet[b%alphabet.length]).join('');field.dispatchEvent(new Event('input'));showNotification('Backup passphrase generated. Copy it somewhere safe.');animateControl($('backup-key-generate'));});
