@@ -380,6 +380,9 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 	}
 	policy = combinedAccessPolicy(r, policy)
 	wipeApproved := r.URL.Path == "/api/server-settings/reset" && hasWipeLease(r)
+	// Imported PIN rules carry no authority until a Guardian credential exists.
+	// Do not require creating a PIN merely to erase an unprotected shelf.
+	withoutPINWipe := !hasPIN && (r.URL.Path == "/api/server-settings/reset" || r.Context().Value(wipeEntryKey{}) == true)
 	required := []string{}
 	seen := map[string]bool{}
 	for _, action := range actions {
@@ -401,7 +404,7 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 			writeAccessError(w, 403, "action_disabled", []string{action}, accessActions[action]+" has been disabled by a GameShelf Guardian.")
 			return false
 		}
-		if mode == "pin" && !wipeApproved && !hasPINGrant(r, action) {
+		if mode == "pin" && !withoutPINWipe && !wipeApproved && !hasPINGrant(r, action) {
 			required = append(required, action)
 		}
 	}
@@ -951,6 +954,8 @@ func sortedAccessActions() []string {
 	return keys
 }
 
+type wipeEntryKey struct{}
+
 func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
 	// Serialize approval-to-lease promotion with PIN rotation and policy revocation.
 	accessConfigMu.Lock()
@@ -977,6 +982,7 @@ func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
 	actions := []string{value.Action}
 	if value.Action == "wipe" {
 		actions = resetAccessActions()
+		r = r.WithContext(context.WithValue(r.Context(), wipeEntryKey{}, true))
 	}
 	if value.Action == "advanced" || value.Action == "settings" && value.Level == "advanced" {
 		actions = append(actions, "settings", "advanced")

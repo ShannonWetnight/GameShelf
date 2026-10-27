@@ -24,3 +24,11 @@
 - Profile restrictions are enforced on catalogs, statistics, cover/file routes, and single/bulk ZIP downloads.
 - Profile/role changes revoke sessions; switching profiles clears Guardian unlocks. Login is rate limited, and private records fail closed when unreadable.
 - AES-256-GCM profile exports use a separately derived passphrase key. Restore validates the authenticated document before replacement and never imports Guardian PIN authority.
+
+## Guardian Profiles Update
+
+- Two Guardian PINs with unique profile links, an optional Guardian profile, and approvals bound to the signed-in Guardian.
+- Three built-in roles, additive grants with administrative warnings, personal profile editing, hidden profiles, required PIN changes, and Profile audit activity.
+- Fifty regular portraits, including twenty-five playful additions, plus an exclusive Guardian knight; matching cover/photo zoom and tilt tools.
+- Optional backup passphrases with explicit unencrypted-export consent, complete Game Over backup access, and one approval across both Wipe confirmations.
+- Staged setup libraries, persistent completion state, highlighted unfinished setup, compact source/health/PIN dialogs, aligned checkboxes, and cleaner category borders.

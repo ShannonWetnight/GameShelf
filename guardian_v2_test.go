@@ -289,3 +289,12 @@ func TestHiddenGuardianRemainsManageableAndProfileLogsDefaultOn(t *testing.T) {
 		t.Fatal("Profile activity cannot be disabled")
 	}
 }
+
+func TestUnprotectedImportedPINRulesDoNotDemandPINCreationToWipe(t *testing.T) {
+	setupFreshServer(t)
+	configuredSettings.Access = &accessPolicy{Rules: map[string]accessRule{"theme": {Mode: "pin"}, "settings": {Mode: "pin"}}}
+	w := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", map[string]any{"confirm": "Game Over", "acknowledgeBackup": true}, nil)
+	if w.Code != 200 {
+		t.Fatal("unprotected imported rules required a new PIN for wipe", w.Code, w.Body.String())
+	}
+}
