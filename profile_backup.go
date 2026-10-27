@@ -14,17 +14,21 @@ import (
 )
 
 type protectedProfiles struct {
-	Version int    `json:"version"`
-	Salt    string `json:"salt"`
-	Nonce   string `json:"nonce"`
-	Data    string `json:"data"`
+	Version int              `json:"version"`
+	Salt    string           `json:"salt"`
+	Nonce   string           `json:"nonce"`
+	Data    string           `json:"data"`
+	Plain   *profileDatabase `json:"plain,omitempty"`
 }
 
 func profileBackupKey(header string) (string, error) {
+	if header == "" {
+		return "", nil
+	}
 	data, err := base64.StdEncoding.DecodeString(header)
 	value := string(data)
-	if err != nil || len(data) > 1024 || !utf8.Valid(data) || utf8.RuneCount(data) < 12 || strings.TrimSpace(value) == "" {
-		return "", errors.New("Use a backup passphrase of at least 12 characters")
+	if err != nil || len(data) > 1024 || !utf8.Valid(data) || utf8.RuneCount(data) < 8 || strings.TrimSpace(value) == "" {
+		return "", errors.New("Use a backup passphrase of at least 8 characters")
 	}
 	return value, nil
 }
@@ -55,6 +59,13 @@ func encodeProfilesBackup(header string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if pass == "" {
+		var plain profileDatabase
+		if json.Unmarshal(data, &plain) != nil {
+			return nil, errors.New("Invalid profile data")
+		}
+		return json.Marshal(protectedProfiles{Version: 2, Plain: &plain})
+	}
 	salt := make([]byte, 16)
 	if _, err = rand.Read(salt); err != nil {
 		return nil, err
@@ -68,7 +79,7 @@ func encodeProfilesBackup(header string) ([]byte, error) {
 		return nil, err
 	}
 	sealed := aead.Seal(nil, nonce, data, []byte("GameShelf Family Profiles v1"))
-	return json.Marshal(protectedProfiles{1, base64.StdEncoding.EncodeToString(salt), base64.StdEncoding.EncodeToString(nonce), base64.StdEncoding.EncodeToString(sealed)})
+	return json.Marshal(protectedProfiles{Version: 1, Salt: base64.StdEncoding.EncodeToString(salt), Nonce: base64.StdEncoding.EncodeToString(nonce), Data: base64.StdEncoding.EncodeToString(sealed)})
 }
 func decodeProfilesBackup(data []byte, header string) (*profileDatabase, error) {
 	pass, err := profileBackupKey(header)
@@ -76,8 +87,21 @@ func decodeProfilesBackup(data []byte, header string) (*profileDatabase, error) 
 		return nil, err
 	}
 	var envelope protectedProfiles
-	if len(data) > 48<<20 || json.Unmarshal(data, &envelope) != nil || envelope.Version != 1 {
+	if len(data) > 48<<20 || json.Unmarshal(data, &envelope) != nil || (envelope.Version != 1 && envelope.Version != 2) {
 		return nil, errors.New("Invalid protected family profile backup")
+	}
+	if envelope.Version == 2 {
+		if envelope.Plain == nil {
+			return nil, errors.New("Invalid profile backup")
+		}
+		migrateFamilyRoles(envelope.Plain)
+		if err := validateProfileDB(envelope.Plain); err != nil {
+			return nil, err
+		}
+		return envelope.Plain, nil
+	}
+	if pass == "" {
+		return nil, errors.New("Enter the backup passphrase")
 	}
 	salt, e1 := base64.StdEncoding.DecodeString(envelope.Salt)
 	nonce, e2 := base64.StdEncoding.DecodeString(envelope.Nonce)
@@ -94,7 +118,11 @@ func decodeProfilesBackup(data []byte, header string) (*profileDatabase, error) 
 		return nil, errors.New("Backup passphrase did not match or profile data was changed")
 	}
 	var db profileDatabase
-	if json.Unmarshal(plain, &db) != nil || validateProfileDB(&db) != nil {
+	if json.Unmarshal(plain, &db) != nil {
+		return nil, errors.New("Invalid family profile data")
+	}
+	migrateFamilyRoles(&db)
+	if validateProfileDB(&db) != nil {
 		return nil, errors.New("Invalid family profile data")
 	}
 	return &db, nil

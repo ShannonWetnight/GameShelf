@@ -23,8 +23,8 @@ func TestStandaloneGuardianCanSignInWithoutAProfile(t *testing.T) {
 		}
 		RoleNames map[string]string
 	}
-	if json.Unmarshal(public.Body.Bytes(), &picker) != nil || len(picker.Profiles) != 1 || picker.Profiles[0].ID != "guardian" || picker.RoleNames["administrator"] != "Guardian" {
-		t.Fatal("standalone Guardian missing", public.Body.String())
+	if json.Unmarshal(public.Body.Bytes(), &picker) != nil || len(picker.Profiles) != 0 || picker.RoleNames["administrator"] != "Guardian" {
+		t.Fatal("unexpected automatic Guardian profile", public.Body.String())
 	}
 	login := familyCall(t, handleProfileLogin, "POST", "/api/profiles/login", map[string]string{"id": "guardian", "pin": "7392"}, nil)
 	if login.Code != 200 {

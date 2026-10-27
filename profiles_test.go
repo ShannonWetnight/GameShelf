@@ -207,19 +207,19 @@ func TestFamilyProfilesCatalogDirectRoutesAndPersonalState(t *testing.T) {
 	}
 }
 
-func TestFamilyProfileRolesMostRestrictiveAndFailClosedStorage(t *testing.T) {
+func TestFamilyProfileRolesGrantUnionAndFailClosedStorage(t *testing.T) {
 	setupFreshServer(t)
 	p := createProfileForTest(t, "Combined", []string{"administrator", "child"})
 	profileMu.Lock()
 	db, _ := readProfileDBLocked()
 	rules := mergedProfileRules(db, p)
 	profileMu.Unlock()
-	if rules["settings"].Mode != "disable" {
-		t.Fatal("less restrictive role won")
+	if rules["settings"].Mode != "allow" {
+		t.Fatal("granted role permission was lost")
 	}
 	r := httptest.NewRequest("GET", "/", nil).WithContext(context.WithValue(context.Background(), profileContextKey{}, &profileContext{Profile: p, Rules: rules, Epoch: 1}))
 	policy := combinedAccessPolicy(r, &accessPolicy{Rules: map[string]accessRule{"downloads": {Mode: "pin"}}})
-	if policyMode(policy, "downloads") != "pin" || policyMode(policy, "settings") != "disable" {
+	if policyMode(policy, "downloads") != "pin" || policyMode(policy, "settings") != "allow" {
 		t.Fatal("global restrictions lost")
 	}
 	if err := os.WriteFile(profilePath(), []byte("{broken"), 0600); err != nil {

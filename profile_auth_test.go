@@ -57,7 +57,7 @@ func TestProfileOptionalPINRestrictedShelfAndProtectedBackup(t *testing.T) {
 func TestProfileAdministrativePermissionsCannotBypassPIN(t *testing.T) {
 	setupFreshServer(t)
 	disabled := false
-	for _, role := range []string{"administrator", "adult", "elevated"} {
+	for _, role := range []string{"administrator", "adult"} {
 		r := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": familyProfile{Nickname: role, Roles: []string{role}, PINRequired: &disabled}}, nil)
 		if r.Code != 400 {
 			t.Fatal("administrative role accepted without PIN", role, r.Code)

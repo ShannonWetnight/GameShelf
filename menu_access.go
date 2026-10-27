@@ -10,7 +10,7 @@ import (
 
 func isMenuScope(action string) bool {
 	switch action {
-	case "settings", "advanced", "admin", "libraryManager", "sources", "storage", "refresh", "logging", "logs", "health", "healthView", "covers", "recentRange", "export", "restore":
+	case "wipe", "settings", "advanced", "admin", "libraryManager", "sources", "storage", "refresh", "logging", "logs", "health", "healthView", "covers", "recentRange", "export", "restore":
 		return true
 	}
 	return false
@@ -72,7 +72,7 @@ func issueMenuLease(w http.ResponseWriter, r *http.Request, actions []string) {
 	}
 	session.Menus[token] = lease
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"lease": token, "expiresAt": lease.Until, "gates": lease.Scopes})
+	json.NewEncoder(w).Encode(map[string]any{"lease": token, "expiresAt": lease.Until, "gates": lease.Scopes, "saved": true, "configured": true, "created": r.URL.Path == "/api/access" && r.Method == "PUT"})
 }
 func handleAccessLeave(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -101,4 +101,15 @@ func handleAccessLeave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(204)
+}
+
+func issueInitialGuardianLease(w http.ResponseWriter, r *http.Request) {
+	issueMenuLease(w, r, []string{"admin"})
+}
+
+func hasWipeLease(r *http.Request) bool {
+	accessMu.Lock()
+	defer accessMu.Unlock()
+	s := accessSessions[pinCookie(r)]
+	return guardianSessionAllowed(s, r) && s.Home == settingsHome && time.Now().Before(s.Expires) && menuAuthorized(s, r, "wipe")
 }

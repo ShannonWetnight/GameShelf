@@ -106,6 +106,8 @@ func main() {
 	mux.HandleFunc("/api/profiles/login", handleProfileLogin)
 	mux.HandleFunc("/api/profiles/logout", handleProfileLogout)
 	mux.HandleFunc("/api/profiles/catalog", handleProfileCatalog)
+ mux.HandleFunc("/api/profiles/self",handleProfileSelf)
+ mux.HandleFunc("/api/profiles/self/open",handleProfileSelf)
 	mux.HandleFunc("/api/access", handleAccess)
 	mux.HandleFunc("/api/access/leave", handleAccessLeave)
 	mux.HandleFunc("/api/access/unlock", handleAccessUnlock)
@@ -776,6 +778,7 @@ func handleLibraryBackup(w http.ResponseWriter, r *http.Request) {
 	includeHealth := r.URL.Query().Get("health") == "1"
 	var profileArchive []byte
 	if r.URL.Query().Get("profiles") == "1" {
+if strings.TrimSpace(r.Header.Get("X-GameShelf-Backup-Key"))==""&&r.URL.Query().Get("unprotected")!="1" {http.Error(w,"Confirm that profile data will be backed up without a passphrase.",400);return}
 		var err error
 		profileArchive, err = encodeProfilesBackup(r.Header.Get("X-GameShelf-Backup-Key"))
 		if err != nil {
@@ -1672,6 +1675,8 @@ func libraryRoots(settings serverSettings) []string {
 }
 
 type logOptions struct {
+ Profile bool `json:"profile"`
+ ProfileConfigured bool `json:"profileConfigured,omitempty"`
 	BaseConfigured bool `json:"baseConfigured,omitempty"`
 	System bool `json:"system"`
 	Library bool `json:"library"`
@@ -1687,11 +1692,12 @@ type logOptions struct {
 	Days int `json:"days"`
 }
 
-func defaultLogOptions() *logOptions { return &logOptions{BaseConfigured:true, System:true, Library:true, Errors:true, Health:true, Requests:true, Downloads:true, Scans:true, HealthConfigured:true, SizeMB:10, Days:0} }
+func defaultLogOptions() *logOptions { return &logOptions{Profile:true,ProfileConfigured:true,BaseConfigured:true, System:true, Library:true, Errors:true, Health:true, Requests:true, Downloads:true, Scans:true, HealthConfigured:true, SizeMB:10, Days:0} }
 
 func normalizeLogOptions(value *logOptions) *logOptions {
 	if value == nil { return defaultLogOptions() }
 	copy := *value
+ if !copy.ProfileConfigured {copy.Profile=true;copy.ProfileConfigured=true}
 	if !copy.BaseConfigured { copy.System, copy.Library, copy.Errors, copy.Health = true, true, true, true; copy.BaseConfigured = true }
 	if !copy.HealthConfigured {copy.Health=true;copy.HealthConfigured=true}
 	if copy.SizeMB == 0 { copy.SizeMB = 10 }
@@ -1703,6 +1709,7 @@ func logTypeEnabled(kind string) bool {
 	settingsMu.RLock(); options := normalizeLogOptions(configuredSettings.LogOptions); settingsMu.RUnlock()
 	custom := verboseLogging.Load()
 	switch kind {
+ case "profile":return !custom||options.Profile
 	case "system": return !custom || options.System
 	case "library": return !custom || options.Library
 	case "errors": return !custom || options.Errors
@@ -2113,7 +2120,7 @@ func handleSettingsEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		logEvent("system", "Display setting changed: %s=%s", key, preferences[key])
+		logEvent("system", "Display setting changed: %s=%s", key, preferences[key]);auditProfile(r,"Changed display setting "+key)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

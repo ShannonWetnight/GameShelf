@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"os"
+	"strings"
 )
 
 // A Guardian can use the shared PIN without creating a persistent profile.
@@ -23,13 +24,9 @@ func guardianProfilePicker(db *profileDatabase) bool {
 	if !db.Enabled || !guardianAvailable() {
 		return false
 	}
-	for _, p := range db.Profiles {
-		if p.UsesGuardianPIN {
-			return false
-		}
-	}
-	return true
+	return false
 }
+
 func profilePINVerifier(p familyProfile) ([]byte, []byte, int, error) {
 	if p.UsesGuardianPIN {
 		record, err := readPINRecord()
@@ -39,8 +36,12 @@ func profilePINVerifier(p familyProfile) ([]byte, []byte, int, error) {
 		if record == nil {
 			return nil, nil, 0, os.ErrNotExist
 		}
-		salt, _ := base64.StdEncoding.DecodeString(record.Salt)
-		hash, _ := base64.StdEncoding.DecodeString(record.Hash)
+		c, ok := guardianCredentialByID(record, p.GuardianID)
+		if !ok {
+			return nil, nil, 0, os.ErrNotExist
+		}
+		salt, _ := base64.StdEncoding.DecodeString(c.Salt)
+		hash, _ := base64.StdEncoding.DecodeString(c.Hash)
 		return salt, hash, record.Iterations, nil
 	}
 	salt, _ := base64.StdEncoding.DecodeString(p.Salt)
@@ -53,9 +54,31 @@ func revokeGuardianProfiles() {
 	profileMu.Lock()
 	defer profileMu.Unlock()
 	db, err := readProfileDBLocked()
+	profileEdits = map[string]profileEditSession{}
 	for token, s := range profileSessions {
 		if s.Guardian || err != nil || db.Profiles[s.Profile].UsesGuardianPIN {
 			delete(profileSessions, token)
 		}
 	}
+}
+
+func autoGuardianProfile(id string) error {
+	profileMu.Lock()
+	defer profileMu.Unlock()
+	db, err := readProfileDBLocked()
+	if err != nil {
+		return err
+	}
+	for _, p := range db.Profiles {
+		if p.UsesGuardianPIN && guardianID(p.GuardianID) == id {
+			return nil
+		}
+	}
+	copy := cloneProfileDB(db)
+	p := standaloneGuardian()
+	p.ID = "p-" + id
+	p.GuardianID = id
+	p.Nickname = "GameShelf " + strings.Replace(id, "guardian-", "Guardian ", 1)
+	copy.Profiles[p.ID] = p
+	return saveProfileDBLocked(copy, true)
 }

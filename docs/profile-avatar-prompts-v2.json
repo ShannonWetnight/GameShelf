@@ -1,0 +1,132 @@
+[
+  {
+    "id": "moonlit-knight",
+    "prompt": "Original silver-armored Moonlit Knight with cobalt cloak, warm smile, twilight castle; square GameShelf portrait.",
+    "asset": "web/profile-avatars/moonlit-knight.webp"
+  },
+  {
+    "id": "kid-star-cadet",
+    "prompt": "Use case: stylized-concept. Asset type: one square GameShelf profile portrait. Subject: a cheerful child astronaut with dark skin and a violet space helmet, tiny friendly planets. Original kid-friendly game genre avatar, delightful polished animated-film illustration with a soft 3D painted finish, warm expressive face, head and shoulders centered and large within a 1:1 frame. Rich harmonious colors, softly detailed genre background. Must be clearly legible at 64 pixels, welcoming and whimsical, varied subjects celebrating adventure, cozy games, racing, puzzles and imagination. No text, no logos, no border, no watermark, no weapons, no recognizable existing franchise. Produce only this single portrait.",
+    "asset": "web/profile-avatars/kid-star-cadet.webp"
+  },
+  {
+    "id": "kid-dino-ranger",
+    "prompt": "Use case: stylized-concept. Asset type: one square GameShelf profile portrait. Subject: a friendly round orange dinosaur explorer in a safari hat, lush prehistoric jungle. Original kid-friendly game genre avatar, delightful polished animated-film illustration with a soft 3D painted finish, warm expressive face, head and shoulders centered and large within a 1:1 frame. Rich harmonious colors, softly detailed genre background. Must be clearly legible at 64 pixels, welcoming and whimsical, varied subjects celebrating adventure, cozy games, racing, puzzles and imagination. No text, no logos, no border, no watermark, no weapons, no recognizable existing franchise. Produce only this single portrait.",
+    "asset": "web/profile-avatars/kid-dino-ranger.webp"
+  },
+  {
+    "id": "kid-dragon-friend",
+    "prompt": "Use case: stylized-concept. Asset type: one square GameShelf profile portrait. Subject: a cuddly mint-green baby dragon with amber eyes, floating cloud islands. Original kid-friendly game genre avatar, delightful polished animated-film illustration with a soft 3D painted finish, warm expressive face, head and shoulders centered and large within a 1:1 frame. Rich harmonious colors, softly detailed genre background. Must be clearly legible at 64 pixels, welcoming and whimsical, varied subjects celebrating adventure, cozy games, racing, puzzles and imagination. No text, no logos, no border, no watermark, no weapons, no recognizable existing franchise. Produce only this single portrait.",
+    "asset": "web/profile-avatars/kid-dragon-friend.webp"
+  },
+  {
+    "id": "kid-forest-scout",
+    "prompt": "Original storybook-style GameShelf avatar: a cheerful squirrel forest scout wearing a green hood in a magical woodland. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-forest-scout.webp"
+  },
+  {
+    "id": "kid-robot-builder",
+    "prompt": "Original storybook-style GameShelf avatar: a small yellow toy robot with oversized turquoise eyes, colorful building blocks. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-robot-builder.webp"
+  },
+  {
+    "id": "kid-ocean-explorer",
+    "prompt": "Original storybook-style GameShelf avatar: a child ocean explorer with brown skin and a coral diving mask, vibrant reef. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-ocean-explorer.webp"
+  },
+  {
+    "id": "kid-rainbow-racer",
+    "prompt": "Original storybook-style GameShelf avatar: a young kart racer girl in a bright rainbow helmet, playful neon track. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-rainbow-racer.webp"
+  },
+  {
+    "id": "kid-moon-wizard",
+    "prompt": "Original storybook-style GameShelf avatar: a smiling little wizard with blue curls, starry purple hat, glowing moons. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-moon-wizard.webp"
+  },
+  {
+    "id": "kid-puzzle-panda",
+    "prompt": "Original storybook-style GameShelf avatar: a playful panda wearing round glasses and a turquoise scarf, puzzle islands. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-puzzle-panda.webp"
+  },
+  {
+    "id": "kid-pirate-pup",
+    "prompt": "Original storybook-style GameShelf avatar: a happy golden puppy pirate with a purple bandana, sunny treasure cove. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-pirate-pup.webp"
+  },
+  {
+    "id": "kid-cosmic-cat",
+    "prompt": "Original storybook-style GameShelf avatar: a fluffy lavender space kitten with a tiny bubble helmet, sparkling nebula. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-cosmic-cat.webp"
+  },
+  {
+    "id": "kid-fairy-gardener",
+    "prompt": "Original storybook-style GameShelf avatar: a young fairy gardener with deep brown skin, pink flower hat and leaf wings. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-fairy-gardener.webp"
+  },
+  {
+    "id": "kid-castle-knight",
+    "prompt": "Original storybook-style GameShelf avatar: a brave smiling child knight with silver armor and a cherry-red plume, pastel castle. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-castle-knight.webp"
+  },
+  {
+    "id": "kid-sky-pilot",
+    "prompt": "Original storybook-style GameShelf avatar: a young East Asian child pilot in teal goggles, whimsical flying airship. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-sky-pilot.webp"
+  },
+  {
+    "id": "kid-music-sprite",
+    "prompt": "Original storybook-style GameShelf avatar: a joyful child musician with warm brown skin, orange headphones and sparkling music notes. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-music-sprite.webp"
+  },
+  {
+    "id": "kid-snow-fox",
+    "prompt": "Original storybook-style GameShelf avatar: a fluffy white arctic fox wearing a cobalt scarf, snowflake forest. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-snow-fox.webp"
+  },
+  {
+    "id": "kid-river-otter",
+    "prompt": "Original storybook-style GameShelf avatar: an adorable river otter adventurer with a blue backpack, sunlit waterfall. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-river-otter.webp"
+  },
+  {
+    "id": "kid-mushroom-mage",
+    "prompt": "Original storybook-style GameShelf avatar: a tiny friendly mushroom character in a red spotted cap, magical moss village. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-mushroom-mage.webp"
+  },
+  {
+    "id": "kid-bubble-chef",
+    "prompt": "Original storybook-style GameShelf avatar: a smiling child chef in a turquoise toque, whimsical floating pastries. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-bubble-chef.webp"
+  },
+  {
+    "id": "kid-basketball-bear",
+    "prompt": "Original storybook-style GameShelf avatar: a friendly teddy bear basketball player in a green jersey, colorful park court. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-basketball-bear.webp"
+  },
+  {
+    "id": "kid-gem-miner",
+    "prompt": "Original storybook-style GameShelf avatar: a cheerful young child miner with brown skin and a teal helmet lamp, bright crystal cave. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-gem-miner.webp"
+  },
+  {
+    "id": "kid-lunar-bunny",
+    "prompt": "Original storybook-style GameShelf avatar: a cute silver bunny moon explorer with gold ears, pastel lunar garden. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-lunar-bunny.webp"
+  },
+  {
+    "id": "kid-garden-turtle",
+    "prompt": "Original storybook-style GameShelf avatar: a happy baby turtle gardener with a flower on its shell, peach garden. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-garden-turtle.webp"
+  },
+  {
+    "id": "kid-cloud-surfer",
+    "prompt": "Original storybook-style GameShelf avatar: a smiling child with wavy dark hair and magenta goggles, surfing soft clouds. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-cloud-surfer.webp"
+  },
+  {
+    "id": "kid-clockwork-owl",
+    "prompt": "Original storybook-style GameShelf avatar: a friendly clockwork owl with brass feathers and blue eyes, cozy tinkerer workshop. One wholesome cheerful square portrait for a family game library. Bright welcoming colors, large friendly face centered, appealing polished cartoon illustration, fully clothed characters, soft genre scenery. Suitable for young children. No writing, no logos, no weapon, no watermark. One image, 1:1 square.",
+    "asset": "web/profile-avatars/kid-clockwork-owl.webp"
+  }
+]

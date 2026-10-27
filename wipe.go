@@ -106,7 +106,10 @@ func performGameOver(w http.ResponseWriter, r *http.Request) {
 	}
 	accessConfigMu.Lock()
 	defer accessConfigMu.Unlock()
-	if !checkAccess(w, r, resetAccessActions()) || !checkFreshPIN(w, r, []string{"wipe"}) {
+	if !checkAccess(w, r, resetAccessActions()) {
+		return
+	}
+	if _, configured, _ := currentAccessPolicy(); configured && !hasWipeLease(r) && !checkFreshPIN(w, r, resetAccessActions()) {
 		return
 	}
 	var confirmation struct {
@@ -115,7 +118,7 @@ func performGameOver(w http.ResponseWriter, r *http.Request) {
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&confirmation) != nil || decoder.Decode(new(any)) != io.EOF || confirmation.Confirm != "WIPE" || !confirmation.AcknowledgeBackup {
+	if decoder.Decode(&confirmation) != nil || decoder.Decode(new(any)) != io.EOF || confirmation.Confirm != "Game Over" || !confirmation.AcknowledgeBackup {
 		http.Error(w, "Confirm the backup reminder and Wipe before continuing.", 400)
 		return
 	}
@@ -139,6 +142,7 @@ func performGameOver(w http.ResponseWriter, r *http.Request) {
 	profileCache = nil
 	profileCacheHome = ""
 	profileSessions = map[string]profileSession{}
+	profileEdits = map[string]profileEditSession{}
 	profileAttempts = map[string]pinBudget{}
 	accessMu.Lock()
 	accessSessions = map[string]*pinSession{}
@@ -174,8 +178,12 @@ func performGameOver(w http.ResponseWriter, r *http.Request) {
 	setupRequired.Store(true)
 	notifyRefreshSchedule()
 	notifyHealthSchedule()
-	for _, name := range []string{"gameshelf-family", "gameshelf-profile", "gameshelf-once"} {
-		http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
+	for _, name := range []string{"gameshelf-family", "gameshelf-profile", "gameshelf-once", "gameshelf-profile-edit"} {
+		path := "/"
+		if name == "gameshelf-profile-edit" {
+			path = "/api/profiles"
+		}
+		http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"wiped": true, "setupRequired": true})

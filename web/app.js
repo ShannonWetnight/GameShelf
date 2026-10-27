@@ -235,8 +235,8 @@ async function exportLibraryData() {
   const checked = [...document.querySelectorAll('#export-options input:checked')];
   const includeProfiles=!document.getElementById('export-profile-options').hidden&&document.getElementById('export-profiles').checked;
   if (!checked.length&&!includeProfiles) { showNotification('Select at least one item.','error'); return; }
-  const backupKey=includeProfiles?profileBackupKey('export-profile-key'):'';if(includeProfiles&&!backupKey)return;
-  const params = new URLSearchParams({ select: '1' });if(includeProfiles)params.set('profiles','1');
+  const backupKey=includeProfiles?profileBackupKey('export-profile-key'):'';if(includeProfiles&&backupKey===null)return;if(includeProfiles&&!backupKey&&!document.getElementById('export-unprotected-ack').checked){showNotification('Acknowledge the unencrypted backup warning, or enter a passphrase.','error');return;}
+  const params = new URLSearchParams({ select: '1' });if(includeProfiles){params.set('profiles','1');if(!backupKey)params.set('unprotected','1');}
   for (const input of checked) {
     if (input.dataset.kind === 'state') params.set('state', '1');
     else if (input.dataset.kind === 'logs') params.set('logs', '1');
@@ -1726,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', () => {
     exportAll.checked = true; exportAll.indeterminate = false;
     document.getElementById('export-status').textContent = '';
     document.getElementById('export-credentials-note').hidden = !(serverSettings?.sources || []).some(source => source.protocol !== 'nfs' && (source.hasPassword || source.username));
-    document.getElementById('export-profile-key').value='';document.getElementById('export-profile-options').hidden=true;document.getElementById('export-profiles').checked=false;
+    document.getElementById('export-profile-key').value='';document.getElementById('export-profile-key').type='password';document.getElementById('export-unprotected-ack').checked=false;document.getElementById('export-unprotected-option').hidden=false;document.getElementById('export-profile-options').hidden=true;document.getElementById('export-profiles').checked=false;
     if(window.GameShelfProfiles){try{const available=await GameShelfProfiles.hasProfiles();document.getElementById('export-profile-options').hidden=!available;document.getElementById('export-profiles').checked=available;document.getElementById('export-profile-key-field').hidden=!available;}catch{/* A normal export remains available. */}}
     openModal(exportDialog);
   });
@@ -1862,23 +1862,23 @@ document.addEventListener('DOMContentLoaded', () => {
   listImageDialog.addEventListener('pointercancel',()=>{previewPress=null;});
   listImageDialog.addEventListener('click',event=>{const still=!previewPress||Math.hypot(event.clientX-previewPress.x,event.clientY-previewPress.y)<8;previewPress=null;if(still)listImageDialog.close();});
   const resetSettingsDialog = document.getElementById('reset-settings-dialog');
-  document.getElementById('open-reset-settings').addEventListener('click', () => { document.getElementById('reset-settings-status').textContent = '';document.getElementById('wipe-backup-ack').checked=false;document.getElementById('wipe-continue').disabled=true; openModal(resetSettingsDialog); });
+  document.getElementById('open-reset-settings').addEventListener('click', async () => {if(window.GameShelfAccess&&!await GameShelfAccess.enter('wipe'))return; document.getElementById('reset-settings-status').textContent = '';document.getElementById('wipe-backup-ack').checked=false;document.getElementById('wipe-continue').disabled=true; openModal(resetSettingsDialog); });
   for (const id of ['reset-settings-close', 'reset-settings-cancel']) document.getElementById(id).addEventListener('click', () => resetSettingsDialog.close());
   closeOnBackdropClick(resetSettingsDialog);
   document.getElementById('wipe-export-data').addEventListener('click',()=>document.getElementById('export-library-data').click());
   document.getElementById('wipe-continue').addEventListener('click',async()=>{
     if(!document.getElementById('wipe-backup-ack').checked)return;
-    if(window.GameShelfAccess&&!GameShelfAccess.configured()&&!await GameShelfAccess.openPIN())return;
+
     document.getElementById('wipe-confirm-text').value='';document.getElementById('reset-settings-confirm').disabled=true;openModal(document.getElementById('wipe-final-dialog'));
   });
-  document.getElementById('wipe-confirm-text').addEventListener('input',event=>document.getElementById('reset-settings-confirm').disabled=event.target.value!=='WIPE');
+  document.getElementById('wipe-confirm-text').addEventListener('input',event=>document.getElementById('reset-settings-confirm').disabled=event.target.value!=='Game Over');
   for(const id of ['wipe-final-close','wipe-final-cancel'])document.getElementById(id).addEventListener('click',()=>document.getElementById('wipe-final-dialog').close());
   closeOnBackdropClick(document.getElementById('wipe-final-dialog'));
   document.getElementById('wipe-backup-ack').addEventListener('change',event=>document.getElementById('wipe-continue').disabled=!event.target.checked);
   document.getElementById('reset-settings-confirm').addEventListener('click',async()=>{
     const button=document.getElementById('reset-settings-confirm');if(button.disabled)return;button.disabled=true;
-    try{if(window.GameShelfAccess&&!await GameShelfAccess.fresh(['wipe','admin',...GameShelfAccess.actionsFor('wipe')]))return;
-      const response=await fetch('/api/server-settings/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'WIPE',acknowledgeBackup:true})});if(!response.ok)throw new Error((await response.text()).trim()||'Could not wipe GameShelf.');
+    try{
+      const response=await fetch('/api/server-settings/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'Game Over',acknowledgeBackup:true})});if(!response.ok)throw new Error((await response.text()).trim()||'Could not wipe GameShelf.');
       for(const storage of [localStorage,sessionStorage])for(const key of Object.keys(storage))if(key.startsWith('gameshelf:'))storage.removeItem(key);
       showNotification('GameShelf data wiped. Returning to setup…');setTimeout(()=>window.location.reload(),800);
     }catch(error){showNotification(error.message,'error');}finally{button.disabled=false;}
@@ -1940,7 +1940,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const logConfigDialog = document.getElementById('log-config-dialog');
   const logVerbose = document.getElementById('log-verbose');
-  const logKinds = ['system', 'library', 'errors', 'requests', 'scans', 'downloads', 'health'];
+  const logKinds = ['system', 'library', 'errors', 'requests', 'scans', 'downloads', 'health','profile'];
   const logTypeInputs = logKinds.map(kind => document.getElementById(`log-${kind}`));
   const logDaysOverride = document.getElementById('log-override-days');
   const logSizeOverride = document.getElementById('log-override-size');
@@ -1972,7 +1972,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = document.getElementById('log-config-save');
     const options = {
       baseConfigured:true, system:logTypeInputs[0].checked, library:logTypeInputs[1].checked, errors:logTypeInputs[2].checked,
-      requests:logTypeInputs[3].checked, scans:logTypeInputs[4].checked, downloads:logTypeInputs[5].checked, health:logTypeInputs[6].checked, healthConfigured:true,
+      requests:logTypeInputs[3].checked, scans:logTypeInputs[4].checked, downloads:logTypeInputs[5].checked, health:logTypeInputs[6].checked, healthConfigured:true,profile:logTypeInputs[7].checked,profileConfigured:true,
       overrideDays:logDaysOverride.checked, days:logDaysOverride.checked?Number(logDays.value):0, overrideSize:logSizeOverride.checked, sizeMB:Number(logSize.value)
     };
     if (!Number.isInteger(options.days) || options.days < 0 || options.days > 3650 || (options.overrideDays && options.days < 1) || !Number.isInteger(options.sizeMB) || options.sizeMB < 1 || options.sizeMB > 100) {
@@ -1998,7 +1998,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showFilteredLogs() {
     const included = new Set(logFilters.filter(input => input.checked).map(input => input.value));
     const lines = rawLogs.split('\n').filter(line => {
-      const type = (line.match(/\[(system|library|errors|request|scan|download|health)\]/) || [,'system'])[1];
+      const type = (line.match(/\[(system|library|errors|request|scan|download|health|profile)\]/) || [,'system'])[1];
       return included.has(type);
     });
     logsContent.textContent = lines.join('\n');
@@ -2050,7 +2050,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   logsDownload.addEventListener('click', async () => {
     if(!logsContent.textContent||logsDownload.disabled)return;logsDownload.disabled=true;
-    try{const response=await fetch('/api/logs?export=1',{cache:'no-store'});if(!response.ok)throw new Error('Could not export logs.');const snapshot=await response.text();const all=snapshot.trimEnd().split('\n'),exportEntry=all.pop();const included=new Set(logFilters.filter(input=>input.checked).map(input=>input.value));const selected=all.filter(line=>included.has((line.match(/\[(system|library|errors|request|scan|download|health)\]/)||[,'system'])[1]));selected.push(exportEntry);const url=URL.createObjectURL(new Blob([selected.join('\n')+'\n'],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='gameshelf-logs.txt';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);animateControl(logsDownload);}
+    try{const response=await fetch('/api/logs?export=1',{cache:'no-store'});if(!response.ok)throw new Error('Could not export logs.');const snapshot=await response.text();const all=snapshot.trimEnd().split('\n'),exportEntry=all.pop();const included=new Set(logFilters.filter(input=>input.checked).map(input=>input.value));const selected=all.filter(line=>included.has((line.match(/\[(system|library|errors|request|scan|download|health|profile)\]/)||[,'system'])[1]));selected.push(exportEntry);const url=URL.createObjectURL(new Blob([selected.join('\n')+'\n'],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download='gameshelf-logs.txt';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);animateControl(logsDownload);}
     catch{showNotification('Could not export logs. Try again.');}finally{logsDownload.disabled=false;}
   });
   document.getElementById('logs-close').addEventListener('click', () => logsDialog.close());
@@ -2351,7 +2351,15 @@ async function saveCoverStretch(){
 }
 function syncSetupResume(){
  const value=serverSettings;if(!value)return;const hasLibrary=value.rootDir||value.rootDirs?.length||value.sources?.length;
- document.getElementById('resume-setup-option').hidden=!(value.setupStatus==='pending'||value.setupStatus==='skipped'||(!value.setupStatus&&!hasLibrary));
+ const unfinished=value.setupStatus==='skipped'||(!value.setupCompleted&&(value.setupStatus==='pending'||!value.setupStatus));document.getElementById('resume-setup-option').hidden=!unfinished;document.getElementById('resume-setup-option').classList.toggle('gs-setup-pending',unfinished);
 }
 
-function profileBackupKey(id){const value=document.getElementById(id).value;if([...value].length<12||new TextEncoder().encode(value).length>1024){showNotification('Use a backup passphrase of at least 12 characters.','error');return '';}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}
+function profileBackupKey(id){const value=document.getElementById(id).value;if(!value)return '';if([...value].length<8||new TextEncoder().encode(value).length>1024){showNotification('Use a backup passphrase of at least 8 characters.','error');return null;}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}
+
+document.addEventListener('DOMContentLoaded',()=>{
+ const $=id=>document.getElementById(id),field=$('export-profile-key');
+ field.addEventListener('input',()=>{$('export-unprotected-option').hidden=!!field.value;});
+ $('backup-key-generate').addEventListener('click',()=>{const bytes=crypto.getRandomValues(new Uint8Array(20)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_';field.value=[...bytes].map(b=>alphabet[b%alphabet.length]).join('');field.dispatchEvent(new Event('input'));showNotification('Backup passphrase generated. Copy it somewhere safe.');animateControl($('backup-key-generate'));});
+ $('backup-key-copy').addEventListener('click',async()=>{if(!field.value){showNotification('Enter or generate a passphrase first.','error');return;}try{await navigator.clipboard.writeText(field.value);showNotification('Backup passphrase copied.');animateControl($('backup-key-copy'));}catch{showNotification('Clipboard is unavailable. Select and copy the passphrase.','error');}});
+ $('backup-key-show').addEventListener('click',()=>{field.type=field.type==='password'?'text':'password';$('backup-key-show').dataset.tooltip=field.type==='password'?'Show passphrase':'Hide passphrase';$('backup-key-show').setAttribute('aria-label',$('backup-key-show').dataset.tooltip);animateControl($('backup-key-show'));});
+});

@@ -274,7 +274,8 @@
   }
   $('source-alert-manage').addEventListener('click',async()=>{if(await window.GameShelfLibraryManager?.open())$('open-server-settings').click();});
   function beginSaveProgress() { readStatus(); const timer=setInterval(readStatus,1200);return ()=>clearInterval(timer); }
-  window.GameShelfSetup = { openOptions, beginSaveProgress, boot, initialize: boot, prepareSettings, settingsSources, savedSettings, watchScan };
+  async function stageForProfiles(){if(!document.body.classList.contains('gs-needs-setup'))return;const paths=roots('setup');const value={...serverSettings,rootDir:paths[0]||'',rootDirs:paths,sources:drafts.setup,dataDir:$('setup-data').value.trim()||'/data'};const result=await jsonRequest('/api/setup?draft=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});serverSettings=result.settings||value;populate('setup',serverSettings);}
+  window.GameShelfSetup = { stageForProfiles, openOptions, beginSaveProgress, boot, initialize: boot, prepareSettings, settingsSources, savedSettings, watchScan };
 })();
 
 (() => {

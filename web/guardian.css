@@ -1,0 +1,74 @@
+/* Shared geometry keeps controls aligned at every theme and supported scale. */
+.gs-settings-dialog label:has(>input[type="checkbox"]){align-items:center;}
+.gs-settings-dialog input[type="checkbox"]{flex:none;vertical-align:middle;align-self:center;margin-block:0;}
+.gs-settings-dialog .gs-profile-choice{display:flex;align-items:center;gap:9px;}
+:root #reset-settings-dialog fieldset{border-color:#ffb329!important;}
+:root #reset-settings-dialog legend{color:#ffb329;}
+:root #settings-dialog fieldset.gs-settings-section{overflow:visible;padding:0 0 10px;}
+:root #settings-dialog .gs-settings-section>legend+*{border-top:0!important;}
+:root #settings-dialog .gs-settings-section>legend{margin-left:12px;display:table;width:auto;padding:0 8px;line-height:1.3;}
+:root #family-pin-dialog{width:min(420px,calc((100dvw - 24px)/var(--ui-scale)));padding:18px;}
+#family-pin-dialog .gs-settings-header{margin-bottom:14px;}
+#family-pin-dialog .gs-family-pin-fields{gap:12px;}
+#family-pin-dialog .gs-server-field{margin:0 0 10px;font-size:.82rem;}
+#family-pin-dialog .gs-family-remembrance{margin:2px 0 10px;font-size:.78rem;gap:10px;}
+#family-pin-dialog .gs-family-remembrance input[type="number"]{width:54px;height:34px;}
+#family-pin-dialog .gs-auto-guardian{font-size:.78rem;margin:8px 0 0;}
+#family-pin-dialog .gs-export-actions{margin-top:14px;}
+:root #roles-list{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;}
+:root #roles-list .gs-profile-row{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;min-height:112px;padding:14px 8px;}
+:root [data-role="adult"]{--role-color:#70b8ff;}
+:root[data-theme="light"] [data-role="adult"],:root[data-theme="cartridge"] [data-role="adult"]{--role-color:#246ca8;}
+.gs-role-badge{cursor:help;}
+#profile-role-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+#profile-role-choices .gs-profile-choice{position:relative;justify-content:center;text-align:center;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:12px 8px;margin:0;cursor:pointer;}
+#profile-role-choices .gs-profile-choice:has(input:checked){border-color:var(--accent);background:var(--accent-soft);}
+#profile-role-choices input{position:absolute;opacity:0;width:1px;height:1px;}
+#profile-role-choices .gs-profile-choice:focus-within{outline:2px solid var(--accent);outline-offset:2px;}
+.gs-profile-pin-actions{display:flex;gap:8px;justify-content:flex-end;margin:6px 0 10px;}
+.gs-profile-entry.is-hidden-profile{opacity:.6;}
+.gs-guardian-mark{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;color:#ffc34f;}
+.gs-guardian-mark svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.gs-picker-entry{position:relative;min-width:0;}
+.gs-picker-entry .gs-profile-tile{width:100%;}
+.gs-profile-edit-dots{position:absolute;top:5px;right:5px;z-index:2;width:36px;height:36px;display:grid;place-items:center;background:#080d1680!important;border-color:transparent!important;color:#fff!important;border-radius:8px;}
+.gs-profile-edit-dots:hover{color:var(--accent)!important;transform:scale(1.08);}
+.gs-profile-edit-dots svg{width:22px;height:22px;fill:currentColor;stroke:none;}
+.gs-cover-workspace{display:grid;grid-template-columns:44px minmax(0,280px) 44px;gap:18px;align-items:center;justify-content:center;margin-inline:auto;}
+:root #cover-preview{width:100%;margin:0;}
+.gs-cover-workspace .gs-avatar-side input[type="range"]{height:180px;}
+:root .gs-cover-editor{width:min(465px,calc((100dvw - 24px)/var(--ui-scale)));}
+.gs-cover-workspace .gs-avatar-side{margin:0!important;}
+.gs-avatar-preview{position:relative;overflow:hidden;}
+.gs-avatar-grid{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0;background:linear-gradient(to right,transparent calc(33.333% - .5px),#ffffff99 33.333%,transparent calc(33.333% + .5px),transparent calc(66.666% - .5px),#ffffff99 66.666%,transparent calc(66.666% + .5px)),linear-gradient(to bottom,transparent calc(33.333% - .5px),#ffffff99 33.333%,transparent calc(33.333% + .5px),transparent calc(66.666% - .5px),#ffffff99 66.666%,transparent calc(66.666% + .5px));transition:opacity .16s ease;}
+.gs-avatar-dialog.is-manipulating .gs-avatar-grid{opacity:1;}
+.gs-avatar-preview canvas{cursor:grab;touch-action:none;}
+.gs-avatar-dialog.is-manipulating canvas{cursor:grabbing;}
+:root #export-options{border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px;box-sizing:border-box;}
+.gs-backup-key-tools{display:flex;justify-content:flex-end;gap:4px;margin-top:4px;}
+.gs-backup-key-tools svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;}
+#export-unprotected-option{font-size:.76rem;color:var(--text-muted);line-height:1.45;}
+:root #server-settings-dialog,:root #health-dialog{min-height:0;height:auto;}
+#server-settings-status:empty,#health-status:empty{display:none;}
+#server-settings-dialog .gs-export-actions{margin-top:14px;}
+.gs-health-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:14px;}
+.gs-health-footer .gs-health-legend{margin:0;}
+.gs-health-footer button{flex:none;}
+.gs-source-list{padding:3px;margin-inline:-3px!important;width:calc(100% + 6px)!important;box-sizing:border-box;}
+.gs-setup-pending{border:1px solid var(--accent)!important;border-radius:var(--radius-sm)!important;background:var(--accent-soft)!important;}
+.gs-profile-self .gs-profile-identity{grid-template-columns:100px minmax(0,1fr);}
+#profile-self-photo{width:100px;height:100px;padding:0;overflow:hidden;}
+#profile-self-image{width:100%;height:100%;object-fit:cover;}
+@media(max-width:600px){.gs-cover-workspace{grid-template-columns:32px minmax(0,240px) 32px;gap:10px;}.gs-cover-workspace .gs-avatar-side input[type="range"]{height:135px;}#profile-role-choices{gap:6px;}#profile-role-choices .gs-profile-choice{padding:10px 4px;}#roles-list .gs-profile-row{min-height:100px!important;}.gs-health-footer{gap:10px;}.gs-health-footer .gs-health-legend{font-size:.68rem;}}
+
+:root .gs-profile-summary [data-role="adult"],:root .gs-profile-caption [data-role="adult"]{--role-color:#70b8ff!important;}
+:root .gs-settings-section>legend+*{border-top:0!important;}
+:root #family-pin-dialog .gs-auto-guardian span{line-height:1.35;}
+
+:root .gs-settings-dialog [hidden]{display:none!important;}
+:root .gs-server-field select{height:40px;padding:8px 30px 8px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text);background-color:var(--input-background);font:inherit;cursor:pointer;}
+:root #family-guardian-field select{text-align:center;}
+:root #health-dialog{bottom:auto;}
+:root #health-dialog:not([style*="top"]){top:50%;transform:translateY(-50%);}
+
+#family-pin-dialog .gs-auto-guardian{padding-inline:0!important;}
