@@ -44,6 +44,7 @@ type familyProfile struct {
 	TourPending        bool              `json:"tourPending,omitempty"`
 	PINRequired        *bool             `json:"pinRequired,omitempty"`
 	Roles              []string          `json:"roles"`
+	EffectiveRoles     []string          `json:"effectiveRoles,omitempty"`
 	Groups             []string          `json:"groups,omitempty"`
 	AllowMultipleRoles bool              `json:"allowMultipleRoles,omitempty"`
 	UnprotectedAdmin   bool              `json:"unprotectedAdmin,omitempty"`
@@ -483,7 +484,10 @@ func profileGate(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-func publicProfile(p familyProfile) familyProfile {
+func publicProfile(p familyProfile, databases ...*profileDatabase) familyProfile {
+	if len(databases) > 0 {
+		p.EffectiveRoles = effectiveProfileRoles(databases[0], p)
+	}
 	p.HasSavedPIN = p.Hash != "" || p.UsesGuardianPIN
 	p.Salt = ""
 	p.Hash = ""
@@ -549,7 +553,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if manage {
 			profiles := []familyProfile{}
 			for _, p := range db.Profiles {
-				profiles = append(profiles, publicProfile(p))
+				profiles = append(profiles, publicProfile(p, db))
 			}
 			sort.Slice(profiles, func(i, j int) bool {
 				return strings.ToLower(profiles[i].Nickname) < strings.ToLower(profiles[j].Nickname)
@@ -570,7 +574,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			if p.Hidden {
 				continue
 			}
-			profiles = append(profiles, map[string]any{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar, "pinRequired": profileRequiresPIN(p), "roles": p.Roles, "usesGuardianPIN": p.UsesGuardianPIN, "guardianID": p.GuardianID})
+			profiles = append(profiles, map[string]any{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar, "pinRequired": profileRequiresPIN(p), "roles": effectiveProfileRoles(db, p), "groups": p.Groups, "usesGuardianPIN": p.UsesGuardianPIN, "guardianID": p.GuardianID})
 		}
 		if guardianProfilePicker(db) {
 			p := standaloneGuardian()
@@ -580,7 +584,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		p, active := currentProfileLocked(r, db)
 		var current any
 		if active {
-			current = publicProfile(p)
+			current = publicProfile(p, db)
 		}
 		profileReply(w, map[string]any{"enabled": db.Enabled, "needsProfile": db.Enabled && !setupRequired.Load() && !active, "profiles": profiles, "roleNames": roleNames, "active": current, "hasProfileData": func() bool { _, err := os.Stat(profilePath()); return err == nil }()})
 		return
@@ -642,6 +646,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Salt = old.Salt
 		p.Hash = old.Hash
+		p.EffectiveRoles = nil
 		p.HasSavedPIN = false
 		if p.Preferences == nil {
 			p.Preferences = old.Preferences
@@ -717,7 +722,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if old.UsesGuardianPIN && !p.UsesGuardianPIN && p.Avatar == "builtin:ember-knight" {
 			p.Avatar = "builtin:moonlit-knight"
 		}
-		if p.Avatar == "builtin:ember-knight" && !containsProfileID(p.Roles, "administrator") {
+		if p.Avatar == "builtin:ember-knight" && !containsProfileID(effectiveProfileRoles(db, p), "administrator") {
 			http.Error(w, "The GameShelf Guardian portrait belongs to the Guardian role.", 400)
 			return
 		}
@@ -990,7 +995,7 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 	accessMu.Lock()
 	delete(accessSessions, pinCookie(r))
 	accessMu.Unlock()
-	profileReply(w, map[string]any{"profile": publicProfile(p), "showTour": showTour})
+	profileReply(w, map[string]any{"profile": publicProfile(p, db), "showTour": showTour})
 	logEvent("profile", "%s signed in", p.Nickname)
 }
 func handleProfileLogout(w http.ResponseWriter, r *http.Request) {
@@ -1149,7 +1154,7 @@ func migrateFamilyRoles(db *profileDatabase) {
 		if p.UsesGuardianPIN {
 			p.GuardianID = guardianID(p.GuardianID)
 		}
-		if p.Avatar == "builtin:ember-knight" && !containsProfileID(p.Roles, "administrator") {
+		if p.Avatar == "builtin:ember-knight" && !containsProfileID(effectiveProfileRoles(db, p), "administrator") {
 			p.Avatar = "builtin:moonlit-knight"
 		}
 		db.Profiles[id] = p

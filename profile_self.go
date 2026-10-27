@@ -103,7 +103,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Could not open profile editor.", 503)
 			return
 		}
-		profileReply(w, map[string]any{"profile": publicProfile(p)})
+		profileReply(w, map[string]any{"profile": publicProfile(p, db)})
 		logEvent("profile", "%s opened personal profile information", p.Nickname)
 		return
 	}
@@ -119,7 +119,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		profileReply(w, map[string]any{"profile": publicProfile(p), "changeOnly": session.ChangeOnly})
+		profileReply(w, map[string]any{"profile": publicProfile(p, db), "changeOnly": session.ChangeOnly})
 		return
 	}
 	if r.Method != "PUT" {
@@ -177,7 +177,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), 400)
 				return
 			}
-			if avatar == "builtin:ember-knight" && !containsProfileID(p.Roles, "administrator") {
+			if avatar == "builtin:ember-knight" && !containsProfileID(effectiveProfileRoles(db, p), "administrator") {
 				http.Error(w, "Choose a portrait for this role.", 400)
 				return
 			}
@@ -221,5 +221,5 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 		return ""
 	}())
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"saved": true, "profile": publicProfile(p), "changeOnly": session.ChangeOnly})
+	json.NewEncoder(w).Encode(map[string]any{"saved": true, "profile": publicProfile(p, db), "changeOnly": session.ChangeOnly})
 }
