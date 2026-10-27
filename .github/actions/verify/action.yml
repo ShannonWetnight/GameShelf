@@ -18,6 +18,8 @@ runs:
       run: |
         docker run --rm --user 10002:10003 --env HOME=/tmp --env GOCACHE=/tmp/go-build --mount "type=bind,src=$PWD,dst=/src,readonly" --workdir /src \
           --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
+        docker run --rm --env HOME=/tmp --env GOCACHE=/tmp/go-build --mount "type=bind,src=$PWD/connectors/rclone,dst=/src,readonly" --workdir /src \
+          --entrypoint sh golang:1.27.3-alpine3.24 -ec 'go vet ./...; go test -v ./...'
         node --check web/app.js
         node --check web/setup.js
         node --check web/tour.js
@@ -46,6 +48,7 @@ runs:
         set -o pipefail
         python3 scripts/docker-smoke.py gameshelf:candidate | tee reports/docker-smoke.log
         python3 scripts/network-smoke.py gameshelf:candidate | tee reports/network-smoke.log
+        python3 scripts/network-containment.py gameshelf:candidate --report reports/network-containment.json | tee reports/network-containment.log
     - name: Scan builder and runtime
       if: ${{ !cancelled() }}
       shell: bash
