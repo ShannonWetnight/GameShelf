@@ -364,10 +364,7 @@ func profileGate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(path, "/api/profiles") {
-			next.ServeHTTP(w, r)
-			return
-		}
+		isProfiles := strings.HasPrefix(path, "/api/profiles")
 		isAccess := strings.HasPrefix(path, "/api/access")
 		profileMu.Lock()
 		db, err := readProfileDBLocked()
@@ -388,7 +385,7 @@ func profileGate(next http.Handler) http.Handler {
 			}
 		}
 		profileMu.Unlock()
-		if enabled && view == nil && !isAccess && !guardianMenu(r) {
+		if enabled && view == nil && !isAccess && !isProfiles && !guardianMenu(r) {
 			writeAccessError(w, 401, "profile_required", nil, "Choose your family profile.")
 			return
 		}

@@ -767,7 +767,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		id := ensurePINSession(w, r)
 		grants := map[string]time.Time{}
 		accessMu.Lock()
-		if session := accessSessions[id]; session != nil {
+		if session := accessSessions[id]; guardianSessionAllowed(session, r) {
 			for action, until := range session.Grants {
 				if time.Now().Before(until) {
 					grants[action] = until

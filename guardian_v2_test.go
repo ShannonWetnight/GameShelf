@@ -65,10 +65,16 @@ func TestTwoGuardiansUniqueAssociationsAndProfileBoundApproval(t *testing.T) {
 			t.Fatal(entry.pin, w.Code, w.Body.String())
 		}
 	}
-	shared := familyCall(t, handleAccessUnlock, "POST", "/api/access/unlock", map[string]any{"pin": "8642", "actions": []string{"theme"}}, c)
+	shared := familyCall(t, handleAccessUnlock, "POST", "/api/access/unlock", map[string]any{"pin": "8642", "actions": []string{"admin", "theme"}}, c)
 	if shared.Code != 200 {
 		t.Fatal("second Guardian cannot approve shared shelf", shared.Code)
 	}
+	guarded := profileGate(http.HandlerFunc(handleProfiles))
+	wrong := profileTestCall(t, guarded, "GET", "/api/profiles?manage=1", nil, []*http.Cookie{pc, c}, nil)
+	if wrong.Code != 423 {
+		t.Fatal("another Guardian grant authorized management under active Guardian profile", wrong.Code, wrong.Body.String())
+	}
+
 	record, _ := readPINRecord()
 	if err := setGuardianCredential(record, "guardian-2", "7392"); err == nil {
 		t.Fatal("duplicate Guardian PIN accepted")
