@@ -931,6 +931,19 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Create this Guardian PIN before naming it.", 400)
 			return
 		}
+	} else if oldRecord == nil || addingGuardian {
+		profileMu.Lock()
+		db, _ := readProfileDBLocked()
+		name := ""
+		if db != nil {
+			name = db.GuardianNames[guardianID(request.GuardianID)]
+		}
+		profileMu.Unlock()
+		if guardianID(request.GuardianID) == "guardian-1" {
+			record.GuardianName = name
+		} else if record.Secondary != nil {
+			record.Secondary.Name = name
+		}
 	}
 
 	if request.Policy.Rules == nil {

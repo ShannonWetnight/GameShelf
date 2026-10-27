@@ -65,6 +65,7 @@ type profileDatabase struct {
 	Roles            map[string]familyRole    `json:"roles"`
 	Groups           map[string]familyGroup   `json:"groups,omitempty"`
 	SelectionVersion int                      `json:"selectionVersion,omitempty"`
+	GuardianNames    map[string]string        `json:"guardianNames,omitempty"`
 	Profiles         map[string]familyProfile `json:"profiles"`
 }
 type profileSession struct {
@@ -198,6 +199,11 @@ func validProfileID(value string) bool {
 func validateProfileDB(value *profileDatabase) error {
 	if value == nil || value.Version != 1 || value.Roles == nil || value.Profiles == nil {
 		return errors.New("Invalid family profile data")
+	}
+	for id, name := range value.GuardianNames {
+		if (id != "guardian-1" && id != "guardian-2") || !validProfileName(name) {
+			return errors.New("Invalid Guardian nickname")
+		}
 	}
 	for id, role := range value.Roles {
 		if id != role.ID || !validProfileID(id) || !validProfileName(role.Name) {

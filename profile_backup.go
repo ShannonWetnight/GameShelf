@@ -54,7 +54,15 @@ func encodeProfilesBackup(header string) ([]byte, error) {
 		profileMu.Unlock()
 		return nil, err
 	}
-	data, err := json.Marshal(db)
+	copy := cloneProfileDB(db)
+	copy.GuardianNames = map[string]string{}
+	for _, g := range publicGuardians() {
+		copy.GuardianNames[g["id"]] = g["name"]
+	}
+	if len(copy.GuardianNames) == 0 {
+		copy.GuardianNames = db.GuardianNames
+	}
+	data, err := json.Marshal(copy)
 	profileMu.Unlock()
 	if err != nil {
 		return nil, err

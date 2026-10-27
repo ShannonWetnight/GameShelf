@@ -127,6 +127,14 @@ func TestRemoveGuardianPreservesOtherIdentityAndLastRemovalNeedsConsent(t *testi
 	if err := autoGuardianProfile("guardian-1"); err != nil {
 		t.Fatal(err)
 	}
+	backup, err := encodeProfilesBackup("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported, err := decodeProfilesBackup(backup, "")
+	if err != nil || imported.GuardianNames["guardian-1"] != "Pat" || imported.GuardianNames["guardian-2"] != "Sam" {
+		t.Fatal("Guardian nicknames missing from backup", err)
+	}
 	w := familyCall(t, handleAccess, "DELETE", "/api/access?guardianID=guardian-1&role=adult", nil, c)
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
