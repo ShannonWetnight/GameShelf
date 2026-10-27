@@ -1944,16 +1944,7 @@ func handleServerSettings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleResetServerSettings(w http.ResponseWriter, r *http.Request) {
-	setupMu.Lock(); defer setupMu.Unlock()
-	if r.Method != http.MethodPost { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }
-	defaults := defaultServerSettings()
-	settingsMu.RLock(); defaults.Access = publicAccessPolicy(configuredSettings.Access); settingsMu.RUnlock()
-	if err := saveServerSettings(defaults); err != nil { http.Error(w, "could not reset settings", http.StatusServiceUnavailable); return }
-	if !hasLibrary(defaults) { setupRequired.Store(true); notifyRefreshSchedule() }
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(struct { RestartRequired bool `json:"restartRequired"` }{true})
-}
+func handleResetServerSettings(w http.ResponseWriter, r *http.Request) { performGameOver(w,r) }
 
 func handleLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet { http.Error(w, "method not allowed", http.StatusMethodNotAllowed); return }

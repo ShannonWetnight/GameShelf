@@ -7,9 +7,9 @@
  const labels=()=>state.actions||{};const managerTools=new Set(['sources','storage','refresh','health','healthView']);
  function rule(action){return state.policy?.rules?.[action]||{mode:'allow',hidden:false};}
  function unlocked(action){return menuLease&&menuLease.gates[action]&&Date.parse(menuLease.expiresAt)>Date.now()||Date.parse(state.grants?.[action]||'')>Date.now()||permit&&permit.actions.includes(action)&&Date.parse(permit.until)>Date.now();}
- function mode(action){if(action==='admin')return state.configured?'pin':'allow';return rule(action).mode||'allow';}
+ function mode(action){if(action==='admin')return state.configured?'pin':'allow';if(action==='wipe')return rule(action).mode==='disable'?'disable':'pin';return rule(action).mode||'allow';}
  function actionsFor(action){
-  const actions=action==='wipe'?['wipe','sources','storage','refresh','logging','health','playlistRemove','theme','uiScale','motion','tileAnimation','buttonHints','staticTitles','placeholderArt','cardDepth','playlistFeature','listImages','favoritesFirst','pinnedStars','hoverNames','listOpacity','recentRange','imageExpand','stretchDefault']:[action];
+  const actions=action==='wipe'?['wipe','admin','sources','storage','refresh','logging','health','playlistRemove','covers','titles','metadata','favoriteRemove','theme','uiScale','motion','tileAnimation','buttonHints','staticTitles','placeholderArt','cardDepth','playlistFeature','listImages','favoritesFirst','pinnedStars','hoverNames','listOpacity','recentRange','imageExpand','stretchDefault']:[action];
   if(managerTools.has(action))actions.push('libraryManager');
   if(action!=='admin'&&!document.body.classList.contains('gs-needs-setup')&&(state.levels?.[action]||managerTools.has(action)||action==='advanced')){
    actions.push('settings');const level=rule(action).level||state.levels?.[action];if(action==='advanced'||level==='advanced'||managerTools.has(action)&&(rule('libraryManager').level||state.levels?.libraryManager)==='advanced')actions.push('advanced');
@@ -20,11 +20,11 @@
  function locked(actions){return actions.filter(action=>mode(action)==='pin'&&!unlocked(action));}
  async function read(response){try{return await (response.clone?response.clone():response).json();}catch{return null;}}
  function closePrompt(approved){const resolve=promptResolve;promptResolve=null;promptPromise=null;pinHandler=null;$('pin-dialog').close();$('pin-entry').value='';resolve?.(approved);}
- async function ask(actions){
-  actions=[...new Set(actions)];if(promptPromise){const prior=await promptPromise;return prior?ask(actions):false;}
-  const required=locked(actions);if(!required.length)return true;
+ async function ask(actions,force=false){
+  actions=[...new Set(actions)];if(promptPromise){const prior=await promptPromise;return prior?ask(actions,force):false;}
+  const required=force?actions:locked(actions);if(!required.length)return true;
   if(!state.configured){showNotification('An item requiring a PIN has been selected, but no PIN has been set.','error');return false;}
-  pinHandler=null;promptActions=required;$('pin-entry').setAttribute('aria-label','Four-digit Guardian PIN');const remembrance=state.policy.remember||{enabled:true,minutes:5};$('pin-remember-option').hidden=!remembrance.enabled;$('pin-remember').checked=false;$('pin-remember').disabled=!remembrance.enabled;$('pin-remember-label').textContent='Remember me for '+remembrance.minutes+' minute'+(remembrance.minutes===1?'':'s')+'.';$('pin-action-label').textContent=required.map(action=>action==='admin'?'Family Controls':labels()[action]||action).join(', ');$('pin-status').textContent='';$('pin-entry').value='';
+  pinHandler=null;promptActions=required;$('pin-entry').setAttribute('aria-label','Four-digit Guardian PIN');const remembrance=state.policy.remember||{enabled:true,minutes:5};$('pin-remember-option').hidden=force||!remembrance.enabled;$('pin-remember').checked=false;$('pin-remember').disabled=!remembrance.enabled;$('pin-remember-label').textContent='Remember me for '+remembrance.minutes+' minute'+(remembrance.minutes===1?'':'s')+'.';$('pin-action-label').textContent=required.map(action=>action==='admin'?'Family Controls':labels()[action]||action).join(', ');$('pin-status').textContent='';$('pin-entry').value='';
   promptPromise=new Promise(resolve=>promptResolve=resolve);openModal($('pin-dialog'));setTimeout(()=>$('pin-entry').focus({preventScroll:true}),100);return promptPromise;
  }
  async function authorizedFetch(input,options){
@@ -46,7 +46,7 @@
   let response=await authorizedFetch(input,options);const path=typeof input==='string'?input:input?.url||'';
   if(path==='/api/access/unlock')return response;
   if(response.status===423){const detail=await read(response);if(detail?.code==='pin_required'){
-   permit=null;await refresh();if(await ask(detail.actions||[]))response=await authorizedFetch(input,options);else return new Response('Action cancelled.',{status:403});
+   permit=null;await refresh();if(await ask(detail.actions||[],(detail.actions||[]).includes('wipe')))response=await authorizedFetch(input,options);else return new Response('Action cancelled.',{status:403});
   }}
   if(response.status===403||response.status===428){const detail=await read(response);if(detail?.message){showNotification(detail.message,'error');await refresh().catch(()=>{});return new Response(detail.message,{status:response.status});}}
   return response;
@@ -89,7 +89,7 @@
  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-access-action','data-access-setting','data-favorite']});
  async function intercept(event){
   const element=event.target.closest?.('[data-access-action],[data-access-setting]');if(!element)return;
-  if(event.target.closest('#build-info,#settings-advanced,#open-library-manager,#open-family-controls,#open-family-controls-setup'))return;
+  if(event.target.closest('#build-info,#settings-advanced,#open-library-manager,#open-family-controls,#open-family-controls-setup,#open-reset-settings,#reset-settings-confirm,#wipe-export-data'))return;
   if(event.target.closest('.gs-settings-close,.gs-cancel-action,[data-access-exempt]'))return;
   const replay=event.target.closest('button,a,input,select');if(replay&&replaying.has(replay))return;
   const action=element.dataset.accessAction||element.dataset.accessSetting,actions=actionsFor(action);
@@ -115,7 +115,7 @@
  $('family-remember-enabled').addEventListener('change',()=>{$('family-remember-minutes').disabled=!$('family-remember-enabled').checked;});
  document.addEventListener('click',event=>{if(event.target.closest?.('a[href^="/download"],a[href^="/api/game-file/"]')&&permit)setTimeout(()=>{permit=null;},0);});
  function controlHelp(action){
- const help={settings:'Open the Settings menu.',advanced:'Open the Advanced tab in Settings.',admin:'Manage the Guardian PIN and all permissions. Always protected by the PIN.',libraryManager:'Manage game locations, refresh timing, and library health.',sources:'Add, edit, or remove local folders and network locations.',storage:'Change where GameShelf saves its own data.',refresh:'Change automatic library scanning intervals.',health:'Enable reachability monitoring and choose its interval.',healthView:'View library reachability and connection history.',theme:'Choose this browser’s theme.',uiScale:'Adjust the interface size from 75% to 150%.',motion:'Adjust the speed of animations, or turn motion off.',tileAnimation:'Animate game tiles as the library loads.',buttonHints:'Show GameShelf hints when hovering over controls.',staticTitles:'Keep game names visible below covers.',placeholderArt:'Show GameShelf artwork for games without covers.',cardDepth:'Add soft shadows and depth to game tiles.',stretchDefault:'Set the default cover fit; individual games can override it.',playlistFeature:'Show Playlist tools for collecting downloads.',listImages:'Display cover previews in list view.',favoritesFirst:'Place favorite games ahead of other games.',pinnedStars:'Keep active favorite stars visible on cards.',hoverNames:'Reveal the game name on hover.',listOpacity:'Choose the background opacity of list tiles.',recentRange:'Choose how many days count as Recently Added.',imageExpand:'Open a larger list image with one click, two clicks, or never.',export:'Download a backup of selected GameShelf data.',restore:'Replace selected saved data using a backup ZIP.',logging:'Choose the log sources and retention limits.',logs:'View, copy, or download application logs.',setup:'Resume unfinished first-time setup.',wipe:'Reset GameShelf settings to their defaults.',covers:'Edit artwork and its fit without changing original game files.',titles:'Change the title displayed by GameShelf.',favoriteAdd:'Mark a game as a favorite.',favoriteRemove:'Remove a game from favorites.',metadata:'Reset a game’s saved metadata.',playlistAdd:'Add games to the download Playlist.',playlistRemove:'Remove games from or clear the Playlist.',downloads:'Download games and individual files.'};
+ const help={settings:'Open the Settings menu.',advanced:'Open the Advanced tab in Settings.',admin:'Manage the Guardian PIN and all permissions. Always protected by the PIN.',libraryManager:'Manage game locations, refresh timing, and library health.',sources:'Add, edit, or remove local folders and network locations.',storage:'Change where GameShelf saves its own data.',refresh:'Change automatic library scanning intervals.',health:'Enable reachability monitoring and choose its interval.',healthView:'View library reachability and connection history.',theme:'Choose this browser’s theme.',uiScale:'Adjust the interface size from 75% to 150%.',motion:'Adjust the speed of animations, or turn motion off.',tileAnimation:'Animate game tiles as the library loads.',buttonHints:'Show GameShelf hints when hovering over controls.',staticTitles:'Keep game names visible below covers.',placeholderArt:'Show GameShelf artwork for games without covers.',cardDepth:'Add soft shadows and depth to game tiles.',stretchDefault:'Set the default cover fit; individual games can override it.',playlistFeature:'Show Playlist tools for collecting downloads.',listImages:'Display cover previews in list view.',favoritesFirst:'Place favorite games ahead of other games.',pinnedStars:'Keep active favorite stars visible on cards.',hoverNames:'Reveal the game name on hover.',listOpacity:'Choose the background opacity of list tiles.',recentRange:'Choose how many days count as Recently Added.',imageExpand:'Open a larger list image with one click, two clicks, or never.',export:'Download a backup of selected GameShelf data.',restore:'Replace selected saved data using a backup ZIP.',logging:'Choose the log sources and retention limits.',logs:'View, copy, or download application logs.',setup:'Resume unfinished first-time setup.',wipe:'Permanently remove all GameShelf data. Original game files stay untouched.',covers:'Edit artwork and its fit without changing original game files.',titles:'Change the title displayed by GameShelf.',favoriteAdd:'Mark a game as a favorite.',favoriteRemove:'Remove a game from favorites.',metadata:'Reset a game’s saved metadata.',playlistAdd:'Add games to the download Playlist.',playlistRemove:'Remove games from or clear the Playlist.',downloads:'Download games and individual files.'};
  return help[action]||labels()[action]+' controls.';
  }
  function policyRows(){
@@ -148,10 +148,10 @@
  $('family-open-pin').addEventListener('click',()=>openPIN().catch(error=>showNotification(error.message,'error')));
  for(const id of ['family-pin-close','family-pin-cancel'])$(id).addEventListener('click',()=>$('family-pin-dialog').close());
  $('family-pin-save').addEventListener('click',async()=>{
-  const pin=$('family-new-pin').value,minutes=Number($('family-remember-minutes').value);
+  const wasConfigured=state.configured,pin=$('family-new-pin').value,minutes=Number($('family-remember-minutes').value);
   if((!state.configured||pin)&&(!/^\d{4}$/.test(pin)||pin!==$('family-confirm-pin').value)){showNotification('Enter the same four-digit PIN twice.','error');return;}
   if(!Number.isInteger(minutes)||minutes<1||minutes>60){showNotification('Choose 1–60 minutes.','error');return;}
-  if(await savePolicy(pin,{enabled:$('family-remember-enabled').checked,minutes},$('family-pin-save'))){pinSettingsSaved=true;$('family-pin-dialog').close();$('family-dialog').close();if(pin)$('settings-dialog').close();}
+  if(await savePolicy(pin,{enabled:$('family-remember-enabled').checked,minutes},$('family-pin-save'))){pinSettingsSaved=true;$('family-pin-dialog').close();policyRows();if(pin&&wasConfigured)$('family-dialog').close();}
  });
  $('family-pin-dialog').addEventListener('close',()=>{$('family-new-pin').value='';$('family-confirm-pin').value='';const resolve=pinSettingsResolve;pinSettingsResolve=null;resolve?.(pinSettingsSaved);});
  addEventListener('DOMContentLoaded',()=>closeOnBackdropClick($('family-pin-dialog')));
@@ -171,5 +171,5 @@
  for(const [id,scope,dialog]of [['open-server-settings','sources','server-settings-dialog'],['open-refresh-settings','refresh','refresh-settings-dialog'],['configure-logs','logging','logs-settings-dialog'],['view-logs','logs','logs-dialog'],['open-library-health','healthView','health-dialog'],['health-configure','health','health-config-dialog'],['export-library-data','export','export-dialog'],['open-library-restore','restore','restore-dialog'],['edit-game-cover','covers','cover-editor-dialog'],['open-recent-settings','recentRange','recent-settings-dialog']]){if($(id))$(id).dataset.menuScope=scope;if($(dialog))$(dialog).addEventListener('close',()=>leave(scope).catch(()=>{}));}
  $('family-dialog').addEventListener('close',()=>refresh().catch(()=>{}));
  async function promptPIN(label,handler){if(promptPromise)await promptPromise;pinHandler=handler;promptActions=[];$('pin-title').textContent='PIN Required';$('pin-action-label').textContent=label;$('pin-entry').setAttribute('aria-label','PIN for '+label);$('pin-remember-option').hidden=true;$('pin-entry').value='';promptPromise=new Promise(resolve=>promptResolve=resolve);openModal($('pin-dialog'));setTimeout(()=>$('pin-entry').focus({preventScroll:true}),100);return promptPromise;}
- window.GameShelfAccess={configured:()=>state.configured,help:controlHelp,openPIN,promptPIN,initialize:refresh,refresh,refreshUI,mode,ask,enter,openFamily,leave,canUse:action=>mode(action)==='allow'||unlocked(action)};
+ window.GameShelfAccess={fresh:async actions=>{await refresh();return ask([...new Set(actions)],true);},actionsFor,available:action=>!rule(action).hidden&&mode(action)!=='disable',configured:()=>state.configured,help:controlHelp,openPIN,promptPIN,initialize:refresh,refresh,refreshUI,mode,ask,enter,openFamily,leave,canUse:action=>mode(action)==='allow'||unlocked(action)};
 })();

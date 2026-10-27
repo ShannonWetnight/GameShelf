@@ -187,8 +187,8 @@ func TestResetWithoutComposeRootReturnsToSetup(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
-	w = httptest.NewRecorder()
-	handleResetServerSettings(w, httptest.NewRequest(http.MethodPost, "/api/server-settings/reset", nil))
+	cookie := familyCreate(t, nil)
+	w = wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true})
 	if w.Code != 200 || !setupRequired.Load() || configuredSettings.RootDir != "" {
 		t.Fatalf("reset did not reopen setup: %d %#v", w.Code, configuredSettings)
 	}

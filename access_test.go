@@ -133,7 +133,7 @@ func TestFamilyPreventsResetRestoreAndPreferenceDeletionBypass(t *testing.T) {
 			t.Fatal("restore/reset bypass", path)
 		}
 	}
-	// Ordinary PUT and Wipe must not replace the authoritative private policy.
+	// Ordinary PUT must not replace the authoritative private policy.
 	value.Preferences = nil
 	value.Access = &accessPolicy{Rules: map[string]accessRule{}}
 	if r := familyCall(t, handleServerSettings, "PUT", "/api/server-settings", value, cookie); r.Code != 200 {
@@ -143,12 +143,8 @@ func TestFamilyPreventsResetRestoreAndPreferenceDeletionBypass(t *testing.T) {
 	if err != nil || !configured || policyMode(policy, "sources") != "pin" {
 		t.Fatal("policy replaced", err)
 	}
-	if r := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", nil, cookie); r.Code != 200 {
-		t.Fatal(r.Code, r.Body.String())
-	}
-	policy, configured, err = currentAccessPolicy()
-	if err != nil || !configured || policyMode(policy, "favoriteRemove") != "disable" {
-		t.Fatal("wipe removed family controls", err)
+	if r := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", map[string]any{"confirm": "WIPE", "acknowledgeBackup": true}, cookie); r.Code != 403 {
+		t.Fatal("Wipe bypassed disabled favorite removal", r.Code, r.Body.String())
 	}
 	// Navigation is never a restriction, so owners can always reach Family Controls.
 	if _, exists := accessActions["settingsLevel"]; exists {

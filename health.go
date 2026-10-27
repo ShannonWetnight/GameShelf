@@ -66,6 +66,7 @@ var healthMu sync.Mutex
 var healthData = healthArchive{Version: 1}
 var healthHome string
 var healthChecking bool
+var healthGeneration uint64
 var healthSchedule = make(chan struct{}, 1)
 var healthNetworkList = func(ctx context.Context, source networkSource) ([]remoteItem, error) {
 	return networkList(ctx, source, false)
@@ -199,6 +200,7 @@ func runHealthCheck() {
 	}
 	healthChecking = true
 	loadHealthLocked()
+	generation := healthGeneration
 	old := append([]libraryHealth(nil), healthData.Sources...)
 	healthMu.Unlock()
 	defer func() { healthMu.Lock(); healthChecking = false; healthMu.Unlock() }()
@@ -280,6 +282,10 @@ func runHealthCheck() {
 		return
 	}
 	healthMu.Lock()
+	if generation != healthGeneration {
+		healthMu.Unlock()
+		return
+	}
 	loadHealthLocked()
 	healthData.Sources = sources
 	for _, source := range sources {

@@ -28,19 +28,21 @@ type familyRole struct {
 	Rules map[string]accessRule `json:"rules"`
 }
 type familyProfile struct {
-	ID           string            `json:"id"`
-	Nickname     string            `json:"nickname"`
-	Avatar       string            `json:"avatar,omitempty"`
-	PINRequired  *bool             `json:"pinRequired,omitempty"`
-	Roles        []string          `json:"roles"`
-	AllLibraries bool              `json:"allLibraries"`
-	Libraries    []string          `json:"libraries"`
-	AllGames     bool              `json:"allGames"`
-	Games        []string          `json:"games"`
-	Preferences  map[string]string `json:"preferences"`
-	Favorites    map[string]bool   `json:"favorites"`
-	Salt         string            `json:"salt,omitempty"`
-	Hash         string            `json:"hash,omitempty"`
+	ID              string            `json:"id"`
+	Nickname        string            `json:"nickname"`
+	Avatar          string            `json:"avatar,omitempty"`
+	UsesGuardianPIN bool              `json:"usesGuardianPIN,omitempty"`
+	TourPending     bool              `json:"tourPending,omitempty"`
+	PINRequired     *bool             `json:"pinRequired,omitempty"`
+	Roles           []string          `json:"roles"`
+	AllLibraries    bool              `json:"allLibraries"`
+	Libraries       []string          `json:"libraries"`
+	AllGames        bool              `json:"allGames"`
+	Games           []string          `json:"games"`
+	Preferences     map[string]string `json:"preferences"`
+	Favorites       map[string]bool   `json:"favorites"`
+	Salt            string            `json:"salt,omitempty"`
+	Hash            string            `json:"hash,omitempty"`
 }
 type profileDatabase struct {
 	Version  int                      `json:"version"`
@@ -51,6 +53,7 @@ type profileDatabase struct {
 }
 type profileSession struct {
 	Home, Profile string
+	Guardian      bool
 	Epoch         uint64
 	Until         time.Time
 }
@@ -74,7 +77,7 @@ const maxProfileData = 32 << 20
 func profilePath() string { return filepath.Join(settingsHome, ".family-profiles.json") }
 func defaultProfileDB() *profileDatabase {
 	roles := map[string]familyRole{}
-	for _, item := range []struct{ ID, Name string }{{"child", "Child"}, {"adult", "Adult"}, {"elevated", "Elevated User"}, {"administrator", "Administrator"}} {
+	for _, item := range []struct{ ID, Name string }{{"child", "Child"}, {"adult", "Adult"}, {"elevated", "Elevated User"}, {"administrator", "Guardian"}} {
 		rules := map[string]accessRule{}
 		for action := range accessActions {
 			rules[action] = accessRule{Mode: "allow"}
@@ -120,7 +123,14 @@ func readProfileDBLocked() (*profileDatabase, error) {
 		return nil, errors.New("Family profile storage is unavailable")
 	}
 	var value profileDatabase
-	if json.Unmarshal(data, &value) != nil || validateProfileDB(&value) != nil {
+	if json.Unmarshal(data, &value) != nil {
+		return nil, errors.New("Family profile storage is unavailable")
+	}
+	if role, ok := value.Roles["administrator"]; ok && role.Name == "Administrator" {
+		role.Name = "Guardian"
+		value.Roles[role.ID] = role
+	}
+	if validateProfileDB(&value) != nil {
 		return nil, errors.New("Family profile storage is unavailable")
 	}
 	profileCache = &value
@@ -184,7 +194,11 @@ func validateProfileDB(value *profileDatabase) error {
 				return errors.New("A selected role is unavailable")
 			}
 		}
-		if !profileRequiresPIN(profile) {
+		if profile.UsesGuardianPIN {
+			if !profileRequiresPIN(profile) || !containsProfileID(profile.Roles, "administrator") || profile.Hash != "" || profile.Salt != "" {
+				return errors.New("Guardian-linked profiles must use the Guardian role and shared PIN")
+			}
+		} else if !profileRequiresPIN(profile) {
 			if profileHasAdministrativeActions(value, profile) {
 				return fmt.Errorf("Set a PIN for %s before granting administrative permissions", profile.Nickname)
 			}
@@ -350,7 +364,7 @@ func profileGate(next http.Handler) http.Handler {
 		}
 		var view *profileContext
 		if ok {
-			if profile, exists := db.Profiles[session.Profile]; exists {
+			if profile, exists := sessionProfile(db, session); exists {
 				view = &profileContext{profile, mergedProfileRules(db, profile), db.Epoch}
 			}
 		}
@@ -400,8 +414,7 @@ func currentProfileLocked(r *http.Request, db *profileDatabase) (familyProfile, 
 	if !ok || session.Home != settingsHome || session.Epoch != db.Epoch || time.Now().After(session.Until) {
 		return familyProfile{}, false
 	}
-	p, ok := db.Profiles[session.Profile]
-	return p, ok
+	return sessionProfile(db, session)
 }
 func profileReply(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -465,12 +478,20 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			for action := range accessActions {
 				groups[action] = accessGroup(action)
 			}
-			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "libraries": profileLibraries(), "actions": accessActions, "groups": groups, "pinProtectedActions": profileAdministrativeActions})
+			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "libraries": profileLibraries(), "actions": accessActions, "groups": groups, "pinProtectedActions": profileAdministrativeActions, "guardianConfigured": guardianAvailable()})
 			return
+		}
+		roleNames := map[string]string{}
+		for id, role := range db.Roles {
+			roleNames[id] = role.Name
 		}
 		profiles := []map[string]any{}
 		for _, p := range db.Profiles {
-			profiles = append(profiles, map[string]any{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar, "pinRequired": profileRequiresPIN(p)})
+			profiles = append(profiles, map[string]any{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar, "pinRequired": profileRequiresPIN(p), "roles": p.Roles})
+		}
+		if guardianProfilePicker(db) {
+			p := standaloneGuardian()
+			profiles = append(profiles, map[string]any{"id": p.ID, "nickname": p.Nickname, "avatar": p.Avatar, "pinRequired": true, "roles": p.Roles, "standaloneGuardian": true})
 		}
 		sort.Slice(profiles, func(i, j int) bool { return profiles[i]["nickname"].(string) < profiles[j]["nickname"].(string) })
 		p, active := currentProfileLocked(r, db)
@@ -478,7 +499,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if active {
 			current = publicProfile(p)
 		}
-		profileReply(w, map[string]any{"enabled": db.Enabled, "needsProfile": db.Enabled && !setupRequired.Load() && !active, "profiles": profiles, "active": current})
+		profileReply(w, map[string]any{"enabled": db.Enabled, "needsProfile": db.Enabled && !setupRequired.Load() && !active, "profiles": profiles, "roleNames": roleNames, "active": current, "hasProfileData": func() bool { _, err := os.Stat(profilePath()); return err == nil }()})
 		return
 	}
 	if r.Method != "POST" {
@@ -486,12 +507,13 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Operation  string
-		Profile    familyProfile
-		Role       familyRole
-		PIN        string
-		ConfirmPIN string
-		Enabled    *bool
+		Operation   string
+		Profile     familyProfile
+		Role        familyRole
+		PIN         string
+		ConfirmPIN  string
+		ClearAvatar bool
+		Enabled     *bool
 	}
 	if !decodeProfileBody(w, r, &body) {
 		return
@@ -509,10 +531,10 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 				writeAccessError(w, 428, "pin_setup_required", nil, "Create a Guardian PIN before enabling profiles.")
 				return
 			}
-			if len(copy.Profiles) == 0 {
-				http.Error(w, "Add a family profile first.", 400)
-				return
-			}
+
+		}
+		if copy.Enabled && !*body.Enabled && !checkFreshPIN(w, r, []string{"admin"}) {
+			return
 		}
 		copy.Enabled = *body.Enabled
 	case "profile":
@@ -529,7 +551,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if exists && p.PINRequired == nil {
 			p.PINRequired = old.PINRequired
 		}
-		if exists && p.Avatar == "" {
+		if exists && p.Avatar == "" && !body.ClearAvatar {
 			p.Avatar = old.Avatar
 		}
 		p.Salt = old.Salt
@@ -554,7 +576,14 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p.Avatar = avatar
-		if !profileRequiresPIN(p) {
+		if p.UsesGuardianPIN {
+			if !guardianAvailable() {
+				writeAccessError(w, 428, "pin_setup_required", []string{"admin"}, "Create a Guardian PIN before linking a profile.")
+				return
+			}
+			p.Salt = ""
+			p.Hash = ""
+		} else if !profileRequiresPIN(p) {
 			if profileHasAdministrativeActions(copy, p) {
 				http.Error(w, "Administrative profiles require a PIN.", 400)
 				return
@@ -666,6 +695,8 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	accessConfigMu.Lock()
+	defer accessConfigMu.Unlock()
 	profileMu.Lock()
 	defer profileMu.Unlock()
 	if !allowProfileAttempt(r) {
@@ -679,6 +710,10 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, ok := db.Profiles[value.ID]
+	if value.ID == "guardian" && db.Enabled && guardianAvailable() {
+		p = standaloneGuardian()
+		ok = true
+	}
 	if !ok {
 		http.Error(w, "Profile or PIN did not match.", 401)
 		return
@@ -688,9 +723,12 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Enter a four-digit PIN.", 400)
 			return
 		}
-		salt, _ := base64.StdEncoding.DecodeString(p.Salt)
-		expected, _ := base64.StdEncoding.DecodeString(p.Hash)
-		actual, err := pbkdf2.Key(sha256.New, value.PIN, salt, pinIterations, 32)
+		salt, expected, iterations, verifierErr := profilePINVerifier(p)
+		if verifierErr != nil {
+			http.Error(w, "Guardian PIN is unavailable. Ask the server owner to configure it.", 503)
+			return
+		}
+		actual, err := pbkdf2.Key(sha256.New, value.PIN, salt, iterations, 32)
 		if err != nil || subtle.ConstantTimeCompare(actual, expected) != 1 {
 			logEvent("errors", "Family profile PIN rejected")
 			http.Error(w, "Profile or PIN did not match.", 401)
@@ -715,13 +753,24 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 	if old := profileCookie(r); old != "" {
 		delete(profileSessions, old)
 	}
-	profileSessions[token] = profileSession{settingsHome, p.ID, db.Epoch, now.Add(8 * time.Hour)}
+	showTour := p.TourPending
+	if showTour && p.ID != "guardian" {
+		copy := cloneProfileDB(db)
+		updated := copy.Profiles[p.ID]
+		updated.TourPending = false
+		copy.Profiles[p.ID] = updated
+		if err := saveProfileDBLocked(copy, false); err != nil {
+			http.Error(w, "Could not prepare profile tour.", 503)
+			return
+		}
+	}
+	profileSessions[token] = profileSession{Home: settingsHome, Profile: p.ID, Epoch: db.Epoch, Until: now.Add(8 * time.Hour), Guardian: p.ID == "guardian"}
 	http.SetCookie(w, &http.Cookie{Name: "gameshelf-profile", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
 	// Switching identities must never carry a Guardian unlock into the next profile.
 	accessMu.Lock()
 	delete(accessSessions, pinCookie(r))
 	accessMu.Unlock()
-	profileReply(w, map[string]any{"profile": publicProfile(p)})
+	profileReply(w, map[string]any{"profile": publicProfile(p), "showTour": showTour})
 	logEvent("system", "Family profile session opened")
 }
 func handleProfileLogout(w http.ResponseWriter, r *http.Request) {
@@ -757,7 +806,7 @@ func handleProfileCatalog(w http.ResponseWriter, r *http.Request) {
 }
 func saveProfilePreferences(r *http.Request, values map[string]string) error {
 	view := profileView(r)
-	if view == nil {
+	if view == nil || view.Profile.ID == "guardian" {
 		return nil
 	}
 	profileMu.Lock()
@@ -782,7 +831,7 @@ func saveProfilePreferences(r *http.Request, values map[string]string) error {
 }
 func saveProfileFavorite(w http.ResponseWriter, r *http.Request, id string, favorite bool) bool {
 	view := profileView(r)
-	if view == nil {
+	if view == nil || view.Profile.ID == "guardian" {
 		return false
 	}
 	profileMu.Lock()

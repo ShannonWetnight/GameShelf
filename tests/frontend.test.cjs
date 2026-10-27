@@ -139,6 +139,7 @@ function app(
   const revoked = [];
   const copied = [];
   const context = vm.createContext({
+    innerWidth:1280,innerHeight:1000,
     window: { scrollY: 0, scrollTo() {}, matchMedia: () => ({ matches: reducedMotion }) },
     URL: { createObjectURL: blob => { downloads.push(blob); return "blob:backup"; }, revokeObjectURL: url => revoked.push(url) }, URLSearchParams,
     document, Blob, navigator: { clipboard: { writeText: async value => copied.push(value) } },
@@ -464,7 +465,7 @@ test('spotlight resets through Return to all games or Escape and restores list v
   assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
 });
 
-test('sort and view controls leave dice spotlight before acting', async () => {
+test('sorting preserves dice spotlight while changing view returns to the library', async () => {
   const ui = app();
   ui.start();
   ui.requests[0].resolve(response(games));
@@ -474,12 +475,9 @@ test('sort and view controls leave dice spotlight before acting', async () => {
   ui.tick(1091);
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
   ui.click('sort-button');
-  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
+  assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), true);
   assert.equal(ui.hidden('sort-menu'), false);
-  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 2);
-  ui.click('random-game');
-  ui.tick(1091);
-  ui.tick(1091);
+  assert.equal(ui.cards().filter(card => card.style.display !== 'none').length, 1);
   ui.click('view-toggle');
   assert.equal(ui.element('games-container').classList.contains('gs-spotlight'), false);
   assert.equal(ui.element('games-container').classList.contains('list-view'), true);
@@ -682,7 +680,7 @@ test('notifications fade out before being hidden', async () => {
   ui.tick(3500);
   assert.equal(banner.classList.contains('gs-notification-leaving'), true);
   assert.equal(banner.hidden, false);
-  ui.tick(250);
+  for (const delay of ui.timerDelays().filter(delay=>delay<300)) ui.tick(delay);
   assert.equal(banner.hidden, true);
 });
 

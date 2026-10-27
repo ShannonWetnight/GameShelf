@@ -10,12 +10,13 @@
     ['#sort-button', 'Your shelf, your order', 'Sort by title, size, favorites, or recently added games.'],
     ['#view-toggle', 'See it your way', 'Switch between cover cards and a compact list. Your preference is remembered.'],
     ['#random-game', 'Let the dice choose', 'Roll for a random game when you want a little inspiration. Roll again or return to your library.'],
-    ['#open-cart', 'Build a Playlist', 'Use + on a game to collect it here, then download the selection together in one ZIP.'],
-    ['#build-info', 'Make yourself at home', 'Change themes and library options, manage sources, or replay this tour from Settings.']
+    ['#open-cart', 'Build a Playlist', 'Use + on a game to collect it here, then download the selection together in one ZIP.','playlistFeature'],
+    ['#profile-switcher','Your Own Shelf','Choose a Family Profile to use its games, favorites, and appearance. Guardian Controls can manage the shared shelf.'],
+    ['#build-info', 'Make yourself at home', 'Change themes and library options, manage sources, or replay this tour from Settings.','settings']
   ];
   let steps=[],index=0,highlighted=null,frame=null,revealTimer=null,stepVersion=0,popoverMotion=null;
   const reduced=()=>disableEffects||matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const visible=element=>element&&getComputedStyle(element).display!=='none'&&element.getBoundingClientRect().width>0;
+  const visible=element=>element&&!element.closest('[hidden],.gs-access-hidden,.gs-access-disabled')&&getComputedStyle(element).display!=='none'&&getComputedStyle(element).visibility!=='hidden'&&element.getBoundingClientRect().width>0;
   function place(){
     frame=null;if(!dialog.open||!highlighted)return;
     const scale=typeof uiScale==='number'?uiScale:1;
@@ -44,7 +45,7 @@
     };
     if(reduced())reveal();else revealTimer=setTimeout(reveal,motionDuration(260));
   }
-  function start(){steps=definitions.filter(([selector])=>visible(document.querySelector(selector)));if(!steps.length)return;tooltip.style.visibility='hidden';openModal(dialog);showStep(0);}
+  function start(){steps=definitions.filter(([selector,,,action])=>visible(document.querySelector(selector))&&(!action||!window.GameShelfAccess||GameShelfAccess.available(action)));steps=steps.map(step=>[...step]);const first=steps.find(step=>step[0]==='.gs-card');if(first&&window.GameShelfAccess){const tools=[];if(GameShelfAccess.available('favoriteAdd'))tools.push('favorites');if(GameShelfAccess.available('downloads'))tools.push('downloads');if(GameShelfAccess.available('playlistAdd')&&visible($('open-cart')))tools.push('Playlist');tools.push('details');first[2]='Hover over a game for '+tools.join(', ')+'.'+(GameShelfAccess.available('covers')||GameShelfAccess.available('titles')?' Open details to edit the options available to you.':'');}if(!steps.length)return;tooltip.style.visibility='hidden';openModal(dialog);showStep(0);}
   function finish(){clearTimeout(revealTimer);stepVersion++;dialog.close();}
   function requestCancel(){if(dialog.open&&!cancelDialog.open)openModal(cancelDialog);}
   dialog.addEventListener('cancel',event=>{event.preventDefault();event.stopImmediatePropagation();requestCancel();});

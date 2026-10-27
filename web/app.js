@@ -85,6 +85,7 @@ const observedDialogs = new WeakSet();
 const saveFeedbackTimers = new WeakMap();
 let notificationTimer;
 let notificationHideTimer;
+let notificationMotion;
 
 let modalScrollPosition = null;
 const motionDuration = duration => Math.round(duration / (animationSpeed || 1));
@@ -95,7 +96,7 @@ function applyMotionSpeed() {
   for (const animation of document.getAnimations?.() || []) {
     // Shuffle and dialog timers use their own matching duration.
     const target = animation.effect?.target;
-    if (animation.id === 'gs-theme-redraw' || animation.id === 'gs-dropdown' || target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
+    if (animation.id === 'gs-theme-redraw' || animation.id === 'gs-dropdown' || animation.id === 'gs-notification' || animation.id === 'gs-window-resize' || animation.id === 'gs-details-resize' || target?.closest?.('.gs-shuffle-deck, .gs-random') || target?.tagName === 'DIALOG') continue;
     animation.updatePlaybackRate?.(animationSpeed || 1);
   }
 }
@@ -151,23 +152,16 @@ function showNotification(message, variant = 'success') {
   const visibleDialog = [...openDialogs].filter(dialog => dialog.open && !dialog.dataset.closing).at(-1);
   (visibleDialog || document.body).appendChild(banner);
   document.getElementById('notification-text').textContent = message;
-  clearTimeout(notificationTimer);
-  clearTimeout(notificationHideTimer);
-  banner.hidden = false;
-  if (banner.showPopover && !banner.matches(':popover-open')) banner.showPopover();
-  banner.classList.remove('gs-notification-visible', 'gs-notification-leaving');
-  void banner.offsetWidth;
-  banner.classList.add('gs-notification-visible');
-  notificationTimer = setTimeout(() => {
-    banner.classList.remove('gs-notification-visible');
-    banner.classList.add('gs-notification-leaving');
-    notificationHideTimer = setTimeout(() => {
-      if (banner.hidePopover && banner.matches(':popover-open')) banner.hidePopover();
-      banner.hidden = true;
-      banner.classList.remove('gs-notification-leaving');
-      document.body.appendChild(banner);
-    }, 250);
-  }, 3500);
+  clearTimeout(notificationTimer);clearTimeout(notificationHideTimer);notificationMotion?.cancel();
+  banner.hidden=false;if(banner.showPopover&&!banner.matches(':popover-open'))banner.showPopover();
+  banner.classList.remove('gs-notification-leaving');banner.classList.add('gs-notification-visible');
+  const animate=(frames,duration)=>{const motion=disableEffects?null:banner.animate?.(frames,{duration:motionDuration(duration),easing:'ease',fill:'both'});if(motion)motion.id='gs-notification';return motion;};
+  notificationMotion=animate([{opacity:0,transform:'translate(-50%, -8px)'},{opacity:1,transform:'translate(-50%, 0)'}],200);
+  notificationTimer=setTimeout(()=>{notificationMotion?.cancel();banner.classList.remove('gs-notification-visible');banner.classList.add('gs-notification-leaving');
+    notificationMotion=animate([{opacity:1,transform:'translate(-50%, 0)'},{opacity:0,transform:'translate(-50%, -8px)'}],180);
+    const hide=()=>{if(banner.hidePopover&&banner.matches(':popover-open'))banner.hidePopover();banner.hidden=true;banner.classList.remove('gs-notification-leaving');notificationMotion?.cancel();document.body.appendChild(banner);};
+    notificationHideTimer=setTimeout(hide,disableEffects?0:motionDuration(190));
+  },3500);
 }
 
 function showSaveFeedback(button) {
@@ -1394,8 +1388,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!['random', 'system', 'classic', 'light', 'dark', 'retro', 'neon', 'cartridge', 'cosmos', 'ion', 'rose', 'midnight', 'lattice', 'rain', 'storm', 'autumn'].includes(themePreference)) themePreference = 'classic';
   const randomThemes=[...themeSelect.options].map(option=>option.value).filter(value=>!['system','random'].includes(value));
   const sessionTheme=randomThemes[Math.floor(Math.random()*randomThemes.length)];
-  function applyTheme() {
-    const theme = themePreference === 'random' ? sessionTheme : themePreference === 'system' ? (themeMedia.matches ? 'dark' : 'light') : themePreference;
+  function applyTheme(preference = themePreference) {
+    const theme = preference === 'random' ? sessionTheme : preference === 'system' ? (themeMedia.matches ? 'dark' : 'light') : preference;
     if (document.documentElement) document.documentElement.dataset.theme = theme;
     window.GameShelfRain?.stopAll();
     document.body.dataset.theme = theme;
@@ -1407,22 +1401,19 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme();
   themeMedia.addEventListener?.('change', () => { if (themePreference === 'system') applyTheme(); });
   let themeRedrawVersion = 0, themeMotions = [];
-  themeSelect.addEventListener('change', async () => {
-    themePreference = themeSelect.value;
-    localStorage.setItem('gameshelf:theme', themePreference);
-    const version = ++themeRedrawVersion;
-    themeMotions.forEach(motion => motion.cancel());
-    if (disableEffects || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !document.body.animate) { applyTheme(); return; }
-    const surfaces = [document.body, ...[...openDialogs].filter(dialog => dialog.open)];
-    const animate = (surface, frames, duration) => { const motion=surface.animate(frames,{duration:motionDuration(duration),easing:'ease',fill:'forwards'});motion.id='gs-theme-redraw';return motion; };
-    themeMotions = surfaces.map(surface => animate(surface,[{opacity:1},{opacity:.45}],90));
-    await Promise.all(themeMotions.map(motion => motion.finished.catch(() => {})));
-    if (version !== themeRedrawVersion) return;
-    themeMotions.forEach(motion => motion.cancel()); applyTheme();
-    themeMotions = surfaces.map(surface => animate(surface,[{opacity:.45},{opacity:1}],180));
-    await Promise.all(themeMotions.map(motion => motion.finished.catch(() => {})));
-    if (version === themeRedrawVersion) { themeMotions.forEach(motion => motion.cancel()); themeMotions=[]; }
-  });
+  async function redrawTheme(preference) {
+    const version=++themeRedrawVersion;themeMotions.forEach(motion=>motion.cancel());
+    const surfaces=[document.body,...[...openDialogs].filter(dialog=>dialog.open)];
+    const animate=(surface,frames,duration)=>{const motion=surface.animate(frames,{duration:motionDuration(duration),easing:'ease',fill:'forwards'});motion.id='gs-theme-redraw';return motion;};
+    const reduced=disableEffects||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches||!document.body.animate;
+    if(!reduced){themeMotions=surfaces.map(surface=>animate(surface,[{opacity:1},{opacity:.4}],90));await Promise.all(themeMotions.map(m=>m.finished.catch(()=>{})));}
+    if(version!==themeRedrawVersion)return;
+    document.body.classList.add('gs-theme-committing');applyTheme(preference);void document.body.offsetWidth;
+    if(!reduced){if(version!==themeRedrawVersion)return;themeMotions.forEach(m=>m.cancel());themeMotions=surfaces.map(surface=>animate(surface,[{opacity:.4},{opacity:1}],180));await Promise.all(themeMotions.map(m=>m.finished.catch(()=>{})));}
+    if(version===themeRedrawVersion){themeMotions.forEach(m=>m.cancel());themeMotions=[];document.body.classList.remove('gs-theme-committing');}
+  }
+  themeSelect.addEventListener('change',()=>{themePreference=themeSelect.value;localStorage.setItem('gameshelf:theme',themePreference);redrawTheme(themePreference);});
+  window.GameShelfTheme={preview:redrawTheme,restore:()=>redrawTheme(themePreference)};
   document.body.classList.toggle('gs-pin-favorite-stars', favoriteStarsOnly);
   document.body.classList.toggle('gs-hide-tooltips', !showHoverText);
   document.body.classList.toggle('gs-show-game-titles', showGameTitles);
@@ -1871,24 +1862,26 @@ document.addEventListener('DOMContentLoaded', () => {
   listImageDialog.addEventListener('pointercancel',()=>{previewPress=null;});
   listImageDialog.addEventListener('click',event=>{const still=!previewPress||Math.hypot(event.clientX-previewPress.x,event.clientY-previewPress.y)<8;previewPress=null;if(still)listImageDialog.close();});
   const resetSettingsDialog = document.getElementById('reset-settings-dialog');
-  document.getElementById('open-reset-settings').addEventListener('click', () => { document.getElementById('reset-settings-status').textContent = ''; openModal(resetSettingsDialog); });
+  document.getElementById('open-reset-settings').addEventListener('click', () => { document.getElementById('reset-settings-status').textContent = '';document.getElementById('wipe-backup-ack').checked=false;document.getElementById('wipe-continue').disabled=true; openModal(resetSettingsDialog); });
   for (const id of ['reset-settings-close', 'reset-settings-cancel']) document.getElementById(id).addEventListener('click', () => resetSettingsDialog.close());
   closeOnBackdropClick(resetSettingsDialog);
-  document.getElementById('reset-settings-confirm').addEventListener('click', async () => {
-    const button = document.getElementById('reset-settings-confirm');
-    if (button.disabled) return;
-    button.disabled = true;
-    try {
-      const response = await fetch('/api/server-settings/reset', { method: 'POST' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      for (const key of Object.keys(localStorage)) if (key.startsWith('gameshelf:')) localStorage.removeItem(key);
-      resetSettingsDialog.close();
-      showNotification('All settings reset. Reloading GameShelf…');
-      setTimeout(() => window.location.reload(), 900);
-    } catch (error) {
-      document.getElementById('reset-settings-status').textContent = `Could not reset settings: ${error.message}`;
-      button.disabled = false;
-    }
+  document.getElementById('wipe-export-data').addEventListener('click',()=>document.getElementById('export-library-data').click());
+  document.getElementById('wipe-continue').addEventListener('click',async()=>{
+    if(!document.getElementById('wipe-backup-ack').checked)return;
+    if(window.GameShelfAccess&&!GameShelfAccess.configured()&&!await GameShelfAccess.openPIN())return;
+    document.getElementById('wipe-confirm-text').value='';document.getElementById('reset-settings-confirm').disabled=true;openModal(document.getElementById('wipe-final-dialog'));
+  });
+  document.getElementById('wipe-confirm-text').addEventListener('input',event=>document.getElementById('reset-settings-confirm').disabled=event.target.value!=='WIPE');
+  for(const id of ['wipe-final-close','wipe-final-cancel'])document.getElementById(id).addEventListener('click',()=>document.getElementById('wipe-final-dialog').close());
+  closeOnBackdropClick(document.getElementById('wipe-final-dialog'));
+  document.getElementById('wipe-backup-ack').addEventListener('change',event=>document.getElementById('wipe-continue').disabled=!event.target.checked);
+  document.getElementById('reset-settings-confirm').addEventListener('click',async()=>{
+    const button=document.getElementById('reset-settings-confirm');if(button.disabled)return;button.disabled=true;
+    try{if(window.GameShelfAccess&&!await GameShelfAccess.fresh(['wipe','admin',...GameShelfAccess.actionsFor('wipe')]))return;
+      const response=await fetch('/api/server-settings/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'WIPE',acknowledgeBackup:true})});if(!response.ok)throw new Error((await response.text()).trim()||'Could not wipe GameShelf.');
+      for(const storage of [localStorage,sessionStorage])for(const key of Object.keys(storage))if(key.startsWith('gameshelf:'))storage.removeItem(key);
+      showNotification('GameShelf data wiped. Returning to setup…');setTimeout(()=>window.location.reload(),800);
+    }catch(error){showNotification(error.message,'error');}finally{button.disabled=false;}
   });
   const serverDialog = document.getElementById('server-settings-dialog');
   document.getElementById('open-server-settings').addEventListener('click', () => {
@@ -2234,15 +2227,21 @@ document.addEventListener('DOMContentLoaded', () => {
   sortButton.addEventListener('click', e => {
     e.stopPropagation();
     animateControl(sortButton);
-    if (suggestedGameId || isShuffling) clearSuggestion();
     updateActiveSort();
 
     const isOpening = sortMenu.classList.toggle('hidden') === false;
     sortButton.classList.toggle('gs-control-active', isOpening);
-    document.body.classList.toggle('gs-sort-open', isOpening);
+    document.body.classList.toggle('gs-sort-open', isOpening);if(isOpening)followSortMenu();
   });
 
-  let sortPressOutside=true;
+  let sortFrame;
+  function followSortMenu(){
+    globalThis.cancelAnimationFrame?.(sortFrame);if(sortMenu.classList.contains('hidden'))return;
+    if(sortButton.getBoundingClientRect&&sortMenu.getBoundingClientRect){const rect=sortButton.getBoundingClientRect(),scale=typeof uiScale==='number'?uiScale:1,width=sortMenu.getBoundingClientRect().width||220*scale;
+      sortMenu.style.position='fixed';sortMenu.style.right='auto';sortMenu.style.left=Math.max(8,Math.min(innerWidth-width-8,rect.right-width))/scale+'px';sortMenu.style.top=(rect.bottom+8)/scale+'px';sortMenu.style.maxHeight=Math.max(80,(innerHeight-rect.bottom-20)/scale)+'px';}
+    if(globalThis.requestAnimationFrame)sortFrame=requestAnimationFrame(followSortMenu);
+  }
+    let sortPressOutside=true;
   document.addEventListener('pointerdown',e=>{sortPressOutside=!e.target.closest('#sort-button')&&!e.target.closest('#sort-menu');});
   document.addEventListener('click', e => {
     const clickedSortButton = e.target.closest('#sort-button');
@@ -2263,7 +2262,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sortMenu.classList.add('hidden');
       sortButton.classList.remove('gs-control-active');
       document.body.classList.remove('gs-sort-open');
-      transitionLibrary(() => {
+      (suggestedGameId||isShuffling?change=>change():transitionLibrary)(() => {
         applySort();
         applySearchFilter();
         const heading = document.getElementById('sort-heading');
