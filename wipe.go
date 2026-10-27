@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -114,7 +115,7 @@ func performGameOver(w http.ResponseWriter, r *http.Request) {
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&confirmation) != nil || confirmation.Confirm != "WIPE" || !confirmation.AcknowledgeBackup {
+	if decoder.Decode(&confirmation) != nil || decoder.Decode(new(any)) != io.EOF || confirmation.Confirm != "WIPE" || !confirmation.AcknowledgeBackup {
 		http.Error(w, "Confirm the backup reminder and Wipe before continuing.", 400)
 		return
 	}

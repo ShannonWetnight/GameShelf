@@ -1,7 +1,7 @@
 /* Personal shelves use their own identity; the shared Guardian PIN protects management. */
 (() => {
  const $=id=>document.getElementById(id),builtins=new Set(['child','adult','elevated','administrator']);
- let state={enabled:false,profiles:[]},management,catalog=[],editing,editingRole,pendingRemoval,required=false,initializing,enabledDraft=false,libraryWarningApproved=false;
+ let state={enabled:false,profiles:[]},management,catalog=[],editing,editingRole,pendingRemoval,required=false,initializing,enabledDraft=false,libraryWarningApproved=false,themePreviewed=false;
  const notifyError=error=>showNotification(error.message||'Could not save these choices.','error');
  async function request(url,options){const response=await fetch(url,options);if(!response.ok){const text=await response.text();let message=text;try{message=JSON.parse(text).message||text;}catch{}throw new Error(message||'GameShelf could not complete that request.');}return response.status===204?null:response.json();}
  async function ownerAccess(){if(!await GameShelfAccess.enter('admin'))throw new Error('Guardian approval is required.');}
@@ -81,17 +81,18 @@
  $('profile-require-pin').addEventListener('change',()=>{editing.pinPreference=$('profile-require-pin').checked;syncProfilePIN();});
  for(const id of ['profile-all-libraries','profile-all-games'])$(id).addEventListener('change',syncAssignments);$('profile-game-search').addEventListener('input',renderGameChoices);
  $('profile-photo').addEventListener('click',async()=>{const chosen=await GameShelfAvatars.choose(editing.avatar);if(chosen!==null){editing.avatar=chosen;editing.clearAvatar=chosen==='';$('profile-photo-image').src=GameShelfAvatars.url(chosen);$('profile-photo-image').hidden=!chosen;$('profile-photo').classList.toggle('has-photo',!!chosen);showNotification(chosen?'Profile photo selected. Save the profile to apply.':'Profile photo cleared. Save the profile to apply.');}});
- $('profile-theme').addEventListener('change',()=>GameShelfTheme?.preview($('profile-theme').value));
+ function restoreProfileTheme(){if(!themePreviewed)return Promise.resolve();themePreviewed=false;return window.GameShelfTheme?.restore();}
+ $('profile-theme').addEventListener('change',()=>{themePreviewed=true;window.GameShelfTheme?.preview($('profile-theme').value);});
  async function saveEditedProfile(skipWarning=false){
   const save=$('profile-editor-save');if(save.disabled)return;
   if(!skipWarning&&!$('profile-all-libraries').checked&&!editing.selectedLibraries.size){openModal($('profile-no-library-dialog'));return;}
   save.disabled=true;try{const profile={id:editing.id||'',avatar:editing.avatar,pinRequired:$('profile-require-pin').checked,usesGuardianPIN:$('profile-guardian-pin').checked,tourPending:$('profile-tour-next').checked,nickname:$('profile-nickname').value.trim(),roles:[...$('profile-role-choices').querySelectorAll('input:checked')].map(n=>n.value),allLibraries:$('profile-all-libraries').checked,libraries:[...editing.selectedLibraries],allGames:$('profile-all-games').checked,games:[...editing.selectedGames],preferences:{theme:$('profile-theme').value}};
-   await post({operation:'profile',profile,clearAvatar:!!editing.clearAvatar,pin:$('profile-new-pin').value,confirmPIN:$('profile-confirm-pin').value});await GameShelfTheme?.restore();await reloadManagement();if(management.enabled)clearIdentityState();$('profile-editor-dialog').close();showNotification('Family profile saved. Active profile sessions must sign in again.');
+   await post({operation:'profile',profile,clearAvatar:!!editing.clearAvatar,pin:$('profile-new-pin').value,confirmPIN:$('profile-confirm-pin').value});await restoreProfileTheme();await reloadManagement();if(management.enabled)clearIdentityState();$('profile-editor-dialog').close();showNotification('Family profile saved. Active profile sessions must sign in again.');
   }catch(error){notifyError(error);}finally{save.disabled=false;}
  }
  $('profile-editor-save').addEventListener('click',()=>saveEditedProfile());
  $('profile-no-library-save').addEventListener('click',()=>{$('profile-no-library-dialog').close();saveEditedProfile(true);});for(const id of ['profile-no-library-close','profile-no-library-back'])$(id).addEventListener('click',()=>$('profile-no-library-dialog').close());closeOnBackdropClick($('profile-no-library-dialog'));
- for(const id of ['profile-editor-close','profile-editor-cancel'])$(id).addEventListener('click',()=>$('profile-editor-dialog').close());$('profile-editor-dialog').addEventListener('close',()=>{$('profile-new-pin').value='';$('profile-confirm-pin').value='';GameShelfTheme?.restore();});
+ for(const id of ['profile-editor-close','profile-editor-cancel'])$(id).addEventListener('click',()=>$('profile-editor-dialog').close());$('profile-editor-dialog').addEventListener('close',()=>{$('profile-new-pin').value='';$('profile-confirm-pin').value='';restoreProfileTheme();});
   function renderRoleRules(rules={}){
     const area=$('role-rules');area.replaceChildren();
     const groups=['Settings access','Appearance','Library View','Data and Diagnostics','Game actions','Library Manager'];
