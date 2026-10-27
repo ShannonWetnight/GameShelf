@@ -153,7 +153,7 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [x] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
 - [x] Starter permission roles (Child, Adult, Guardian) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
 - [x] Assign libraries and individual games per profile; combine role/group permissions and retain each profile's preferences and favorites.
-- [x] Optional per-profile PIN entry for non-administrative shelves; enforce PINs for administrative permissions and block unsafe role upgrades.
+- [x] Optional per-profile PIN entry for non-administrative shelves; require an explicit waiver for administrative access without a personal PIN, while retaining Guardian-only locks.
 - [x] Square profile photo cards, 50 original game-inspired portraits and an exclusive Guardian portrait, cropped uploads, and shared minimal PIN sign-in. Include photos in protected profile backups.
 - [x] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Require Guardian approval when protected and offer an optional separate passphrase for AES-GCM profile exports/restores; keep imported profiles disabled on a fresh server until a new Guardian PIN is created.
 - [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.
@@ -170,3 +170,7 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [x] Additive role permissions with an administrative-access warning; preserve global Family Controls.
 - [x] Optional backup passphrases with generation, copy/show controls and explicit acknowledgment for unencrypted profile exports.
 - [x] Stage setup libraries for profile assignments, retain completed setup state, and highlight unfinished setup.
+
+- [x] Separate personal Require PIN and Guardian PIN authority, with Guardian-only Wipe.
+- [x] Real groups with shared role assignments and profile memberships; single membership by default with optional multiple Roles and Groups.
+- [x] Built-in role reset, editable Guardian nicknames, linked-profile migration, and safe last-Guardian removal with a replacement option.

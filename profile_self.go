@@ -56,7 +56,7 @@ func profilePINMatches(p familyProfile, pin string) bool {
 }
 func setProfilePIN(p *familyProfile, pin string) error {
 	if !validPIN(pin) {
-		return errors.New("Choose a four-digit PIN")
+		return errors.New("Choose a 4-digit PIN")
 	}
 	c, err := makeGuardianCredential("", pin)
 	if err != nil {
@@ -141,7 +141,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 	record := oldRecord
 	if value.NewPIN != "" {
 		if value.NewPIN != value.ConfirmPIN || !validPIN(value.NewPIN) {
-			http.Error(w, "Enter the same four-digit PIN twice.", 400)
+			http.Error(w, "Enter the same 4-digit PIN twice.", 400)
 			return
 		}
 		if profilePINMatches(p, value.NewPIN) {

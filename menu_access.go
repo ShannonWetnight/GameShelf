@@ -31,6 +31,9 @@ func randomKey() (string, error) {
 
 // Called with accessMu held. Only open-menu gates are covered; action restrictions remain independent.
 func menuAuthorized(session *pinSession, r *http.Request, action string) bool {
+	if !pinAuthorityAllows(session, r, action) {
+		return false
+	}
 	lease, ok := session.Menus[r.Header.Get("X-GameShelf-Menu")]
 	return ok && time.Now().Before(lease.Until) && lease.Scopes[action]
 }

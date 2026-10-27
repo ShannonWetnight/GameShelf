@@ -15,13 +15,17 @@ type guardianCredential struct {
 	ID   string `json:"id"`
 	Salt string `json:"salt"`
 	Hash string `json:"hash"`
+	Name string `json:"name,omitempty"`
 }
 
 func guardianCredentials(record *pinRecord) []guardianCredential {
 	if record == nil {
 		return nil
 	}
-	list := []guardianCredential{{"guardian-1", record.Salt, record.Hash}}
+	list := []guardianCredential{{ID: "guardian-1", Salt: record.Salt, Hash: record.Hash, Name: record.GuardianName}}
+	if record.PrimaryDisabled {
+		list = nil
+	}
 	if record.Secondary != nil {
 		list = append(list, *record.Secondary)
 	}
@@ -52,7 +56,7 @@ func makeGuardianCredential(id, pin string) (guardianCredential, error) {
 		return guardianCredential{}, err
 	}
 	hash, err := pbkdf2.Key(sha256.New, pin, salt, pinIterations, 32)
-	return guardianCredential{id, base64.StdEncoding.EncodeToString(salt), base64.StdEncoding.EncodeToString(hash)}, err
+	return guardianCredential{ID: id, Salt: base64.StdEncoding.EncodeToString(salt), Hash: base64.StdEncoding.EncodeToString(hash)}, err
 }
 func matchGuardianPIN(record *pinRecord, pin, required string) string {
 	matched := ""
@@ -70,18 +74,32 @@ func guardianConstraint(r *http.Request) string {
 	if view := profileView(r); view != nil && view.Profile.UsesGuardianPIN {
 		return guardianID(view.Profile.GuardianID)
 	}
-	if view := profileView(r); view != nil && containsProfileID(view.Profile.Roles, "administrator") {
-		return "profile:" + view.Profile.ID
-	}
 	return ""
 }
 func guardianSessionAllowed(s *pinSession, r *http.Request) bool {
+	if s != nil && strings.HasPrefix(s.GuardianID, "user:") {
+		v := profileView(r)
+		return v != nil && s.GuardianID == "user:"+v.Profile.ID
+	}
 	return s != nil && (guardianConstraint(r) == "" || s.GuardianID == guardianConstraint(r))
+}
+
+// A personal PIN can approve a user's Require PIN actions, never Guardian-only
+// actions. Check this on grants, one-use permits, and menu leases independently.
+func requiresGuardianPIN(r *http.Request, action string) bool {
+	if action == "admin" || action == "wipe" {
+		return true
+	}
+	policy, _, _ := currentAccessPolicy()
+	return policyMode(combinedAccessPolicy(r, policy), action) == "guardian"
+}
+func pinAuthorityAllows(s *pinSession, r *http.Request, action string) bool {
+	return guardianSessionAllowed(s, r) && (!strings.HasPrefix(s.GuardianID, "user:") || !requiresGuardianPIN(r, action))
 }
 func setGuardianCredential(record *pinRecord, id, pin string) error {
 	id = guardianID(id)
 	if !validPIN(pin) {
-		return errors.New("Choose a four-digit PIN")
+		return errors.New("Choose a 4-digit PIN")
 	}
 	if id == "guardian-2" && record.Salt == "" {
 		return errors.New("Create Guardian 1 first")
@@ -99,8 +117,12 @@ func setGuardianCredential(record *pinRecord, id, pin string) error {
 		return err
 	}
 	if id == "guardian-1" {
+		record.PrimaryDisabled = false
 		record.Salt, record.Hash = c.Salt, c.Hash
 	} else {
+		if record.Secondary != nil {
+			c.Name = record.Secondary.Name
+		}
 		record.Secondary = &c
 	}
 	return nil
@@ -110,7 +132,11 @@ func publicGuardians() []map[string]string {
 	list := []map[string]string{}
 	if err == nil {
 		for _, c := range guardianCredentials(record) {
-			list = append(list, map[string]string{"id": c.ID, "name": strings.Replace(c.ID, "guardian-", "Guardian ", 1)})
+			name := c.Name
+			if name == "" {
+				name = strings.Replace(c.ID, "guardian-", "Guardian ", 1)
+			}
+			list = append(list, map[string]string{"id": c.ID, "name": name})
 		}
 	}
 	return list

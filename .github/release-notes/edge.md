@@ -1,5 +1,8 @@
 ## Added
 
+- Role-backed groups, personal versus Guardian PIN approvals, editable Guardian nicknames, and confirmed Guardian-to-role migration with a safe last-Guardian choice.
+- Profile option groups, single/multiple role selection, role defaults reset, joined dropdown outlines, saved-PIN controls, and unfinished-setup attention cues.
+
 - Two Guardian PINs with unique profile links, an optional Guardian profile, and approvals bound to the signed-in Guardian.
 - Three built-in roles, additive grants with administrative warnings, personal profile editing, hidden profiles, required PIN changes, and Profile audit activity.
 - Fifty regular portraits, including twenty-five playful additions, plus an exclusive Guardian knight; matching cover/photo zoom and tilt tools.

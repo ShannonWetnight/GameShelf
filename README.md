@@ -199,7 +199,7 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Dropdowns shar
 
 ## Family Controls
 
-Open **Settings → Advanced → Data and Diagnostics → Family Controls → Configure**. Create and confirm a **four-digit PIN**, then choose the access level and visibility of each setting or action:
+Open **Settings → Advanced → Data and Diagnostics → Family Controls → Configure**. Create and confirm a **4-digit PIN**, then choose the access level and visibility of each setting or action:
 
 | Access | Behavior |
 | --- | --- |
@@ -213,7 +213,7 @@ Once a PIN exists, managing, changing, or removing it requires the current PIN. 
 
 The PIN is salted and hashed using PBKDF2-HMAC-SHA256 with 600,000 iterations, following [OWASP password-storage guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). It is stored privately in `.family-pin.json` under the original data mount. The Guardian PIN, its verifier, and unlock cookies never appear in logs or backup ZIPs. Profile verifiers are included in profile backups; use the optional backup passphrase to encrypt them (see below). Attempts are limited to six per minute per connected client address and thirty per minute across the server. Unlock cookies are HttpOnly and SameSite Strict, and Secure on direct HTTPS connections. Rejected attempts and policy changes produce credential-free system/error events. A corrupt private record blocks protected operations instead of silently allowing them.
 
-**Use HTTPS when entering a PIN or share credentials**, and put authentication in front of the app when it is accessible beyond your trusted household network. A four-digit Guardian PIN protects shared actions. Optional local profiles add personal shelves, but PINs do not provide the strength of a full account login. Behind a proxy, attempt limits use the proxy's connected address rather than trusting arbitrary forwarded headers.
+**Use HTTPS when entering a PIN or share credentials**, and put authentication in front of the app when it is accessible beyond your trusted household network. A 4-digit Guardian PIN protects shared actions. Optional local profiles add personal shelves, but PINs do not provide the strength of a full account login. Behind a proxy, attempt limits use the proxy's connected address rather than trusting arbitrary forwarded headers.
 
 Backups contain the rules, never the PIN secret. Restoring onto an already protected server preserves its existing PIN and rules. A fresh restore keeps imported restrictions: Disable remains disabled, and Require PIN actions wait for you to create a new PIN in Family Controls. The setup cog also offers Family Controls. If a fresh import includes a locked menu but no PIN secret, opening it offers the PIN configurator before allowing the protected menu. The setup cog also offers Family Controls. For a complete migration, copy the full data volume securely, including hidden files. If the PIN is forgotten, a server owner with direct data-volume access can stop GameShelf, remove `.family-pin.json` and the `access` field in `server-settings.json`, and restart. This is an offline owner recovery procedure, not an in-app bypass.
 
@@ -370,7 +370,7 @@ New servers enable all logging sources by default. Customize logging to deselect
 
 ## Family profiles
 
-Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. You can configure profiles and roles before creating a Guardian PIN on a fresh setup. Create one through **Guardian PIN**, or let **Enable family profiles** open the PIN creator. An existing Guardian PIN still protects profile management, including resumed setup. Add the family members, then turn on **Enable family profiles**. Choose **Require PIN** when adding or editing a profile to expand its four-digit PIN fields. Profiles without administrative permissions can open directly when this is unchecked. Administrative profiles always require a PIN; GameShelf also prevents role changes that would grant administrative permissions to a profile without one. Existing profiles keep requiring their PIN. The toolbar profile icon switches shelves or signs out.
+Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. You can configure profiles and roles before creating a Guardian PIN on a fresh setup. Create one through **Guardian PIN**, or let **Enable family profiles** open the PIN creator. An existing Guardian PIN still protects profile management, including resumed setup. Add the family members, then turn on **Enable family profiles**. Choose **Require PIN** when adding or editing a profile to expand its 4-digit PIN fields. Profiles without administrative permissions can open directly when this is unchecked. A profile with administrative permissions can omit its personal PIN only after an explicit acknowledgment in the editor. Guardian PIN locks, Family Controls, and Wipe remain protected by a Guardian PIN. Existing profiles keep requiring their PIN. The toolbar profile icon switches shelves or signs out.
 
 Profiles use square photo cards. In Add Profile or Edit Profile, click the photo square to pick one of 50 original GameShelf portraits (including 25 playful portraits for younger players), or upload a PNG, JPEG, or WebP up to 8 MB. Drag, zoom, and tilt built-in or uploaded photos to choose a square crop. Photos are stored at 256 × 256 pixels; GameShelf validates and re-encodes uploads to remove image metadata. Save the profile to apply a photo. Selecting a protected profile opens the shared **PIN Required** prompt; cancel returns to the photo cards.
 
@@ -380,7 +380,7 @@ Starter roles are **Child**, **Adult**, and **Guardian**. Child keeps administra
 
 Profiles have no fixed count limit; saved profile data is bounded to 32 MiB. Authentication is limited to ten attempts per connected client per minute and 120 across the server. Profile cookies are HttpOnly, SameSite Strict, and Secure on direct HTTPS. Sessions expire after eight hours, signing out removes the session, and changes to profiles or roles sign everyone out. Switching profiles also clears the previous Guardian unlock. PIN verifiers use independent random salts and PBKDF2-HMAC-SHA256; no plaintext PINs are stored or logged.
 
-**Guardian Controls** remains available on the profile picker for recovery. The Guardian PIN is separate from a person's profile PIN. Turn profiles off before removing the Guardian PIN. For offline owner recovery, stop the container and securely back up the data volume before changing private security records; do not expose these records publicly.
+**Guardian Controls** remains available on the profile picker for recovery. The Guardian PIN is separate from a person's profile PIN. Removing the last Guardian PIN offers Cancel, Create New Guardian PIN, or a confirmed removal that turns Family Profiles off while retaining saved profiles and roles. For offline owner recovery, stop the container and securely back up the data volume before changing private security records; do not expose these records publicly.
 
 ### Protected profile backups
 
@@ -405,12 +405,20 @@ When a Guardian PIN exists, enter it once when opening Wipe. Remembered approval
 
 ### Two Guardians and personal profile information
 
-You can create up to two different Guardian PINs in **Guardian PIN → Guardian**. Creating a PIN does not add a profile automatically: select **Create a Guardian Profile** to create a knight-photo profile linked to that credential. Each Guardian PIN can belong to only one profile. When a linked Guardian profile is signed in, only its own Guardian PIN approves protected actions; on a shared shelf or a non-Guardian profile, either Guardian can approve.
+You can create up to two different Guardian PINs in **Guardian PIN → Guardian**. Creating a PIN does not add a profile automatically: select **Create a Guardian Profile** to open the profile editor with its knight photo and Guardian link. The profile is created only when you save it. Each Guardian PIN can belong to only one profile. When a linked Guardian profile is signed in, only its own Guardian PIN approves protected actions; on a shared shelf or a non-Guardian profile, either Guardian can approve.
 
-The three built-in roles are **Guardian**, **Adult**, and **Child**. Adult uses blue, Guardian gold, and Child green. Multiple roles combine their granted permissions; GameShelf asks you to acknowledge administrative access before saving. The server's Family Controls remain restrictions across every role. Existing Elevated User memberships migrate to Adult.
+The three built-in roles are **Guardian**, **Adult**, and **Child**. Adult uses blue, Guardian gold, and Child green. Profiles select one role or group by default. Enable **Allow multiple Roles and Groups** to combine memberships. Multiple roles combine their granted permissions; GameShelf asks you to acknowledge administrative access before saving. The server's Family Controls remain restrictions across every role. Existing Elevated User memberships migrate to Adult.
 
 Use the three-dot menu on a profile's photo to edit its nickname, photo, or PIN after proving that profile's PIN. This editor cannot change roles, library assignments, visibility, or shared settings. Guardians can hide profiles and require a PIN change at next sign-in. A required PIN change must finish before a normal shelf session is issued. The exclusive **GameShelf Guardian** portrait is available first when editing a Guardian profile.
 
 **Profile** activity is recorded by default, including sign-ins, Guardian approvals, and settings changes. You can disable this source in Customize logging or filter it in View Logs. Profile events are included when recent logs are exported; PINs and passphrases are never logged.
 
 During first-time setup, opening Family Profiles stages the selected locations so library and game assignments are available while the main shelf stays gated. Completed setup is remembered; skipped setup stays highlighted in Settings until finished or the shelf is wiped.
+
+### Groups, personal approvals, and Guardian migration
+
+Create a **Group** to assign one or more roles to several profiles. Choose its roles and members in the group editor, or select a group when editing a profile. Groups and memberships are included in profile backups. Built-in roles remain editable; **Reset to Defaults** restores the role's original built-in template. Adult defaults protect shared administration with Guardian approval.
+
+**Require PIN** accepts the current user's personal profile PIN. **Guardian PIN** is an administrative lock and requires a Guardian credential. A personal approval cannot become a Guardian approval through remembered sessions or open menus. Guardian approval can also help with an ordinary PIN action. Wipe always requires fresh Guardian approval when a Guardian PIN exists, regardless of role permissions or a personal-PIN waiver.
+
+Guardian PIN slots have editable nicknames. A linked profile keeps full Guardian permissions; these controls are greyed out with an explanation. **Remove Guardian Link** in the profile editor lets you choose a replacement role, starting with the current Adult role, and keeps the credential itself available. Removing a Guardian credential from Guardian controls also confirms its replacement role and migrates its linked profile. Removing the last credential requires a separate acknowledgment that Family Profiles will turn off; Create New Guardian PIN provides a way to keep them on. Migrated profiles can receive a new personal PIN afterward.

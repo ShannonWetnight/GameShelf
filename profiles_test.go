@@ -40,7 +40,7 @@ func profileTestCall(t *testing.T, handler http.Handler, method, path string, va
 }
 func createProfileForTest(t *testing.T, nickname string, roles []string) familyProfile {
 	t.Helper()
-	w := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": familyProfile{Nickname: nickname, Roles: roles, AllLibraries: true, AllGames: true}, "pin": "2468", "confirmPIN": "2468"}, nil)
+	w := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": familyProfile{Nickname: nickname, Roles: roles, AllowMultipleRoles: len(roles) > 1, AllLibraries: true, AllGames: true}, "pin": "2468", "confirmPIN": "2468"}, nil)
 	if w.Code != 200 {
 		t.Fatalf("create profile: %d %s", w.Code, w.Body.String())
 	}

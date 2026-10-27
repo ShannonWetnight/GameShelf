@@ -23,36 +23,48 @@ import (
 )
 
 type familyRole struct {
-	ID    string                `json:"id"`
-	Name  string                `json:"name"`
-	Rules map[string]accessRule `json:"rules"`
+	ID       string                `json:"id"`
+	Name     string                `json:"name"`
+	Template string                `json:"template,omitempty"`
+	Rules    map[string]accessRule `json:"rules"`
+}
+type familyGroup struct {
+	ID    string   `json:"id"`
+	Name  string   `json:"name"`
+	Roles []string `json:"roles"`
 }
 type familyProfile struct {
-	ID              string            `json:"id"`
-	Nickname        string            `json:"nickname"`
-	Avatar          string            `json:"avatar,omitempty"`
-	GuardianID      string            `json:"guardianID,omitempty"`
-	Hidden          bool              `json:"hidden,omitempty"`
-	ForcePINChange  bool              `json:"forcePINChange,omitempty"`
-	UsesGuardianPIN bool              `json:"usesGuardianPIN,omitempty"`
-	TourPending     bool              `json:"tourPending,omitempty"`
-	PINRequired     *bool             `json:"pinRequired,omitempty"`
-	Roles           []string          `json:"roles"`
-	AllLibraries    bool              `json:"allLibraries"`
-	Libraries       []string          `json:"libraries"`
-	AllGames        bool              `json:"allGames"`
-	Games           []string          `json:"games"`
-	Preferences     map[string]string `json:"preferences"`
-	Favorites       map[string]bool   `json:"favorites"`
-	Salt            string            `json:"salt,omitempty"`
-	Hash            string            `json:"hash,omitempty"`
+	ID                 string            `json:"id"`
+	Nickname           string            `json:"nickname"`
+	Avatar             string            `json:"avatar,omitempty"`
+	GuardianID         string            `json:"guardianID,omitempty"`
+	Hidden             bool              `json:"hidden,omitempty"`
+	ForcePINChange     bool              `json:"forcePINChange,omitempty"`
+	UsesGuardianPIN    bool              `json:"usesGuardianPIN,omitempty"`
+	TourPending        bool              `json:"tourPending,omitempty"`
+	PINRequired        *bool             `json:"pinRequired,omitempty"`
+	Roles              []string          `json:"roles"`
+	Groups             []string          `json:"groups,omitempty"`
+	AllowMultipleRoles bool              `json:"allowMultipleRoles,omitempty"`
+	UnprotectedAdmin   bool              `json:"unprotectedAdmin,omitempty"`
+	HasSavedPIN        bool              `json:"hasSavedPIN,omitempty"`
+	AllLibraries       bool              `json:"allLibraries"`
+	Libraries          []string          `json:"libraries"`
+	AllGames           bool              `json:"allGames"`
+	Games              []string          `json:"games"`
+	Preferences        map[string]string `json:"preferences"`
+	Favorites          map[string]bool   `json:"favorites"`
+	Salt               string            `json:"salt,omitempty"`
+	Hash               string            `json:"hash,omitempty"`
 }
 type profileDatabase struct {
-	Version  int                      `json:"version"`
-	Enabled  bool                     `json:"enabled"`
-	Epoch    uint64                   `json:"epoch"`
-	Roles    map[string]familyRole    `json:"roles"`
-	Profiles map[string]familyProfile `json:"profiles"`
+	Version          int                      `json:"version"`
+	Enabled          bool                     `json:"enabled"`
+	Epoch            uint64                   `json:"epoch"`
+	Roles            map[string]familyRole    `json:"roles"`
+	Groups           map[string]familyGroup   `json:"groups,omitempty"`
+	SelectionVersion int                      `json:"selectionVersion,omitempty"`
+	Profiles         map[string]familyProfile `json:"profiles"`
 }
 type profileSession struct {
 	Home, Profile string
@@ -101,8 +113,17 @@ func defaultProfileDB() *profileDatabase {
 			}
 		}
 		roles[item.ID] = familyRole{ID: item.ID, Name: item.Name, Rules: rules}
+		role := roles[item.ID]
+		role.Template = item.ID
+		role.Rules["wipe"] = accessRule{Mode: "guardian"}
+		if item.ID == "adult" {
+			for _, action := range []string{"admin", "advanced", "libraryManager", "sources", "storage", "refresh", "logging", "logs", "health", "healthView", "export", "restore", "setup", "covers", "titles", "metadata"} {
+				role.Rules[action] = accessRule{Mode: "guardian"}
+			}
+		}
+		roles[item.ID] = role
 	}
-	return &profileDatabase{Version: 1, Epoch: 1, Roles: roles, Profiles: map[string]familyProfile{}}
+	return &profileDatabase{Version: 1, SelectionVersion: 1, Epoch: 1, Groups: map[string]familyGroup{}, Roles: roles, Profiles: map[string]familyProfile{}}
 }
 func cloneProfileDB(value *profileDatabase) *profileDatabase {
 	data, _ := json.Marshal(value)
@@ -182,7 +203,7 @@ func validateProfileDB(value *profileDatabase) error {
 			if _, ok := accessActions[action]; !ok {
 				return errors.New("Unknown role permission")
 			}
-			if rule.Mode != "allow" && rule.Mode != "pin" && rule.Mode != "disable" {
+			if rule.Mode != "allow" && rule.Mode != "pin" && rule.Mode != "guardian" && rule.Mode != "disable" {
 				return errors.New("Invalid role permission")
 			}
 			if rule.Level != "" && rule.Level != "basic" && rule.Level != "advanced" {
@@ -190,10 +211,28 @@ func validateProfileDB(value *profileDatabase) error {
 			}
 		}
 	}
+	for id, group := range value.Groups {
+		if id != group.ID || !validProfileID(id) || !validProfileName(group.Name) || len(group.Roles) == 0 {
+			return errors.New("Choose a group name and at least one role")
+		}
+		for _, role := range group.Roles {
+			if _, ok := value.Roles[role]; !ok {
+				return errors.New("A group role is unavailable")
+			}
+		}
+	}
 	linked := map[string]string{}
 	for id, profile := range value.Profiles {
-		if id != profile.ID || !validProfileID(id) || !validProfileName(profile.Nickname) || len(profile.Roles) == 0 {
+		if id != profile.ID || !validProfileID(id) || !validProfileName(profile.Nickname) || len(profile.Roles)+len(profile.Groups) == 0 {
 			return errors.New("Choose a nickname and at least one role")
+		}
+		for _, group := range profile.Groups {
+			if _, ok := value.Groups[group]; !ok {
+				return errors.New("A selected group is unavailable")
+			}
+		}
+		if !profile.AllowMultipleRoles && len(profile.Roles)+len(profile.Groups) > 1 {
+			return errors.New("Enable multiple Roles and Groups before selecting more than one")
 		}
 		for _, role := range profile.Roles {
 			if _, ok := value.Roles[role]; !ok {
@@ -213,7 +252,7 @@ func validateProfileDB(value *profileDatabase) error {
 				return errors.New("Guardian-linked profiles must use the Guardian role and shared PIN")
 			}
 		} else if !profileRequiresPIN(profile) {
-			if profileHasAdministrativeActions(value, profile) {
+			if profileHasAdministrativeActions(value, profile) && !profile.UnprotectedAdmin {
 				return fmt.Errorf("Set a PIN for %s before granting administrative permissions", profile.Nickname)
 			}
 			if profile.Salt != "" || profile.Hash != "" {
@@ -254,6 +293,8 @@ func profileView(r *http.Request) *profileContext {
 func roleRank(mode string) int {
 	switch mode {
 	case "disable":
+		return 4
+	case "guardian":
 		return 3
 	case "pin":
 		return 2
@@ -266,7 +307,7 @@ func mergedProfileRules(db *profileDatabase, p familyProfile) map[string]accessR
 	for action := range accessActions {
 		first := true
 		var picked accessRule
-		for _, id := range p.Roles {
+		for _, id := range effectiveProfileRoles(db, p) {
 			candidate := db.Roles[id].Rules[action]
 			if candidate.Mode == "" {
 				candidate.Mode = "allow"
@@ -280,7 +321,25 @@ func mergedProfileRules(db *profileDatabase, p familyProfile) map[string]accessR
 		}
 		result[action] = picked
 	}
+	if p.UsesGuardianPIN {
+		for action := range result {
+			result[action] = accessRule{Mode: "allow"}
+		}
+	}
+	result["wipe"] = accessRule{Mode: "guardian"}
 	return result
+}
+
+func effectiveProfileRoles(db *profileDatabase, p familyProfile) []string {
+	list := append([]string{}, p.Roles...)
+	for _, id := range p.Groups {
+		for _, role := range db.Groups[id].Roles {
+			if !containsProfileID(list, role) {
+				list = append(list, role)
+			}
+		}
+	}
+	return list
 }
 
 func profileMode(r *http.Request, action string) string {
@@ -349,7 +408,7 @@ func combinedAccessPolicy(r *http.Request, policy *accessPolicy) *accessPolicy {
 		for _, action := range []string{"libraryManager", "sources", "storage", "refresh", "logging", "logs", "health", "healthView", "export", "restore", "wipe", "setup"} {
 			rule := result.Rules[action]
 			if rule.Mode != "disable" {
-				rule.Mode = "pin"
+				rule.Mode = "guardian"
 			}
 			result.Rules[action] = rule
 		}
@@ -424,7 +483,12 @@ func profileGate(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-func publicProfile(p familyProfile) familyProfile { p.Salt = ""; p.Hash = ""; return p }
+func publicProfile(p familyProfile) familyProfile {
+	p.HasSavedPIN = p.Hash != "" || p.UsesGuardianPIN
+	p.Salt = ""
+	p.Hash = ""
+	return p
+}
 func currentProfileLocked(r *http.Request, db *profileDatabase) (familyProfile, bool) {
 	session, ok := profileSessions[profileCookie(r)]
 	if !ok || session.Home != settingsHome || session.Epoch != db.Epoch || time.Now().After(session.Until) {
@@ -494,7 +558,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			for action := range accessActions {
 				groups[action] = accessGroup(action)
 			}
-			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "libraries": profileLibraries(), "actions": accessActions, "groups": groups, "pinProtectedActions": profileAdministrativeActions, "guardians": publicGuardians(), "guardianConfigured": guardianAvailable()})
+			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "profileGroups": db.Groups, "roleDefaults": defaultProfileDB().Roles, "libraries": profileLibraries(), "actions": accessActions, "groups": groups, "pinProtectedActions": profileAdministrativeActions, "guardians": publicGuardians(), "guardianConfigured": guardianAvailable()})
 			return
 		}
 		roleNames := map[string]string{}
@@ -529,6 +593,8 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		Operation        string
 		Profile          familyProfile
 		Role             familyRole
+		Group            familyGroup
+		Members          []string
 		PIN              string
 		ConfirmPIN       string
 		ClearAvatar      bool
@@ -576,6 +642,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Salt = old.Salt
 		p.Hash = old.Hash
+		p.HasSavedPIN = false
 		if p.Preferences == nil {
 			p.Preferences = old.Preferences
 		} else {
@@ -605,16 +672,26 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			p.GuardianID = guardianID(p.GuardianID)
 			p.Salt = ""
 			p.Hash = ""
+			required := true
+			p.PINRequired = &required
+			p.Roles = []string{"administrator"}
+			p.Groups = nil
+			p.AllLibraries = true
+			p.AllGames = true
+			p.Libraries = nil
+			p.Games = nil
+			p.ForcePINChange = false
+			p.UnprotectedAdmin = false
 		} else if !profileRequiresPIN(p) {
-			if profileHasAdministrativeActions(copy, p) {
-				http.Error(w, "Administrative profiles require a PIN.", 400)
+			if profileHasAdministrativeActions(copy, p) && (!p.UnprotectedAdmin || !body.AcknowledgeAdmin) {
+				http.Error(w, "Acknowledge administrative access without a profile PIN before saving.", 400)
 				return
 			}
 			p.Salt = ""
 			p.Hash = ""
 		} else if !exists || old.Hash == "" || body.PIN != "" {
 			if !validPIN(body.PIN) || body.PIN != body.ConfirmPIN {
-				http.Error(w, "Enter the same four-digit PIN twice.", 400)
+				http.Error(w, "Enter the same 4-digit PIN twice.", 400)
 				return
 			}
 			key, err := randomKey()
@@ -636,6 +713,9 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 		if !p.UsesGuardianPIN {
 			p.GuardianID = ""
+		}
+		if old.UsesGuardianPIN && !p.UsesGuardianPIN && p.Avatar == "builtin:ember-knight" {
+			p.Avatar = "builtin:moonlit-knight"
 		}
 		if p.Avatar == "builtin:ember-knight" && !containsProfileID(p.Roles, "administrator") {
 			http.Error(w, "The GameShelf Guardian portrait belongs to the Guardian role.", 400)
@@ -662,7 +742,101 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			}
 			role.ID = "r-" + key[:24]
 		}
+		if old, ok := copy.Roles[role.ID]; ok {
+			role.Template = old.Template
+		}
+		if role.Template == "" {
+			role.Template = "adult"
+		}
+		if role.Rules == nil {
+			role.Rules = map[string]accessRule{}
+		}
+		role.Rules["wipe"] = accessRule{Mode: "guardian"}
 		copy.Roles[role.ID] = role
+	case "resetRole":
+		old, ok := copy.Roles[body.Role.ID]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		template := old.Template
+		if template == "" {
+			template = old.ID
+		}
+		defaults, ok := defaultProfileDB().Roles[template]
+		if !ok {
+			http.Error(w, "Choose a built-in role template.", 400)
+			return
+		}
+		defaults.ID = old.ID
+		if !containsProfileID([]string{"administrator", "adult", "child"}, old.ID) {
+			defaults.Name = old.Name
+		}
+		copy.Roles[old.ID] = defaults
+	case "group":
+		group := body.Group
+		group.Name = strings.TrimSpace(group.Name)
+		if group.ID == "" {
+			key, err := randomKey()
+			if err != nil {
+				http.Error(w, "Could not create group.", 503)
+				return
+			}
+			group.ID = "g-" + key[:24]
+		}
+		copy.Groups[group.ID] = group
+		for _, id := range body.Members {
+			if _, ok := copy.Profiles[id]; !ok {
+				http.Error(w, "A selected profile is unavailable.", 400)
+				return
+			}
+		}
+		for id, p := range copy.Profiles {
+			old := p
+			out := []string{}
+			for _, g := range p.Groups {
+				if g != group.ID {
+					out = append(out, g)
+				}
+			}
+			if containsProfileID(body.Members, id) {
+				if p.UsesGuardianPIN {
+					http.Error(w, "Guardian-linked profiles keep their full administrative role.", 400)
+					return
+				}
+				out = append(out, group.ID)
+				if !p.AllowMultipleRoles {
+					p.Roles = nil
+					out = []string{group.ID}
+				}
+			}
+			p.Groups = out
+			if len(p.Groups)+len(p.Roles) == 0 {
+				p.Roles = []string{"child"}
+			}
+			if profileHasAdministrativeActions(copy, p) && (!profileHasAdministrativeActions(db, old) || !profileRequiresPIN(p) && !p.UnprotectedAdmin) {
+				if !body.AcknowledgeAdmin {
+					http.Error(w, "Acknowledge the group's administrative permissions before saving.", 400)
+					return
+				}
+				if !profileRequiresPIN(p) {
+					p.UnprotectedAdmin = true
+				}
+			}
+			copy.Profiles[id] = p
+		}
+	case "deleteGroup":
+		if _, ok := copy.Groups[body.Group.ID]; !ok {
+			http.NotFound(w, r)
+			return
+		}
+		for _, p := range copy.Profiles {
+			if containsProfileID(p.Groups, body.Group.ID) {
+				http.Error(w, "Move profiles out of this group before removing it.", 409)
+				return
+			}
+		}
+		delete(copy.Groups, body.Group.ID)
 	case "deleteRole":
 		if body.Role.ID == "child" || body.Role.ID == "adult" || body.Role.ID == "elevated" || body.Role.ID == "administrator" {
 			http.Error(w, "Starter roles can be edited, but not removed.", 409)
@@ -671,6 +845,12 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		for _, p := range copy.Profiles {
 			if containsProfileID(p.Roles, body.Role.ID) {
 				http.Error(w, "Move profiles to another role before removing it.", 409)
+				return
+			}
+		}
+		for _, g := range copy.Groups {
+			if containsProfileID(g.Roles, body.Role.ID) {
+				http.Error(w, "Remove this role from its groups first.", 409)
 				return
 			}
 		}
@@ -752,7 +932,7 @@ func handleProfileLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if profileRequiresPIN(p) {
 		if !validPIN(value.PIN) {
-			http.Error(w, "Enter a four-digit PIN.", 400)
+			http.Error(w, "Enter a 4-digit PIN.", 400)
 			return
 		}
 		salt, expected, iterations, verifierErr := profilePINVerifier(p)
@@ -929,6 +1109,26 @@ func profileVisibleMounts(r *http.Request) []string {
 }
 
 func migrateFamilyRoles(db *profileDatabase) {
+	if db.Groups == nil {
+		db.Groups = map[string]familyGroup{}
+	}
+	if db.SelectionVersion == 0 {
+		for id, p := range db.Profiles {
+			p.AllowMultipleRoles = len(p.Roles)+len(p.Groups) > 1
+			db.Profiles[id] = p
+		}
+		db.SelectionVersion = 1
+	}
+	for id, role := range db.Roles {
+		if role.Rules == nil {
+			role.Rules = map[string]accessRule{}
+		}
+		role.Rules["wipe"] = accessRule{Mode: "guardian"}
+		if role.Template == "" && containsProfileID([]string{"administrator", "adult", "child"}, id) {
+			role.Template = id
+		}
+		db.Roles[id] = role
+	}
 	if _, ok := db.Roles["elevated"]; ok {
 		delete(db.Roles, "elevated")
 		for id, p := range db.Profiles {

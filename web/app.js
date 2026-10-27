@@ -2351,7 +2351,7 @@ async function saveCoverStretch(){
 }
 function syncSetupResume(){
  const value=serverSettings;if(!value)return;const hasLibrary=value.rootDir||value.rootDirs?.length||value.sources?.length;
- const unfinished=value.setupStatus==='skipped'||(!value.setupCompleted&&(value.setupStatus==='pending'||!value.setupStatus));document.getElementById('resume-setup-option').hidden=!unfinished;document.getElementById('resume-setup-option').classList.toggle('gs-setup-pending',unfinished);
+ const unfinished=!value.setupCompleted&&(value.setupStatus==='skipped'||value.setupStatus==='pending'||!value.setupStatus);document.getElementById('resume-setup-option').hidden=!unfinished;document.getElementById('resume-setup-option').classList.toggle('gs-setup-pending',unfinished);document.body.classList.toggle('gs-setup-unfinished',unfinished);
 }
 
 function profileBackupKey(id){const value=document.getElementById(id).value;if(!value)return '';if([...value].length<8||new TextEncoder().encode(value).length>1024){showNotification('Use a backup passphrase of at least 8 characters.','error');return null;}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}
