@@ -140,6 +140,9 @@ func TestRemoveGuardianPreservesOtherIdentityAndLastRemovalNeedsConsent(t *testi
 		t.Fatal(w.Code, w.Body.String())
 	}
 	record, _ = readPINRecord()
+	if record == nil || record.Salt != "" || record.Hash != "" {
+		t.Fatal("retired Guardian verifier was retained")
+	}
 	if matchGuardianPIN(record, "7392", "") != "" || matchGuardianPIN(record, "8642", "") != "guardian-2" {
 		t.Fatal("removed Guardian still authenticates or other identity changed")
 	}

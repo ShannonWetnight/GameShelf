@@ -101,7 +101,7 @@ func setGuardianCredential(record *pinRecord, id, pin string) error {
 	if !validPIN(pin) {
 		return errors.New("Choose a 4-digit PIN")
 	}
-	if id == "guardian-2" && record.Salt == "" {
+	if id == "guardian-2" && record.Salt == "" && !record.PrimaryDisabled {
 		return errors.New("Create Guardian 1 first")
 	}
 	if id != "guardian-1" && id != "guardian-2" {

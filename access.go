@@ -223,7 +223,7 @@ func readPINRecord() (*pinRecord, error) {
 	}
 	salt, e1 := base64.StdEncoding.DecodeString(record.Salt)
 	hash, e2 := base64.StdEncoding.DecodeString(record.Hash)
-	if e1 != nil || e2 != nil || len(salt) != 16 || len(hash) != 32 {
+	if !record.PrimaryDisabled && (e1 != nil || e2 != nil || len(salt) != 16 || len(hash) != 32) {
 		return nil, errors.New("PIN storage unavailable")
 	}
 	if record.Secondary != nil && (record.Secondary.ID != "guardian-2" || !validGuardianCredential(*record.Secondary)) {

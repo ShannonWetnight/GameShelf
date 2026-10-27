@@ -36,6 +36,8 @@ func removeGuardianCredential(w http.ResponseWriter, r *http.Request, record *pi
 	next := *record
 	if id == "guardian-1" {
 		next.PrimaryDisabled = true
+		next.Salt = ""
+		next.Hash = ""
 	} else {
 		next.Secondary = nil
 	}
