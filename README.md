@@ -119,6 +119,8 @@ Connections originate from the container, so check server reachability, DNS, and
 
 Use a server account restricted to reading the intended folders. GameShelf's connectors issue read operations; server permissions determine what the account can access. Passwords are encrypted in saved settings using a private key in the data volume and are never returned to the browser. A blank password when editing an existing location keeps its saved password.
 
+The configured network folder is a path selection, not a server-side sandbox. Servers may resolve links or aliases outside that folder, and paths can change after indexing. Restrict the account, share, export, or server jail to the intended library; read-only permissions alone do not restrict which files can be read. See the [remote containment review](docs/remote-containment.md) for protocol differences and remaining race limitations.
+
 ### Organize the collection
 
 Each direct child folder becomes a game. Its files and subfolders are included in downloads:
