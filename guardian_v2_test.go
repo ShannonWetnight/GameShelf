@@ -251,3 +251,35 @@ func TestSetupDraftCatalogRemainsGatedAndCompletedFlagWins(t *testing.T) {
 		t.Fatal("completed setup reappeared")
 	}
 }
+
+func TestHiddenGuardianRemainsManageableAndProfileLogsDefaultOn(t *testing.T) {
+	setupFreshServer(t)
+	c := familyCreate(t, nil)
+	familyUnlock(t, "7392", []string{"admin"}, c)
+	p := familyProfile{Nickname: "Hidden Guardian", Hidden: true, Roles: []string{"administrator"}, UsesGuardianPIN: true, GuardianID: "guardian-1", AllLibraries: true, AllGames: true}
+	saved := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": p}, c)
+	if saved.Code != 200 {
+		t.Fatal(saved.Code, saved.Body.String())
+	}
+	picker := familyCall(t, handleProfiles, "GET", "/api/profiles", nil, nil)
+	if strings.Contains(picker.Body.String(), "Hidden Guardian") {
+		t.Fatal("hidden profile exposed")
+	}
+	manager := familyCall(t, handleProfiles, "GET", "/api/profiles?manage=1", nil, c)
+	if !strings.Contains(manager.Body.String(), "Hidden Guardian") {
+		t.Fatal("hidden Guardian cannot be managed", manager.Code)
+	}
+	opts := normalizeLogOptions(nil)
+	if !opts.Profile {
+		t.Fatal("Profile activity missing by default")
+	}
+	opts.Profile = false
+	opts.ProfileConfigured = true
+	settingsMu.Lock()
+	configuredSettings.LogOptions = opts
+	settingsMu.Unlock()
+	verboseLogging.Store(true)
+	if logTypeEnabled("profile") {
+		t.Fatal("Profile activity cannot be disabled")
+	}
+}

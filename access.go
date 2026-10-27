@@ -98,7 +98,15 @@ func accessDependencies(policy *accessPolicy, actions []string, settingsOperatio
 			result = append(result, "advanced")
 		}
 	}
-	return result
+	unique := make([]string, 0, len(result))
+	seen := map[string]bool{}
+	for _, action := range result {
+		if !seen[action] {
+			seen[action] = true
+			unique = append(unique, action)
+		}
+	}
+	return unique
 }
 
 func resetAccessActions() []string {
