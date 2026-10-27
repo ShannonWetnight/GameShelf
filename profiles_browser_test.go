@@ -40,6 +40,8 @@ func TestFamilyProfilesLiveBrowser(t *testing.T) {
 	mux.HandleFunc("/api/profiles/login", handleProfileLogin)
 	mux.HandleFunc("/api/profiles/logout", handleProfileLogout)
 	mux.HandleFunc("/api/profiles/catalog", handleProfileCatalog)
+	mux.HandleFunc("/api/profiles/self", handleProfileSelf)
+	mux.HandleFunc("/api/profiles/self/open", handleProfileSelf)
 	mux.HandleFunc("/api/access", handleAccess)
 	mux.HandleFunc("/api/access/unlock", handleAccessUnlock)
 	mux.HandleFunc("/api/access/enter", handleAccessEnter)

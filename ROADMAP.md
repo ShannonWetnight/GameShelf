@@ -154,13 +154,19 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [x] Starter permission roles (Child, Adult, Guardian, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
 - [x] Assign libraries and individual games per profile; combine role/group permissions and retain each profile's preferences and favorites.
 - [x] Optional per-profile PIN entry for non-administrative shelves; enforce PINs for administrative permissions and block unsafe role upgrades.
-- [x] Square profile photo cards, 25 original game-inspired portraits, cropped uploads, and shared minimal PIN sign-in. Include photos in protected profile backups.
+- [x] Square profile photo cards, 50 original game-inspired portraits and an exclusive Guardian portrait, cropped uploads, and shared minimal PIN sign-in. Include photos in protected profile backups.
 - [x] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Require Guardian approval and a separate passphrase for AES-GCM protected profile exports/restores; keep imported profiles disabled on a fresh server until a new Guardian PIN is created.
 - [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.
 
 - [x] Compact settings with themed help, menu-scoped PIN approval, a separate PIN configurator, and release-only UI scaling with resolution-aware defaults.
 - [ ] Extend role/group templates with shared library assignments (individual profile assignments are available).
 
-- [x] Standalone Guardian sign-in, optional named profile association, three-column full-photo profiles, role colors, and two-column role management.
+- [x] Optional Guardian profile creation and PIN association, three-column full-photo profiles, role tooltips and colors, and three built-in role choices.
 - [x] Built-in and uploaded profile photo zoom/tilt tools, theme preview, explicit library access choices, and one-time permission-aware profile tours.
-- [x] Game Over: complete application-state Wipe with Export Data in its backup reminder, typed second confirmation, fresh PIN, and confined deletion that preserves original game files.
+- [x] Game Over: complete application-state Wipe with Export Data in its backup reminder, typed Game Over confirmation, one fresh approval at entry when protected, and confined deletion that preserves original game files.
+
+- [x] Two distinct Guardian PINs with unique profile associations and approval restricted to the signed-in Guardian.
+- [x] Personal profile information editor, hidden profiles, required PIN change at next sign-in, and Profile audit logs.
+- [x] Additive role permissions with an administrative-access warning; preserve global Family Controls.
+- [x] Optional backup passphrases with generation, copy/show controls and explicit acknowledgment for unencrypted profile exports.
+- [x] Stage setup libraries for profile assignments, retain completed setup state, and highlight unfinished setup.

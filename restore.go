@@ -57,7 +57,7 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 		seen[name] = true
 		limit := uint64(8 << 20)
 		switch name {
-		case "family-profiles.enc.json":
+		case "family-profiles.enc.json", "family-profiles.json":
 			limit = 48 << 20
 		case "library-state.json":
 			limit = 4 << 20
@@ -108,9 +108,9 @@ func parseRestoreArchive(data []byte) (restoreArchive, error) {
 				return result, err
 			}
 			result.health = contents
-		case "family-profiles.enc.json":
+		case "family-profiles.enc.json", "family-profiles.json":
 			var envelope protectedProfiles
-			if json.Unmarshal(contents, &envelope) != nil || envelope.Version != 1 {
+			if json.Unmarshal(contents, &envelope) != nil || (envelope.Version != 1 && envelope.Version != 2) {
 				return result, errors.New("Invalid protected family profile backup")
 			}
 			result.profiles = contents

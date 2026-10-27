@@ -242,8 +242,9 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 		settingsMu.RLock()
 		value.Access = publicAccessPolicy(configuredSettings.Access)
 		settingsMu.RUnlock()
-		value.SetupCompleted = true
-		value.SetupStatus = "complete"
+		draft := r.URL.Query().Get("draft") == "1"
+		value.SetupCompleted = false
+		value.SetupStatus = "pending"
 		if err := saveServerSettings(value); err != nil {
 			logEvent("errors", "first-time setup save: %v", err)
 			http.Error(w, "Could not save setup. Check that the data folder is writable by GameShelf.", http.StatusServiceUnavailable)
@@ -264,9 +265,17 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Could not read your library. Check the location, connection, and permissions, then try again.", http.StatusBadRequest)
 			return
 		}
-		setupRequired.Store(false)
+		if !draft {
+			saved.SetupCompleted = true
+			saved.SetupStatus = "complete"
+			if err := saveServerSettings(saved); err != nil {
+				http.Error(w, "Could not finish setup. Check saved data permissions and try again.", 503)
+				return
+			}
+		}
+		setupRequired.Store(draft)
 		notifyRefreshSchedule()
-		logEvent("system", "First-time setup complete")
+		logEvent("system", "First-time setup saved")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"complete": true, "settings": publicSettings(saved)})
 	default:
@@ -376,10 +385,10 @@ func sourcesNeedLogin(sources []networkSource) bool {
 }
 
 func needsFirstSetup(value serverSettings) bool {
-	return value.SetupStatus == "pending" || (!hasLibrary(value) && !value.SetupCompleted)
+	return !value.SetupCompleted && (value.SetupStatus == "pending" || !hasLibrary(value))
 }
 func canResumeSetup(value serverSettings) bool {
-	return value.SetupStatus == "pending" || value.SetupStatus == "skipped" || (value.SetupStatus == "" && !hasLibrary(value))
+	return value.SetupStatus == "skipped" || (!value.SetupCompleted && (value.SetupStatus == "pending" || value.SetupStatus == ""))
 }
 func handleSetupRestart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

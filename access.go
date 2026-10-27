@@ -3,10 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/pbkdf2"
 	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -119,6 +116,7 @@ func resetAccessActions() []string {
 const pinIterations = 600000
 
 type pinRecord struct {
+	Secondary  *guardianCredential   `json:"secondary,omitempty"`
 	Version    int                   `json:"version"`
 	Salt       string                `json:"salt"`
 	Hash       string                `json:"hash"`
@@ -127,12 +125,13 @@ type pinRecord struct {
 	Remember   *pinRemembrance       `json:"remember,omitempty"`
 }
 type pinSession struct {
-	Home    string
-	Expires time.Time
-	Grants  map[string]time.Time
-	Epoch   uint64
-	Permits map[string]pinPermit
-	Menus   map[string]menuLease
+	GuardianID string
+	Home       string
+	Expires    time.Time
+	Grants     map[string]time.Time
+	Epoch      uint64
+	Permits    map[string]pinPermit
+	Menus      map[string]menuLease
 }
 type pinPermit struct {
 	Actions map[string]bool
@@ -215,6 +214,9 @@ func readPINRecord() (*pinRecord, error) {
 	salt, e1 := base64.StdEncoding.DecodeString(record.Salt)
 	hash, e2 := base64.StdEncoding.DecodeString(record.Hash)
 	if e1 != nil || e2 != nil || len(salt) != 16 || len(hash) != 32 {
+		return nil, errors.New("PIN storage unavailable")
+	}
+	if record.Secondary != nil && (record.Secondary.ID != "guardian-2" || !validGuardianCredential(*record.Secondary)) {
 		return nil, errors.New("PIN storage unavailable")
 	}
 	return &record, nil
@@ -302,20 +304,21 @@ func ensurePINSession(w http.ResponseWriter, r *http.Request) string {
 	id = hex.EncodeToString(data)
 	accessSessions[id] = &pinSession{Home: settingsHome, Expires: now.Add(4 * time.Hour), Grants: map[string]time.Time{}, Permits: map[string]pinPermit{}}
 	http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: id, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteStrictMode})
+	replaceRequestCookie(r, "gameshelf-family", id)
 	return id
 }
 func hasPINGrant(r *http.Request, action string) bool {
 	accessMu.Lock()
 	defer accessMu.Unlock()
 	session := accessSessions[pinCookie(r)]
-	return session != nil && session.Home == settingsHome && time.Now().Before(session.Expires) && (time.Now().Before(session.Grants[action]) || menuAuthorized(session, r, action))
+	return guardianSessionAllowed(session, r) && session.Home == settingsHome && time.Now().Before(session.Expires) && (time.Now().Before(session.Grants[action]) || menuAuthorized(session, r, action))
 }
 func usePINPermit(w http.ResponseWriter, r *http.Request, actions []string) bool {
 	if approved, ok := r.Context().Value(pinRequestKey{}).(pinApproval); ok {
 		accessMu.Lock()
 		defer accessMu.Unlock()
 		session := accessSessions[pinCookie(r)]
-		if session != approved.Session || session == nil || session.Epoch != approved.Epoch || time.Now().After(session.Expires) {
+		if session != approved.Session || !guardianSessionAllowed(session, r) || session.Epoch != approved.Epoch || time.Now().After(session.Expires) {
 			return false
 		}
 		for _, action := range actions {
@@ -337,7 +340,7 @@ func usePINPermit(w http.ResponseWriter, r *http.Request, actions []string) bool
 	accessMu.Lock()
 	defer accessMu.Unlock()
 	session := accessSessions[pinCookie(r)]
-	if session == nil || session.Home != settingsHome || time.Now().After(session.Expires) {
+	if !guardianSessionAllowed(session, r) || session.Home != settingsHome || time.Now().After(session.Expires) {
 		return false
 	}
 	permit, ok := session.Permits[token]
@@ -368,6 +371,7 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 		return false
 	}
 	policy = combinedAccessPolicy(r, policy)
+	wipeApproved := r.URL.Path == "/api/server-settings/reset" && hasWipeLease(r)
 	required := []string{}
 	seen := map[string]bool{}
 	for _, action := range actions {
@@ -382,14 +386,14 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 			}
 			mode = "pin"
 		}
-		if action == "wipe" && mode != "disable" {
+		if action == "wipe" && mode != "disable" && hasPIN {
 			mode = "pin"
 		}
 		if mode == "disable" {
 			writeAccessError(w, 403, "action_disabled", []string{action}, accessActions[action]+" has been disabled by a GameShelf Guardian.")
 			return false
 		}
-		if mode == "pin" && (action == "wipe" || !hasPINGrant(r, action)) {
+		if mode == "pin" && !wipeApproved && !hasPINGrant(r, action) {
 			required = append(required, action)
 		}
 	}
@@ -411,6 +415,8 @@ func accessRequestActions(r *http.Request) []string {
 	switch {
 	case strings.HasPrefix(path, "/api/access"):
 		return nil
+	case path == "/api/setup" && r.Method == "POST" && r.URL.Query().Get("draft") == "1":
+		return []string{"admin", "sources"}
 	case path == "/api/server-settings/reset":
 		return resetAccessActions()
 	case path == "/api/server-settings" && r.Method == "PUT":
@@ -580,6 +586,14 @@ func accessGate(next http.Handler) http.Handler {
 		if len(actions) > 0 && !checkAccess(w, r, actions) {
 			return
 		}
+		if r.Method != "GET" && r.Method != "HEAD" && len(actions) > 0 && !strings.HasPrefix(path, "/api/access") {
+			reply := &auditReply{ResponseWriter: w}
+			next.ServeHTTP(reply, r)
+			if reply.status < 400 {
+				auditProfile(r, "Changed "+strings.Join(actions, ", "))
+			}
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -659,11 +673,12 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Create a family PIN first.", 409)
 		return
 	}
-	salt, _ := base64.StdEncoding.DecodeString(record.Salt)
-	expected, _ := base64.StdEncoding.DecodeString(record.Hash)
-	actual, err := pbkdf2.Key(sha256.New, request.PIN, salt, record.Iterations, 32)
-	if err != nil || subtle.ConstantTimeCompare(actual, expected) != 1 {
-		logEvent("errors", "Family PIN attempt rejected")
+	matched := matchGuardianPIN(record, request.PIN, guardianConstraint(r))
+	if view := profileView(r); view != nil && strings.HasPrefix(guardianConstraint(r), "profile:") && profilePINMatches(view.Profile, request.PIN) {
+		matched = guardianConstraint(r)
+	}
+	if matched == "" {
+		logEvent("profile", "Guardian PIN attempt rejected")
 		writeAccessError(w, 401, "pin_incorrect", nil, "That PIN did not match. Try again.")
 		return
 	}
@@ -682,6 +697,13 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 	}
 	token := ""
 	accessMu.Lock()
+	if accessSessions[id].GuardianID != matched {
+		accessSessions[id].Grants = map[string]time.Time{}
+		accessSessions[id].Menus = nil
+		accessSessions[id].Permits = nil
+		accessSessions[id].Epoch++
+	}
+	accessSessions[id].GuardianID = matched
 	if remembered {
 		for _, action := range request.Actions {
 			accessSessions[id].Grants[action] = until
@@ -717,7 +739,7 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 	accessMu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"unlocked": request.Actions, "expiresAt": until, "remembered": remembered, "token": token})
-	logEvent("system", "Family PIN accepted for %d action(s)", len(request.Actions))
+	logEvent("profile", "%s authenticated for %d action(s)", matched, len(request.Actions))
 }
 func handleAccess(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -746,7 +768,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		}
 		accessMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"configured": configured, "policy": policy, "actions": accessActions, "levels": accessDefaultLevels, "groups": func() map[string]string {
+		json.NewEncoder(w).Encode(map[string]any{"guardians": publicGuardians(), "configured": configured, "policy": policy, "actions": accessActions, "levels": accessDefaultLevels, "groups": func() map[string]string {
 			groups := map[string]string{}
 			for action := range accessActions {
 				groups[action] = accessGroup(action)
@@ -807,8 +829,10 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		NewPIN string       `json:"newPin"`
-		Policy accessPolicy `json:"policy"`
+		NewPIN      string       `json:"newPin"`
+		GuardianID  string       `json:"guardianID"`
+		AutoProfile bool         `json:"autoProfile"`
+		Policy      accessPolicy `json:"policy"`
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))
 	decoder.DisallowUnknownFields()
@@ -844,19 +868,12 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		record = &copy
 	}
 	if request.NewPIN != "" {
-		salt := make([]byte, 16)
-		if _, err := rand.Read(salt); err != nil {
-			http.Error(w, "Could not create PIN.", 503)
+		if err := setGuardianCredential(record, request.GuardianID, request.NewPIN); err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
-		hash, err := pbkdf2.Key(sha256.New, request.NewPIN, salt, pinIterations, 32)
-		if err != nil {
-			http.Error(w, "Could not create PIN.", 503)
-			return
-		}
-		record.Salt = base64.StdEncoding.EncodeToString(salt)
-		record.Hash = base64.StdEncoding.EncodeToString(hash)
 	}
+
 	if request.Policy.Rules == nil {
 		request.Policy.Rules = map[string]accessRule{}
 	}
@@ -896,9 +913,26 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 	if request.NewPIN != "" {
 		revokeGuardianProfiles()
 	}
-	logEvent("system", "Family-control policy saved")
+	if request.AutoProfile {
+		if err := autoGuardianProfile(guardianID(request.GuardianID)); err != nil {
+			http.Error(w, err.Error(), 503)
+			return
+		}
+	}
+	auditProfile(r, "Guardian controls saved")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"saved": true, "configured": true, "created": oldRecord == nil})
+	if oldRecord == nil {
+		id := ensurePINSession(w, r)
+		accessMu.Lock()
+		session := accessSessions[id]
+		if session != nil {
+			session.GuardianID = "guardian-1"
+		}
+		accessMu.Unlock()
+		issueInitialGuardianLease(w, r)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]any{"saved": true, "configured": true, "created": false})
 }
 func sortedAccessActions() []string {
 	keys := make([]string, 0, len(accessActions))
@@ -933,6 +967,9 @@ func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actions := []string{value.Action}
+	if value.Action == "wipe" {
+		actions = resetAccessActions()
+	}
 	if value.Action == "advanced" || value.Action == "settings" && value.Level == "advanced" {
 		actions = append(actions, "settings", "advanced")
 	}
@@ -940,10 +977,18 @@ func handleAccessEnter(w http.ResponseWriter, r *http.Request) {
 		policy, _, _ := currentAccessPolicy()
 		actions = accessDependencies(combinedAccessPolicy(r, policy), actions, true)
 	}
+	if value.Action == "wipe" {
+		if _, configured, _ := currentAccessPolicy(); configured && !hasWipeLease(r) && !checkFreshPIN(w, r, actions) {
+			return
+		}
+	}
 	if !checkAccess(w, r, actions) {
 		return
 	}
 	if isMenuScope(value.Action) {
+		if value.Action == "wipe" {
+			actions = []string{"wipe"}
+		}
 		issueMenuLease(w, r, actions)
 		return
 	}

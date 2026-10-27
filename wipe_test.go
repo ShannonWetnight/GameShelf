@@ -21,11 +21,11 @@ func TestGameOverRequiresFreshPINAndBothConfirmations(t *testing.T) {
 	setupFreshServer(t)
 	cookie := familyCreate(t, nil)
 	familyUnlock(t, "7392", resetAccessActions(), cookie)
-	body := map[string]any{"confirm": "WIPE", "acknowledgeBackup": true}
+	body := map[string]any{"confirm": "Game Over", "acknowledgeBackup": true}
 	if r := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", body, cookie); r.Code != 423 {
 		t.Fatal("remembered PIN authorized Wipe", r.Code)
 	}
-	for _, invalid := range []any{nil, map[string]any{"confirm": "WIPE"}, map[string]any{"confirm": "wipe", "acknowledgeBackup": true}} {
+	for _, invalid := range []any{nil, map[string]any{"confirm": "Game Over"}, map[string]any{"confirm": "wipe", "acknowledgeBackup": true}} {
 		if r := wipeWithPIN(t, cookie, invalid); r.Code != 400 {
 			t.Fatal("confirmation skipped", r.Code, r.Body.String())
 		}
@@ -56,7 +56,7 @@ func TestGameOverClearsOwnedDataAndSessionsButPreservesOriginals(t *testing.T) {
 		os.WriteFile(filepath.Join(home, name, "edited.png"), []byte("edited"), 0600)
 	}
 	applicationLogs.Write([]byte("old activity\n"))
-	if r := wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true}); r.Code != 200 {
+	if r := wipeWithPIN(t, cookie, map[string]any{"confirm": "Game Over", "acknowledgeBackup": true}); r.Code != 200 {
 		t.Fatal(r.Code, r.Body.String())
 	}
 	for _, name := range []string{".family-pin.json", ".family-profiles.json", ".network-key", "library-state.json", "network-index.json", "library-health.json", "covers", "network-covers"} {
@@ -90,7 +90,7 @@ func TestGameOverDoesNotFollowCoverSymlinks(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(home, "covers")); err != nil {
 		t.Skip("symlinks unavailable", err)
 	}
-	if r := wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true}); r.Code != 200 {
+	if r := wipeWithPIN(t, cookie, map[string]any{"confirm": "Game Over", "acknowledgeBackup": true}); r.Code != 200 {
 		t.Fatal(r.Code, r.Body.String())
 	}
 	if got, err := os.ReadFile(marker); err != nil || string(got) != "keep" {
