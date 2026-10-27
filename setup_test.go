@@ -188,7 +188,7 @@ func TestResetWithoutComposeRootReturnsToSetup(t *testing.T) {
 		t.Fatal(w.Body.String())
 	}
 	cookie := familyCreate(t, nil)
-	w = wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true})
+	w = wipeWithPIN(t, cookie, map[string]any{"confirm": "Game Over", "acknowledgeBackup": true})
 	if w.Code != 200 || !setupRequired.Load() || configuredSettings.RootDir != "" {
 		t.Fatalf("reset did not reopen setup: %d %#v", w.Code, configuredSettings)
 	}

@@ -87,7 +87,7 @@ func TestWipeDiscardsAnInFlightHealthResultAtTheSameDataLocation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("health probe did not start")
 	}
-	response := wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true})
+	response := wipeWithPIN(t, cookie, map[string]any{"confirm": "Game Over", "acknowledgeBackup": true})
 	close(release)
 	select {
 	case <-done:

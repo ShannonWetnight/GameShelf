@@ -95,7 +95,7 @@ func TestResetServerSettingsRestoresDefaultsWithoutLibraryChanges(t *testing.T) 
 		t.Fatal(err)
 	}
 	cookie := familyCreate(t, nil)
-	response := wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true})
+	response := wipeWithPIN(t, cookie, map[string]any{"confirm": "Game Over", "acknowledgeBackup": true})
 	if response.Code != http.StatusOK {
 		t.Fatalf("reset status %d: %s", response.Code, response.Body.String())
 	}

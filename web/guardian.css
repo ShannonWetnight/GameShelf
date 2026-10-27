@@ -70,3 +70,5 @@
 :root #family-guardian-field select{text-align:center;}
 :root #health-dialog{bottom:auto;}
 :root #health-dialog:not([style*="top"]){top:50%;transform:translateY(-50%);}
+
+#family-pin-dialog .gs-auto-guardian{padding-inline:0!important;}

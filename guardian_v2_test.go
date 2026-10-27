@@ -205,7 +205,8 @@ func TestWipeMenuApprovalIsScopedAndOptionalOnUnprotectedShelf(t *testing.T) {
 		t.Fatal("unprotected wipe required PIN", w.Code, w.Body.String())
 	}
 	c := familyCreate(t, nil)
-	token, _ := onePIN(t, c, resetAccessActions(), false)
+	policy, _, _ := currentAccessPolicy()
+	token, _ := onePIN(t, c, accessDependencies(policy, resetAccessActions(), true), false)
 	entered := profileTestCall(t, http.HandlerFunc(handleAccessEnter), "POST", "/api/access/enter", map[string]string{"action": "wipe"}, []*http.Cookie{c}, map[string]string{"X-GameShelf-PIN": token})
 	if entered.Code != 200 {
 		t.Fatal(entered.Code, entered.Body.String())

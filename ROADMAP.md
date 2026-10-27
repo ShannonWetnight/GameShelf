@@ -151,11 +151,11 @@ Security is an ongoing product requirement, including server-enforced access rul
 
 ### Family profiles and sharing
 - [x] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
-- [x] Starter permission roles (Child, Adult, Guardian, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
+- [x] Starter permission roles (Child, Adult, Guardian) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
 - [x] Assign libraries and individual games per profile; combine role/group permissions and retain each profile's preferences and favorites.
 - [x] Optional per-profile PIN entry for non-administrative shelves; enforce PINs for administrative permissions and block unsafe role upgrades.
 - [x] Square profile photo cards, 50 original game-inspired portraits and an exclusive Guardian portrait, cropped uploads, and shared minimal PIN sign-in. Include photos in protected profile backups.
-- [x] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Require Guardian approval and a separate passphrase for AES-GCM protected profile exports/restores; keep imported profiles disabled on a fresh server until a new Guardian PIN is created.
+- [x] Portable profile backups: nicknames, settings, roles, group memberships, permissions, library grants, and salted PIN verifiers (never plaintext). Require Guardian approval when protected and offer an optional separate passphrase for AES-GCM profile exports/restores; keep imported profiles disabled on a fresh server until a new Guardian PIN is created.
 - [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.
 
 - [x] Compact settings with themed help, menu-scoped PIN approval, a separate PIN configurator, and release-only UI scaling with resolution-aware defaults.

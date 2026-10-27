@@ -80,6 +80,12 @@ func guardianSessionAllowed(s *pinSession, r *http.Request) bool {
 }
 func setGuardianCredential(record *pinRecord, id, pin string) error {
 	id = guardianID(id)
+	if !validPIN(pin) {
+		return errors.New("Choose a four-digit PIN")
+	}
+	if id == "guardian-2" && record.Salt == "" {
+		return errors.New("Create Guardian 1 first")
+	}
 	if id != "guardian-1" && id != "guardian-2" {
 		return errors.New("Choose Guardian 1 or Guardian 2")
 	}
