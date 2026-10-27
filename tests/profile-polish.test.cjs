@@ -102,3 +102,9 @@ test('resetting a built-in role confirms before replacing permissions and return
  const r=fullUI(`profileState.roleDefaults=JSON.parse(JSON.stringify(profileState.roles));profileState.roles.adult.name='Edited Adult';await GameShelfProfiles.open();$('roles-list').querySelector('[data-role="adult"]').closest('article').querySelector('button').click();await pause();result.visible=!$('role-reset').hidden;$('role-reset').click();await pause();result.prompt=$('profile-remove-dialog').open;result.notChanged=profileState.roles.adult.name;result.red=$('role-reset').classList.contains('gs-danger-action');$('profile-remove-confirm').click();await pause(180);result.name=$('role-name').value;result.notice=$('notification-text').textContent;`,{configured:false,withProfiles:true,live:true});
  assert.equal(r.visible,true);assert.equal(r.prompt,true);assert.equal(r.notChanged,'Edited Adult');assert.equal(r.red,true);assert.equal(r.name,'Adult');assert.match(r.notice,/Role reset/);
 });
+
+// A native close event can arrive after the same dialog opens for another action.
+test('a delayed close from the previous PIN prompt cannot cancel the next approval',()=>{
+ const r=fullUI(`const first=GameShelfAccess.promptPIN('Jamie',async()=>{});let outcome='pending';first.then(()=>GameShelfAccess.ask(['admin'])).then(value=>outcome=value);$('pin-entry').value='2468';$('pin-form').requestSubmit();await pause(40);result.open=$('pin-dialog').open;result.pending=outcome;$('pin-entry').value='7392';$('pin-form').requestSubmit();await pause(80);result.approved=outcome;`,{configured:true,live:true});
+ assert.equal(r.open,true);assert.equal(r.pending,'pending');assert.equal(r.approved,true);
+});
