@@ -718,6 +718,8 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		}
 		if !profileRequiresPIN(p) {
 			p.ForcePINChange = false
+		} else {
+			p.UnprotectedAdmin = false
 		}
 		if !p.UsesGuardianPIN {
 			p.GuardianID = ""

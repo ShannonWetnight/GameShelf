@@ -65,6 +65,7 @@ func setProfilePIN(p *familyProfile, pin string) error {
 	p.Salt, p.Hash = c.Salt, c.Hash
 	required := true
 	p.PINRequired = &required
+	p.UnprotectedAdmin = false
 	return nil
 }
 
