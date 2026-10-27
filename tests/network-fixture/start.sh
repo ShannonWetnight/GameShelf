@@ -5,6 +5,7 @@ set -eu
 # are observable; ordinary smoke fixtures retain their stricter defaults.
 if [ "${GAMESHELF_CONTAINMENT_FIXTURE:-0}" = 1 ]; then
     export RCLONE_LOCAL_COPY_LINKS=true
+    export RCLONE_DIR_CACHE_TIME=0s
 fi
 cat > /etc/samba/smb.conf <<'CONFIG'
 [global]

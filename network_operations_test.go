@@ -124,6 +124,9 @@ func TestRemoteCommandReadOperationsForBothAdapters(t *testing.T) {
 				if protocol == "webdav" {
 					want[1] = "gs:Game/file.bin"
 				}
+				if protocol == "sftp" {
+					want = []string{"cat", "gs:/games", "--file", "Game/file.bin", "--offset", "3", "--count", "6"}
+				}
 				if !reflect.DeepEqual(cmd.Args[len(cmd.Args)-len(want):], want) {
 					t.Fatalf("rclone range arguments: %q", cmd.Args)
 				}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	_ "github.com/rclone/rclone/backend/local"
@@ -41,6 +42,54 @@ func TestSingleFileReadAndReplacement(t *testing.T) {
 		if err := readSingleFile(context.Background(), &got, file, 0, count); err == nil || got.Len() != 0 {
 			t.Fatalf("directory replacement must fail before output: %q, %v", got.String(), err)
 		}
+	}
+}
+
+func TestListedReadPreservesLinkPolicyAfterIndexing(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("link fixture runs in Linux CI")
+	}
+	for _, component := range []string{"file", "parent", "game"} {
+		t.Run(component, func(t *testing.T) {
+			root, outside := t.TempDir(), t.TempDir()
+			file := filepath.Join(root, "Game", "Sub", "file.bin")
+			if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file, []byte("inside"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var got bytes.Buffer
+			if err := readListedFile(context.Background(), &got, root, "Game/Sub/file.bin", 1, 3); err != nil || got.String() != "nsi" {
+				t.Fatalf("ordinary range: %q %v", got.String(), err)
+			}
+			for _, name := range []string{"file.bin", "Sub/file.bin"} {
+				target := filepath.Join(outside, name)
+				if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(target, []byte("secret"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			replaced, target := file, filepath.Join(outside, "file.bin")
+			if component == "parent" {
+				replaced, target = filepath.Dir(file), outside
+			}
+			if component == "game" {
+				replaced, target = filepath.Join(root, "Game"), outside
+			}
+			if err := os.RemoveAll(replaced); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, replaced); err != nil {
+				t.Fatal(err)
+			}
+			got.Reset()
+			if err := readListedFile(context.Background(), &got, root, "Game/Sub/file.bin", 0, 6); err == nil || got.Len() != 0 {
+				t.Fatalf("link replacement exposed bytes: %q %v", got.String(), err)
+			}
+		})
 	}
 }
 

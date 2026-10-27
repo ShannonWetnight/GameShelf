@@ -217,19 +217,25 @@ def main(image, report_path):
                 ln -s ../../Outside/game.bin /fixture/Library/Game/game.bin
                 ln -s ../../Outside/cover.png /fixture/Library/Game/cover.png
             ''')
-            workflows("file_replaced_by_link")
+            result = workflows("file_replaced_by_link")
+            if protocol in ("sftp", "nfs"):
+                assert all(not item["outside_content"] for item in result.values()), (protocol, result)
             reset()
             docker("exec", server, "sh", "-ec", '''
                 rm -rf /fixture/Library/Game/Sub
                 ln -s ../../Outside/Dir /fixture/Library/Game/Sub
             ''')
             outcomes["parent_replaced_by_link"], _ = observe(file_path + "Sub/file.bin")
+            if protocol in ("sftp", "nfs"):
+                assert not outcomes["parent_replaced_by_link"]["outside_content"], protocol
             reset()
             docker("exec", server, "sh", "-ec", '''
                 rm -rf /fixture/Library/Game
                 ln -s ../Outside/Game /fixture/Library/Game
             ''')
-            workflows("game_replaced_by_link")
+            result = workflows("game_replaced_by_link")
+            if protocol in ("sftp", "nfs"):
+                assert all(not item["outside_content"] for item in result.values()), (protocol, result)
             reset()
             # There are no static aliases in this regression: any returned marker
             # must come from expanding the replacement directory itself.

@@ -18,7 +18,7 @@ A replacement with the same size can satisfy a length check.
 | --- | --- | --- |
 | SMB | rclone SMB directory/object operations; the server applies share policy | A server may follow links within a share into a sibling of the configured subfolder. There is no application no-follow guarantee. |
 | NFS | The native adapter omits non-regular/non-directory entries during listing; reads lstat each component, reject links, and use `O_NOFOLLOW` | Separate checks and path-based opens permit changes between operations. Recursive listing uses path-based `opendir` after `readdir`; it is not a handle-relative traversal. Configured-root ancestors and libnfs/server resolution also matter. |
-| SFTP | rclone `skip_links` omits advertised links/special files during listing; server key is pinned | Direct object lookup uses stat/open rather than the listing's skip-links filter. Replacement files, parent directories, and the configured root may resolve through links. Host-key verification authenticates the server, not file containment. |
+| SFTP | rclone `skip_links` omits advertised links/special files during listing; downloads now walk those listings from the source root before opening a file; server key is pinned | Separate listing/open operations still race. Configured-root changes or a server hiding link metadata remain outside this check. Host-key verification authenticates the server, not file containment. |
 | WebDAV | HTTP collection listings and object GETs | A server can expose an alias as an ordinary resource. There is no portable filesystem symlink/no-follow metadata in this interface. |
 | FTP | Server directory listings and file retrieval | Links can be advertised or resolved transparently by the server; behavior depends on server and listing format. |
 | FTPS | Same file operations as FTP, over implicit TLS | TLS verifies transport/server identity, not filesystem containment. A server jail may confine the account while still exposing siblings of a configured subfolder. |
@@ -46,6 +46,28 @@ atomic, reject every remotely resolved link, or bind a transfer to the identity
 observed at scan time. Size/modtime rechecks or a second realpath check would
 still leave races and would not provide portable containment for these backends.
 The roadmap item therefore remains open.
+
+## Focused correction: SFTP download link policy
+
+The first isolated run with OpenSSH confirmed that static links were skipped
+during indexing but stable replacements after indexing were followed by direct
+stat/open: file, artwork, ZIP, and Playlist reads exposed the sibling marker.
+Both parent and entire game-directory replacements also exposed it. These were
+disposable fixture files; no user library was tested.
+
+SFTP reads now start at the configured source and walk each relative component
+through `List` with `skip_links` enabled, then open the selected file object.
+The file, parent directory, and game directory must all remain visible under the
+same link policy used for discovery. Regression checks require the previously
+observed stable link replacements to be rejected without outside content.
+The check preserves the existing SFTP policy and ordinary nested files.
+
+This is a pre-open check, not a race-free filesystem primitive. Replacing a
+component between its listing and the later open can still bypass it. The
+configured source root and its ancestors are not checked through this walk.
+Opaque server aliases cannot be distinguished from ordinary resources here.
+SMB/WebDAV/FTP/FTPS are not given an equivalent guarantee merely by applying
+SFTP's backend-specific behavior to their listings.
 
 ## Isolated verification
 

@@ -528,7 +528,14 @@ func remoteCommand(ctx context.Context, source networkSource, operation, relativ
 			args = append(args, "--recursive")
 		}
 	} else {
-		args = append(args, "cat", remote, "--offset", strconv.FormatInt(offset, 10))
+		if source.Protocol == "sftp" {
+			// Preserve skip_links during reads as well as discovery, including
+			// parent/game directories replaced since the last scan.
+			args = append(args, "cat", "gs:"+remoteRoot, "--file", relative)
+		} else {
+			args = append(args, "cat", remote)
+		}
+		args = append(args, "--offset", strconv.FormatInt(offset, 10))
 		if count >= 0 {
 			args = append(args, "--count", strconv.FormatInt(count, 10))
 		}
