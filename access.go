@@ -892,6 +892,11 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record := oldRecord
+	addingGuardian := false
+	if oldRecord != nil && request.NewPIN != "" {
+		_, exists := guardianCredentialByID(oldRecord, request.GuardianID)
+		addingGuardian = !exists
+	}
 	if oldRecord != nil && request.NewPIN == "" && request.GuardianID != "" {
 		if _, ok := guardianCredentialByID(oldRecord, request.GuardianID); !ok {
 			http.Error(w, "Enter and confirm a new 4-digit PIN for this Guardian.", 400)
@@ -959,7 +964,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		session.Menus = nil
 		session.Epoch++
 	}
-	if oldRecord != nil && request.NewPIN != "" {
+	if oldRecord != nil && request.NewPIN != "" && !addingGuardian {
 		accessSessions = map[string]*pinSession{}
 		http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
 	}
@@ -969,7 +974,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	auditProfile(r, "Guardian controls saved")
 	w.Header().Set("Content-Type", "application/json")
-	if oldRecord == nil || request.NewPIN == "" {
+	if oldRecord == nil || request.NewPIN == "" || addingGuardian {
 		id := ensurePINSession(w, r)
 		accessMu.Lock()
 		session := accessSessions[id]
