@@ -17,7 +17,7 @@ test('family settings create a PIN, save granular modes, and require PIN to reop
  const row=document.querySelector('[data-action="theme"]');row.querySelector('select').value='disable';row.querySelector('input').checked=false;$('family-open-pin').click();await pause();$('family-new-pin').value='7392';$('family-confirm-pin').value='7392';$('family-pin-save').click();await pause(230);
  result.saved=accessState.configured;result.rule=accessState.policy.rules.theme;result.size=[$('family-save').offsetWidth,$('family-save').offsetHeight];result.disabled=$('theme-select').inert||$('theme-select').disabled;
  $('family-close').click();for(let n=0;n<30&&$('family-dialog').open;n++)await pause(30);await pause(50);accessState.grants={};await GameShelfAccess.refresh();$('open-family-controls').click();await pause();result.asked=$('pin-dialog').open;$('pin-cancel').click();await pause(200);result.notReopened=!$('family-dialog').open;
- `,{configured:false});assert.equal(r.open,true);assert.equal(r.removeHidden,true);assert.equal(r.saved,true);assert.deepEqual(r.rule,{mode:'disable',hidden:true,level:'basic'});assert.equal(r.disabled,true);assert.equal(r.asked,true);assert.equal(r.notReopened,true);
+ `,{configured:false,live:true});assert.equal(r.open,true);assert.equal(r.removeHidden,true);assert.equal(r.saved,true);assert.deepEqual(r.rule,{mode:'disable',hidden:true,level:'basic'});assert.equal(r.disabled,true);assert.equal(r.asked,true);assert.equal(r.notReopened,true);
 });
 test('health shows themed statuses and saves monitoring separately from viewing status',()=>{
  const r=fullUI(`
