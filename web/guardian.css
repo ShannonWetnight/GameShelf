@@ -2,8 +2,8 @@
 .gs-settings-dialog label:has(>input[type="checkbox"]){align-items:center;}
 .gs-settings-dialog input[type="checkbox"]{flex:none;vertical-align:middle;align-self:center;margin-block:0;}
 .gs-settings-dialog .gs-profile-choice{display:flex;align-items:center;gap:9px;}
-:root #reset-settings-dialog fieldset{border-color:var(--accent)!important;}
-:root #reset-settings-dialog legend{color:var(--accent);}
+:root #reset-settings-dialog fieldset{border-color:#ffb329!important;}
+:root #reset-settings-dialog legend{color:#ffb329;}
 :root #settings-dialog fieldset.gs-settings-section{overflow:visible;padding:0 0 10px;}
 :root #settings-dialog .gs-settings-section>legend+*{border-top:0!important;}
 :root #settings-dialog .gs-settings-section>legend{margin-left:12px;display:table;width:auto;padding:0 8px;line-height:1.3;}
