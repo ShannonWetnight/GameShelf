@@ -116,7 +116,7 @@ GameShelf currently limits network library access to read operations, but a netw
 Security is an ongoing product requirement, including server-enforced access rules, safe storage, read-only boundaries, recovery, and automated vulnerability checks.
 
 * [x] Add Family Controls with a four-digit PIN, individual Allow / Require PIN / Disable policies and visibility, server-side action enforcement, scoped browser unlocks, and attempt limits.
-* [x] Preserve family protection across Wipe/restore, export rules without PIN secrets, and require a new PIN on fresh restores.
+* [x] Preserve family protection during restore, export rules without Guardian PIN secrets, and require a new PIN on fresh restores. Full Game Over Wipe requires fresh approval, a backup reminder with Export Data, and two confirmations.
 * [x] Add Library Health with readable/degraded/critical states, bounded connection checks, monitor configuration, and backup/restore of recent history.
 * [x] Use one app-themed tooltip system, shared icon feedback, and consistent cover-editor rotate/mirror/stretch controls.
 * [x] Keep skipped setup recovery available in Basic settings, and scatter ten original GameShelf Edition cases below the welcome header.
@@ -151,7 +151,7 @@ Security is an ongoing product requirement, including server-enforced access rul
 
 ### Family profiles and sharing
 - [x] Optional Family Controls initialization during setup: local nickname/PIN profiles, without sign-in accounts.
-- [x] Starter permission roles (Child, Adult, Administrator, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
+- [x] Starter permission roles (Child, Adult, Guardian, Elevated User) plus custom roles/groups. Support as many profiles as available storage permits, with sensible management and abuse safeguards.
 - [x] Assign libraries and individual games per profile; combine role/group permissions and retain each profile's preferences and favorites.
 - [x] Optional per-profile PIN entry for non-administrative shelves; enforce PINs for administrative permissions and block unsafe role upgrades.
 - [x] Square profile photo cards, 25 original game-inspired portraits, cropped uploads, and shared minimal PIN sign-in. Include photos in protected profile backups.
@@ -160,3 +160,7 @@ Security is an ongoing product requirement, including server-enforced access rul
 
 - [x] Compact settings with themed help, menu-scoped PIN approval, a separate PIN configurator, and release-only UI scaling with resolution-aware defaults.
 - [ ] Extend role/group templates with shared library assignments (individual profile assignments are available).
+
+- [x] Standalone Guardian sign-in, optional named profile association, three-column full-photo profiles, role colors, and two-column role management.
+- [x] Built-in and uploaded profile photo zoom/tilt tools, theme preview, explicit library access choices, and one-time permission-aware profile tours.
+- [x] Game Over: complete application-state Wipe with Export Data in its backup reminder, typed second confirmation, fresh PIN, and confined deletion that preserves original game files.

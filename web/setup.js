@@ -122,7 +122,7 @@
         syncRefresh(); setStep(1, false); $('setup-status').textContent = '';
       }
       document.body.classList.remove('gs-booting');
-      if (!current.required) { await loadGames(); watchScan();if(localStorage.getItem('gameshelf:pending-tour')==='true'){localStorage.removeItem('gameshelf:pending-tour');window.GameShelfTour?.prepare();window.GameShelfTour?.offer();}const notice=localStorage.getItem('gameshelf:restore-notice');if(notice){localStorage.removeItem('gameshelf:restore-notice');showNotification(notice);} }
+      if (!current.required) { await loadGames(); watchScan();window.GameShelfProfiles?.offerTour();if(localStorage.getItem('gameshelf:pending-tour')==='true'){localStorage.removeItem('gameshelf:pending-tour');window.GameShelfTour?.prepare();window.GameShelfTour?.offer();}const notice=localStorage.getItem('gameshelf:restore-notice');if(notice){localStorage.removeItem('gameshelf:restore-notice');showNotification(notice);} }
     } catch {
       $('boot-message').textContent = 'Could not connect to GameShelf. Try again when the server is ready.'; $('boot-retry').hidden = false;
     }

@@ -14,7 +14,7 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   const {targetId}=await command('Target.createTarget',{url:'about:blank'},undefined);session=(await command('Target.attachToTarget',{targetId,flatten:true},undefined)).sessionId;
   await command('Page.navigate',{url:origin});await waitFor("document.querySelector('#profile-picker')?.open");
   assert.equal(await evaluate("document.querySelectorAll('.gs-card').length"),0,'catalog exposed before profile login');
-  await evaluate("document.querySelector('.gs-profile-tile').click();document.querySelector('#pin-entry').value='0000';document.querySelector('#pin-form').requestSubmit()");
+  await evaluate("document.querySelector('.gs-profile-tile[aria-label=\"Jamie\"]').click();document.querySelector('#pin-entry').value='0000';document.querySelector('#pin-form').requestSubmit()");
   await waitFor("document.querySelector('#notification-banner').classList.contains('gs-notification-error')&&!document.querySelector('#pin-submit').disabled");
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open&&document.querySelector('#profile-picker').open"),true,'failed sign-in lost the picker');
   await evaluate("document.querySelector('#pin-entry').value='2468';document.querySelector('#pin-form').requestSubmit()");
@@ -31,8 +31,8 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   await evaluate("document.querySelector('#family-open-profiles').click()");await waitFor("document.querySelector('#profiles-dialog').open&&document.querySelector('#profiles-list').textContent.includes('Jamie')");
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open"),false,'Guardian lease prompted twice');
   assert.equal(await evaluate("fetch('/api/profiles?manage=1').then(r=>r.json()).then(r=>r.profiles[0].favorites.allowed)"),true);
-  await evaluate("document.querySelector('#profiles-list button').click()");await waitFor("document.querySelector('#profile-editor-dialog').open");
-  await evaluate("document.querySelector('#profile-photo-change').click()");await waitFor("document.querySelector('#avatar-dialog').open");
+  await evaluate("document.querySelector('#profiles-list [aria-label=\"Edit Jamie\"]').click()");await waitFor("document.querySelector('#profile-editor-dialog').open");
+  await evaluate("document.querySelector('#profile-photo').click()");await waitFor("document.querySelector('#avatar-dialog').open");
   await waitFor("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"] img').naturalWidth===256");
   await evaluate("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"]').click();document.querySelector('#avatar-select').click()");
   await waitFor("!document.querySelector('#avatar-dialog').open&&document.querySelector('#profile-photo-image').src.includes('cosmic-fox')");
@@ -40,7 +40,7 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   await waitFor("document.querySelector('#profiles-list').textContent.includes('Jamie Updated')");
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open"),false,'save repeated Guardian PIN prompt');
   assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.needsProfile)"),true,'profile edit failed to revoke login');
-  assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.profiles[0].avatar)"),'builtin:cosmic-fox');
+  assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.profiles.find(p=>p.nickname==='Jamie Updated').avatar)"),'builtin:cosmic-fox');
   process.stdout.write('Live profile login, personal favorite, restricted direct routes, Guardian recovery, edit, and revocation passed.\n');
  }finally{clearTimeout(deadline);command('Browser.close').catch(()=>{});await pause(100);browser.kill();await pause(150);const resolved=path.resolve(profile);if(resolved.startsWith(path.resolve(os.tmpdir())+path.sep)&&path.basename(resolved).startsWith('gs-profile-live-')){try{fs.rmSync(resolved,{recursive:true,force:true});}catch{}}}
 })().catch(error=>{process.stderr.write(error.stack);process.exitCode=1;});

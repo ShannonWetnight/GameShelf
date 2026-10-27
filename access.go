@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -45,7 +46,7 @@ func remembrance(value *pinRemembrance) pinRemembrance {
 }
 
 var accessActions = map[string]string{
-	"admin": "Family Controls", "settings": "Settings menu", "advanced": "Advanced settings tab", "libraryManager": "Library Manager", "sources": "Library Sources", "storage": "Saved data location", "refresh": "Refresh Interval", "logging": "Logging configuration", "logs": "View and export logs", "health": "Configure health monitoring", "healthView": "View Library Health", "export": "Export Data", "restore": "Restore Data", "wipe": "Wipe Settings", "setup": "First-Time Setup", "covers": "Edit covers and fit", "titles": "Edit game titles", "favoriteAdd": "Add favorites", "favoriteRemove": "Remove favorites", "metadata": "Reset Metadata", "playlistAdd": "Add to Playlist", "playlistRemove": "Remove or clear Playlist", "downloads": "Downloads",
+	"admin": "Family Controls", "settings": "Settings menu", "advanced": "Advanced settings tab", "libraryManager": "Library Manager", "sources": "Library Sources", "storage": "Saved data location", "refresh": "Refresh Interval", "logging": "Logging configuration", "logs": "View and export logs", "health": "Configure health monitoring", "healthView": "View Library Health", "export": "Export Data", "restore": "Restore Data", "wipe": "Wipe GameShelf", "setup": "First-Time Setup", "covers": "Edit covers and fit", "titles": "Edit game titles", "favoriteAdd": "Add favorites", "favoriteRemove": "Remove favorites", "metadata": "Reset Metadata", "playlistAdd": "Add to Playlist", "playlistRemove": "Remove or clear Playlist", "downloads": "Downloads",
 }
 
 var preferenceActions = map[string]string{"theme": "theme", "animation-speed": "motion", "ui-scale": "uiScale", "dynamic-scale": "uiScale", "animate-tiles": "tileAnimation", "show-hover-text": "buttonHints", "show-game-titles": "staticTitles", "show-placeholder-images": "placeholderArt", "card-depth": "cardDepth", "playlist-enabled": "playlistFeature", "show-list-images": "listImages", "favorites-first": "favoritesFirst", "favorite-stars-only": "pinnedStars", "hover-game-titles": "hoverNames", "list-opacity": "listOpacity", "recent-days": "recentRange", "recent-days-v2": "recentRange", "list-image-click": "imageExpand", "stretch-covers": "stretchDefault"}
@@ -104,9 +105,11 @@ func accessDependencies(policy *accessPolicy, actions []string, settingsOperatio
 }
 
 func resetAccessActions() []string {
-	actions := []string{"wipe", "sources", "storage", "refresh", "logging", "health", "playlistRemove"}
+	actions := []string{"wipe", "admin", "sources", "storage", "refresh", "logging", "health", "playlistRemove", "covers", "titles", "metadata", "favoriteRemove"}
 	for _, action := range preferenceActions {
-		actions = append(actions, action)
+		if !slices.Contains(actions, action) {
+			actions = append(actions, action)
+		}
 	}
 	return actions
 }
@@ -379,11 +382,14 @@ func checkAccess(w http.ResponseWriter, r *http.Request, actions []string) bool 
 			}
 			mode = "pin"
 		}
+		if action == "wipe" && mode != "disable" {
+			mode = "pin"
+		}
 		if mode == "disable" {
 			writeAccessError(w, 403, "action_disabled", []string{action}, accessActions[action]+" has been disabled by a GameShelf Guardian.")
 			return false
 		}
-		if mode == "pin" && !hasPINGrant(r, action) {
+		if mode == "pin" && (action == "wipe" || !hasPINGrant(r, action)) {
 			required = append(required, action)
 		}
 	}
@@ -566,7 +572,7 @@ func accessGate(next http.Handler) http.Handler {
 			r.Body = io.NopCloser(bytes.NewReader(contents))
 		}
 		actions := accessRequestActions(r)
-		settingsOperation := r.URL.Path == "/api/server-settings" && r.Method == "PUT" || r.URL.Path == "/api/settings-events" || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/library-backup" || r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/logs" || strings.HasPrefix(r.URL.Path, "/api/health") || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/setup/restart"
+		settingsOperation := r.URL.Path == "/api/server-settings" && r.Method == "PUT" || r.URL.Path == "/api/settings-events" && len(actions) > 0 || r.URL.Path == "/api/server-settings/reset" || r.URL.Path == "/api/library-backup" || r.URL.Path == "/api/library-restore" || r.URL.Path == "/api/logs" || strings.HasPrefix(r.URL.Path, "/api/health") || r.URL.Path == "/api/network-test" || r.URL.Path == "/api/library-folders" || r.URL.Path == "/api/setup/restart"
 		if len(actions) > 0 || settingsOperation {
 			policy, _, _ := currentAccessPolicy()
 			actions = accessDependencies(combinedAccessPolicy(r, policy), actions, settingsOperation)
@@ -669,6 +675,11 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 	options := remembrance(record.Remember)
 	until := time.Now().Add(time.Duration(options.Minutes) * time.Minute)
 	remembered := request.Remember && options.Enabled
+	for _, action := range request.Actions {
+		if action == "wipe" {
+			remembered = false
+		}
+	}
 	token := ""
 	accessMu.Lock()
 	if remembered {
@@ -882,6 +893,9 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
 	}
 	accessMu.Unlock()
+	if request.NewPIN != "" {
+		revokeGuardianProfiles()
+	}
 	logEvent("system", "Family-control policy saved")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"saved": true, "configured": true, "created": oldRecord == nil})
