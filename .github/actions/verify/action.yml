@@ -26,6 +26,10 @@ runs:
           --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
         docker run --rm --env HOME=/tmp --env GOCACHE=/tmp/go-build --mount "type=bind,src=$PWD/connectors/rclone,dst=/src,readonly" --workdir /src \
           --entrypoint sh golang:1.27.3-alpine3.24 -ec 'go vet ./...; go test -v ./...'
+        docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp --env GOCACHE=/tmp/go-build --env CGO_ENABLED=0 --mount "type=bind,src=$PWD,dst=/src" --workdir /src \
+          --entrypoint sh gameshelf:builder -ec 'go test -c -o reports/gameshelf-tests'
+        GAMESHELF_LIVE_PROFILES=1 ./reports/gameshelf-tests -test.run '^TestFamilyProfilesLiveBrowser$' -test.v
+        rm reports/gameshelf-tests
         node --check web/app.js
         node --check web/setup.js
         node --check web/tour.js

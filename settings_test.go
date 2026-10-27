@@ -89,16 +89,7 @@ func TestServerSettingsAcceptSeparateMountedSources(t *testing.T) {
 }
 
 func TestResetServerSettingsRestoresDefaultsWithoutLibraryChanges(t *testing.T) {
-	root, data := t.TempDir(), t.TempDir()
-	t.Setenv("GAMESHELF_ROOT", root)
-	t.Setenv("GAMESHELF_DATA_DIR", data)
-	t.Setenv("GAMESHELF_REFRESH_INTERVAL", "")
-	previousHome, previousRoot, previousSettings := settingsHome, allowedLibraryRoot, configuredSettings
-	t.Cleanup(func() {
-		settingsHome, allowedLibraryRoot, configuredSettings = previousHome, previousRoot, previousSettings
-		verboseLogging.Store(previousSettings.Verbose)
-	})
-	settingsHome, allowedLibraryRoot = data, root
+	root, data := setupFreshServer(t)
 	custom := serverSettings{RootDir: root, DataDir: data, RefreshInterval: "1h", Verbose: false}
 	if err := saveServerSettings(custom); err != nil {
 		t.Fatal(err)

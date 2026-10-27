@@ -72,6 +72,38 @@ func TestHealthTransitionsPersistenceAndReadOnlyCache(t *testing.T) {
 		t.Fatal("new missing location needs critical state")
 	}
 }
+
+func TestWipeDiscardsAnInFlightHealthResultAtTheSameDataLocation(t *testing.T) {
+	root, home := setupFreshServer(t)
+	rootDir, rootDirs = root, []string{root}
+	cookie := familyCreate(t, nil)
+	previous := healthReadDir
+	entered, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	healthReadDir = func(string) ([]os.DirEntry, error) { close(entered); <-release; return nil, nil }
+	defer func() { healthReadDir = previous }()
+	go func() { runHealthCheck(); close(done) }()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("health probe did not start")
+	}
+	response := wipeWithPIN(t, cookie, map[string]any{"confirm": "WIPE", "acknowledgeBackup": true})
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("health probe did not finish")
+	}
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(home, "library-health.json")); !os.IsNotExist(err) {
+		t.Fatal("old health result repopulated wiped data", err)
+	}
+	if len(healthSnapshot().Sources) != 0 {
+		t.Fatal("old health source returned after Wipe")
+	}
+}
 func TestHealthProbeTimeoutIsBoundedAndDeduplicated(t *testing.T) {
 	setupFreshServer(t)
 	originalRead, originalTimeout := healthReadDir, healthProbeTimeout

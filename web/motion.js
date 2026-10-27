@@ -35,12 +35,12 @@
   const summary=event.target.closest?.('summary');if(!summary||summary.parentElement?.tagName!=='DETAILS')return;event.preventDefault();
   const details=summary.parentElement,old=detailsState.get(details);let body=[...details.children].find(node=>node.classList.contains('gs-details-body'));
   if(!body){body=document.createElement('div');body.className='gs-details-body';for(const node of [...details.childNodes])if(node!==summary)body.append(node);details.append(body);}
-  const opening=old?.motion?!old.opening:!details.open,current=details.open?body.getBoundingClientRect().height/(typeof uiScale==='number'?uiScale:1):0;
+  const opening=old?.motion?!old.opening:!details.open,current=details.open?body.getBoundingClientRect().height/(typeof uiScale==='number'?uiScale:1):0,opacity=old?.motion?getComputedStyle(body).opacity:details.open?1:0;
   old?.motion?.cancel();for(const element of tracked){if(element.contains(details)){const state=states.get(element);state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');}}details.dataset.detailsAnimating='true';details.open=true;
   const entry={opening,motion:null};detailsState.set(details,entry);
   const finish=()=>{if(detailsState.get(details)!==entry)return;if(!opening)details.open=false;entry.motion?.cancel();entry.motion=null;delete details.dataset.detailsAnimating;for(const element of tracked){const state=states.get(element);if(ready(element)&&!state.animation)state.previous=measure(element);}};
   if(!enabled()||!body.animate){finish();return;}
-  entry.motion=body.animate([{height:current+'px',opacity:opening?0:1},{height:(opening?body.scrollHeight:0)+'px',opacity:opening?1:0}],{duration:typeof motionDuration==='function'?motionDuration(240):240,easing:'cubic-bezier(.2,.7,.2,1)',fill:'both'});entry.motion.id='gs-details-resize';entry.motion.finished.then(finish).catch(()=>{});
+  entry.motion=body.animate([{height:current+'px',opacity},{height:(opening?body.scrollHeight:0)+'px',opacity:opening?1:0}],{duration:typeof motionDuration==='function'?motionDuration(240):240,easing:'cubic-bezier(.2,.7,.2,1)',fill:'both'});entry.motion.id='gs-details-resize';entry.motion.finished.then(finish).catch(()=>{});
  });
  window.GameShelfMotion={track,reset};
 })();

@@ -1,7 +1,7 @@
 /* Personal shelves use their own identity; the shared Guardian PIN protects management. */
 (() => {
  const $=id=>document.getElementById(id),builtins=new Set(['child','adult','elevated','administrator']);
- let state={enabled:false,profiles:[]},management,catalog=[],editing,editingRole,pendingRemoval,required=false,initializing,enabledDraft=false,libraryWarningApproved=false,themePreviewed=false;
+ let state={enabled:false,profiles:[]},management,catalog=[],editing,editingRole,pendingRemoval,required=false,initializing,enabledDraft=false,themePreviewed=false;
  const notifyError=error=>showNotification(error.message||'Could not save these choices.','error');
  async function request(url,options){const response=await fetch(url,options);if(!response.ok){const text=await response.text();let message=text;try{message=JSON.parse(text).message||text;}catch{}throw new Error(message||'GameShelf could not complete that request.');}return response.status===204?null:response.json();}
  async function ownerAccess(){if(!await GameShelfAccess.enter('admin'))throw new Error('Guardian approval is required.');}
@@ -60,7 +60,7 @@
   $('profile-library-choices').hidden=false;$('profile-game-choices').hidden=false;$('profile-game-search').hidden=false;renderGameChoices();
  }
  async function editProfile(profile,associated=false){
-  await ownerAccess();catalog=await request('/api/profiles/catalog');editing={...(profile||{}),avatar:profile?.avatar||'',pinPreference:profile?.pinRequired!==false,selectedGames:new Set(profile?.games||[]),selectedLibraries:new Set(profile?.libraries||[]),allLibraries:profile?.allLibraries??true};libraryWarningApproved=false;
+  await ownerAccess();catalog=await request('/api/profiles/catalog');editing={...(profile||{}),avatar:profile?.avatar||'',pinPreference:profile?.pinRequired!==false,selectedGames:new Set(profile?.games||[]),selectedLibraries:new Set(profile?.libraries||[]),allLibraries:profile?.allLibraries??true};
   $('profile-photo-image').src=GameShelfAvatars.url(editing.avatar);$('profile-photo-image').hidden=!editing.avatar;$('profile-photo').classList.toggle('has-photo',!!editing.avatar);
   $('profile-editor-title').textContent=profile?'Edit Profile':associated?'Associate Guardian Profile':'Add Profile';$('profile-nickname').value=profile?.nickname||'';$('profile-tour-next').checked=profile?.tourPending||false;
   $('profile-guardian-pin').checked=associated||profile?.usesGuardianPIN||false;$('profile-new-pin').value='';$('profile-confirm-pin').value='';$('profile-new-pin').placeholder=profile&&!profile.usesGuardianPIN&&profile.pinRequired!==false?'Keep current PIN':'';

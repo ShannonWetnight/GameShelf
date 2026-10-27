@@ -100,13 +100,17 @@ func TestGameOverDoesNotFollowCoverSymlinks(t *testing.T) {
 
 func TestNavigationEventsDoNotRequireDisabledSettings(t *testing.T) {
 	setupFreshServer(t)
-	familyCreate(t, map[string]accessRule{"settings": {"disable", false, ""}})
+	profile := createProfileForTest(t, "Jamie", []string{"child"})
+	familyCreate(t, nil)
+	enableProfilesForTest(t)
+	cookie := profileLoginTest(t, profile.ID, nil)
+	handler := profileGate(accessGate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) })))
 	for _, body := range []map[string]string{{"view": "list"}, {"sort": "name"}, {"settings-level": "advanced"}} {
-		if r := familyGate(t, "/api/settings-events", "POST", body, nil); r.Code != 204 {
+		if r := profileTestCall(t, handler, "POST", "/api/settings-events", body, []*http.Cookie{cookie}, nil); r.Code != 204 {
 			t.Fatal("navigation classified as settings", r.Code, r.Body.String())
 		}
 	}
-	if r := familyGate(t, "/api/settings-events", "POST", map[string]string{"theme": "dark"}, nil); r.Code != 403 {
+	if r := profileTestCall(t, handler, "POST", "/api/settings-events", map[string]string{"theme": "dark"}, []*http.Cookie{cookie}, nil); r.Code != 403 {
 		t.Fatal("real setting bypassed gate", r.Code)
 	}
 }
