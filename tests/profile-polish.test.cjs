@@ -137,8 +137,8 @@ test('opening and closing Add Profile does not redraw an unchanged theme and Gam
 });
 
 test('expansion carets animate in both directions instead of snapping',()=>{
- const r=fullUI(`const details=document.querySelector('.gs-setup-help'),summary=details.querySelector('summary');result.closed=getComputedStyle(summary,'::before').transform;summary.click();await pause(60);result.middle=getComputedStyle(summary,'::before').transform;await pause(250);result.open=getComputedStyle(summary,'::before').transform;summary.click();await pause(60);result.back=getComputedStyle(summary,'::before').transform;await pause(250);result.done=getComputedStyle(summary,'::before').transform;`,{setup:true,configured:false,motion:1.1,live:true});
- assert.notEqual(r.middle,r.closed);assert.notEqual(r.middle,r.open);assert.notEqual(r.back,r.open);assert.equal(r.done,r.closed);
+ const r=fullUI(`const details=document.querySelector('.gs-setup-help'),summary=details.querySelector('summary');result.closed=getComputedStyle(summary,'::before').transform;summary.click();await pause(60);result.middle=getComputedStyle(summary,'::before').transform;await pause(250);result.open=getComputedStyle(summary,'::before').transform;summary.click();await pause(60);result.back=getComputedStyle(summary,'::before').transform;await pause(250);result.done=getComputedStyle(summary,'::before').transform;details.open=true;await pause(250);result.externalOpen=getComputedStyle(summary,'::before').transform;details.open=false;await pause(250);result.externalClosed=getComputedStyle(summary,'::before').transform;`,{setup:true,configured:false,motion:1.1,live:true});
+ assert.notEqual(r.middle,r.closed);assert.notEqual(r.middle,r.open);assert.notEqual(r.back,r.open);assert.equal(r.done,r.closed);assert.equal(r.externalOpen,r.open);assert.equal(r.externalClosed,r.closed);
 });
 
 

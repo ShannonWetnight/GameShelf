@@ -162,7 +162,7 @@ body.gs-no-animations #resume-setup-option,body.gs-no-animations #build-info{ani
 summary{list-style:none;cursor:pointer;}
 summary::-webkit-details-marker{display:none;}
 summary::before{content:'';display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:baseline;background:currentColor;clip-path:polygon(25% 10%,85% 50%,25% 90%);transform:rotate(0);transition:transform .2s cubic-bezier(.2,.7,.2,1);}
-.gs-details-expanded>summary::before{transform:rotate(90deg);}
+details[open]:not([data-details-animating])>summary::before,details[open].gs-details-expanded>summary::before{transform:rotate(90deg);}
 @media(prefers-reduced-motion:reduce){summary::before{transition:none;}}
 body.gs-no-animations summary::before{transition:none;}
 
