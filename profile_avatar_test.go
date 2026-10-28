@@ -71,7 +71,7 @@ func TestProfileAvatarsPersistAndTravelInProtectedBackups(t *testing.T) {
 	if validateProfileAvatar(normalized) != nil || normalized == "" {
 		t.Fatal("photo missing from public picker")
 	}
-	key := base64.StdEncoding.EncodeToString([]byte("profile photos backup passphrase"))
+	key := base64.StdEncoding.EncodeToString([]byte("Aprofile photos backup passphrase7!"))
 	data, err := encodeProfilesBackup(key)
 	if err != nil {
 		t.Fatal(err)

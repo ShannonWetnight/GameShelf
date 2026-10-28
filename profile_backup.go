@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -32,6 +33,18 @@ func profileBackupKey(header string) (string, error) {
 	}
 	return value, nil
 }
+
+// Complexity applies to new exports. Existing archives keep their original key policy.
+func strongBackupPassphrase(value string) bool {
+	var upper, lower, number, symbol bool
+	for _, char := range value {
+		upper = upper || unicode.IsUpper(char)
+		lower = lower || unicode.IsLower(char)
+		number = number || unicode.Is(unicode.Nd, char)
+		symbol = symbol || unicode.IsPunct(char) || unicode.IsSymbol(char)
+	}
+	return utf8.RuneCountInString(value) >= 8 && upper && lower && number && symbol
+}
 func profileBackupAEAD(pass string, salt []byte) (cipher.AEAD, error) {
 	key, err := pbkdf2.Key(sha256.New, pass, salt, pinIterations, 32)
 	if err != nil {
@@ -47,6 +60,9 @@ func encodeProfilesBackup(header string) ([]byte, error) {
 	pass, err := profileBackupKey(header)
 	if err != nil {
 		return nil, err
+	}
+	if pass != "" && !strongBackupPassphrase(pass) {
+		return nil, errors.New("Use at least 8 characters, including uppercase, lowercase, a number, and a symbol")
 	}
 	profileMu.Lock()
 	db, err := readProfileDBLocked()

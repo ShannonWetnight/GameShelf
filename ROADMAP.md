@@ -174,3 +174,5 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [x] Separate personal Require PIN and Guardian PIN authority, with Guardian-only Wipe.
 - [x] Real groups with shared role assignments and profile memberships; single membership by default with optional multiple Roles and Groups.
 - [x] Built-in role reset, editable Guardian nicknames, linked-profile migration, and safe last-Guardian removal with a replacement option.
+
+- [x] Guided Guardian creation with an optional second PIN, consistent setup/dropdown/help geometry, and live server-enforced Backup Passphrase complexity for new encrypted exports (legacy restores preserved).

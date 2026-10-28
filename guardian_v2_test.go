@@ -192,7 +192,7 @@ func TestOptionalProfileBackupRequiresExplicitConsentAndRoundTrips(t *testing.T)
 	if bytes.Contains(plain, []byte(record.Hash)) || bytes.Contains(plain, []byte(record.Salt)) {
 		t.Fatal("Guardian verifier exported")
 	}
-	eight := base64.StdEncoding.EncodeToString([]byte("12345678"))
+	eight := base64.StdEncoding.EncodeToString([]byte("Aa12345!"))
 	encrypted, err := encodeProfilesBackup(eight)
 	if err != nil {
 		t.Fatal(err)
@@ -296,5 +296,35 @@ func TestUnprotectedImportedPINRulesDoNotDemandPINCreationToWipe(t *testing.T) {
 	w := familyCall(t, handleResetServerSettings, "POST", "/api/server-settings/reset", map[string]any{"confirm": "Game Over", "acknowledgeBackup": true}, nil)
 	if w.Code != 200 {
 		t.Fatal("unprotected imported rules required a new PIN for wipe", w.Code, w.Body.String())
+	}
+}
+
+func TestBackupPassphraseComplexityAndLegacyRestore(t *testing.T) {
+	setupFreshServer(t)
+	for _, value := range []string{"Aa1!", "lowercase7!", "UPPERCASE7!", "NoDigitsHere!", "NoSymbols123"} {
+		if _, err := encodeProfilesBackup(base64.StdEncoding.EncodeToString([]byte(value))); err == nil {
+			t.Fatalf("weak export key accepted: %q", value)
+		}
+	}
+	if !strongBackupPassphrase("A strong choice7!") || !strongBackupPassphrase("Éléphant7!") {
+		t.Fatal("valid complexity rejected")
+	}
+	// A pre-policy encrypted archive must still restore with its original passphrase.
+	data, err := json.Marshal(defaultProfileDB())
+	if err != nil {
+		t.Fatal(err)
+	}
+	salt, nonce := make([]byte, 16), make([]byte, 12)
+	aead, err := profileBackupAEAD("old backup words", salt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encrypted := aead.Seal(nil, nonce, data, []byte("GameShelf Family Profiles v1"))
+	archive, err := json.Marshal(protectedProfiles{Version: 1, Salt: base64.StdEncoding.EncodeToString(salt), Nonce: base64.StdEncoding.EncodeToString(nonce), Data: base64.StdEncoding.EncodeToString(encrypted)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := decodeProfilesBackup(archive, base64.StdEncoding.EncodeToString([]byte("old backup words"))); err != nil {
+		t.Fatal("legacy restore rejected", err)
 	}
 }

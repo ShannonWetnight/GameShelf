@@ -17,7 +17,7 @@ function detectedUIScale(){
 let dynamicScale=localStorage.getItem('gameshelf:dynamic-scale')!=='false';
 const savedUIScale=Number(localStorage.getItem('gameshelf:ui-scale'));
 let uiScale=dynamicScale?detectedUIScale():Number.isFinite(savedUIScale)&&savedUIScale>=.75&&savedUIScale<=1.5?savedUIScale:1;
-function applyUIScale(){document.documentElement?.style?.setProperty('--ui-scale',String(uiScale));window.GameShelfMotion?.reset();}
+function applyUIScale(){document.documentElement?.style?.setProperty('--ui-scale',String(uiScale));window.GameShelfMotion?.reset();window.GameShelfSetup?.center?.();}
 applyUIScale();
 let manualRefreshUntil=0;
 let gamesCache = [];
@@ -1402,6 +1402,8 @@ document.addEventListener('DOMContentLoaded', () => {
   themeMedia.addEventListener?.('change', () => { if (themePreference === 'system') applyTheme(); });
   let themeRedrawVersion = 0, themeMotions = [];
   async function redrawTheme(preference) {
+    const resolved=preference==='random'?sessionTheme:preference==='system'?(themeMedia.matches?'dark':'light'):preference;
+    if(document.documentElement?.dataset.theme===resolved&&!themeMotions.length)return;
     const version=++themeRedrawVersion;themeMotions.forEach(motion=>motion.cancel());
     const surfaces=[document.body,...[...openDialogs].filter(dialog=>dialog.open)];
     const animate=(surface,frames,duration)=>{const motion=surface.animate(frames,{duration:motionDuration(duration),easing:'ease',fill:'forwards'});motion.id='gs-theme-redraw';return motion;};
@@ -1726,7 +1728,7 @@ document.addEventListener('DOMContentLoaded', () => {
     exportAll.checked = true; exportAll.indeterminate = false;
     document.getElementById('export-status').textContent = '';
     document.getElementById('export-credentials-note').hidden = !(serverSettings?.sources || []).some(source => source.protocol !== 'nfs' && (source.hasPassword || source.username));
-    document.getElementById('export-profile-key').value='';document.getElementById('export-profile-key').type='password';document.getElementById('export-unprotected-ack').checked=false;document.getElementById('export-unprotected-option').hidden=false;document.getElementById('export-profile-options').hidden=true;document.getElementById('export-profiles').checked=false;
+    document.getElementById('export-profile-key').value='';document.getElementById('export-profile-key').type='password';if(typeof Event==='function')document.getElementById('export-profile-key').dispatchEvent(new Event('input'));document.getElementById('export-unprotected-ack').checked=false;document.getElementById('export-unprotected-option').hidden=false;document.getElementById('export-profile-options').hidden=true;document.getElementById('export-profiles').checked=false;
     if(window.GameShelfProfiles){try{const available=await GameShelfProfiles.hasProfiles();document.getElementById('export-profile-options').hidden=!available;document.getElementById('export-profiles').checked=available;document.getElementById('export-profile-key-field').hidden=!available;}catch{/* A normal export remains available. */}}
     openModal(exportDialog);
   });
@@ -2354,12 +2356,14 @@ function syncSetupResume(){
  const unfinished=!value.setupCompleted&&(value.setupStatus==='skipped'||value.setupStatus==='pending'||!value.setupStatus);document.getElementById('resume-setup-option').hidden=!unfinished;document.getElementById('resume-setup-option').classList.toggle('gs-setup-pending',unfinished);document.body.classList.toggle('gs-setup-unfinished',unfinished);
 }
 
-function profileBackupKey(id){const value=document.getElementById(id).value;if(!value)return '';if([...value].length<8||new TextEncoder().encode(value).length>1024){showNotification('Use a backup passphrase of at least 8 characters.','error');return null;}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}
+function backupPassphraseChecks(value){return {length:[...value].length>=8,upper:/\p{Lu}/u.test(value),lower:/\p{Ll}/u.test(value),number:/\p{Nd}/u.test(value),symbol:/[\p{P}\p{S}]/u.test(value)};}
+function profileBackupKey(id){const value=document.getElementById(id).value;if(!value)return '';const strong=id!=='export-profile-key'||Object.values(backupPassphraseChecks(value)).every(Boolean);if(!strong||[...value].length<8||new TextEncoder().encode(value).length>1024){showNotification(id==='export-profile-key'?'Use at least 8 characters, including uppercase, lowercase, a number, and a symbol.':'Use the Backup Passphrase from your export.','error');return null;}return btoa(String.fromCharCode(...new TextEncoder().encode(value)));}
 
 document.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),field=$('export-profile-key');
- field.addEventListener('input',()=>{$('export-unprotected-option').hidden=!!field.value;});
- $('backup-key-generate').addEventListener('click',()=>{const bytes=crypto.getRandomValues(new Uint8Array(20)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_';field.value=[...bytes].map(b=>alphabet[b%alphabet.length]).join('');field.dispatchEvent(new Event('input'));showNotification('Backup passphrase generated. Copy it somewhere safe.');animateControl($('backup-key-generate'));});
+ function syncKey(){const checks=backupPassphraseChecks(field.value);for(const item of $('backup-key-requirements').children)item.classList.toggle('is-met',checks[item.dataset.check]);$('export-unprotected-option').hidden=!!field.value;const show=$('backup-key-show'),visible=field.type==='text';show.dataset.tooltip=visible?'Hide passphrase':'Show passphrase';show.setAttribute('aria-label',show.dataset.tooltip);show.setAttribute('aria-pressed',String(visible));show.innerHTML=visible?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10 5.2A12 12 0 0 1 12 5c6 0 10 7 10 7a20 20 0 0 1-4.2 4.7M6.2 6.2A21 21 0 0 0 2 12s4 7 10 7a12 12 0 0 0 4.1-.7M10 10a3 3 0 0 0 4 4"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';}
+ field.addEventListener('input',syncKey);$('export-dialog').addEventListener('close',()=>{field.type='password';syncKey();});syncKey();
+ $('backup-key-generate').addEventListener('click',()=>{const bytes=crypto.getRandomValues(new Uint8Array(20)),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_$!';const generated=['A','a','7','!',...[...bytes].map(b=>alphabet[b%alphabet.length])];for(let i=generated.length-1;i>0;i--){const j=crypto.getRandomValues(new Uint32Array(1))[0]%(i+1);[generated[i],generated[j]]=[generated[j],generated[i]];}field.value=generated.join('');field.dispatchEvent(new Event('input'));showNotification('Backup passphrase generated. Copy it somewhere safe.');animateControl($('backup-key-generate'));});
  $('backup-key-copy').addEventListener('click',async()=>{if(!field.value){showNotification('Enter or generate a passphrase first.','error');return;}try{await navigator.clipboard.writeText(field.value);showNotification('Backup passphrase copied.');animateControl($('backup-key-copy'));}catch{showNotification('Clipboard is unavailable. Select and copy the passphrase.','error');}});
- $('backup-key-show').addEventListener('click',()=>{field.type=field.type==='password'?'text':'password';$('backup-key-show').dataset.tooltip=field.type==='password'?'Show passphrase':'Hide passphrase';$('backup-key-show').setAttribute('aria-label',$('backup-key-show').dataset.tooltip);animateControl($('backup-key-show'));});
+ $('backup-key-show').addEventListener('click',()=>{field.type=field.type==='password'?'text':'password';syncKey();animateControl($('backup-key-show'));});
 });
