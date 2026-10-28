@@ -155,7 +155,7 @@ body.gs-no-animations #resume-setup-option,body.gs-no-animations #build-info{ani
 .gs-passphrase-requirements li::before{content:'×';font:700 1rem/1 var(--font-sans);width:12px;text-align:center;}
 .gs-passphrase-requirements li.is-met{color:var(--success,#62bb84);}
 .gs-passphrase-requirements li.is-met::before{content:'✓';font-size:.8rem;}
-.gs-profile-game-toolbar{padding:4px 0 12px;margin-bottom:10px;border-bottom:1px solid var(--border-subtle);align-items:center;}
+.gs-profile-game-toolbar{padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border-subtle);align-items:center;}
 .gs-profile-game-toolbar label{display:inline-flex;align-items:center;gap:9px;margin:0;}
 .gs-needs-setup .gs-setup-page{position:relative;top:var(--setup-stage-offset,0px);}
 
