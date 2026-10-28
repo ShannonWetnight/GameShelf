@@ -56,7 +56,7 @@ func profilePINMatches(p familyProfile, pin string) bool {
 }
 func setProfilePIN(p *familyProfile, pin string) error {
 	if !validPIN(pin) {
-		return errors.New("Choose a four-digit PIN")
+		return errors.New("Choose a 4-digit PIN")
 	}
 	c, err := makeGuardianCredential("", pin)
 	if err != nil {
@@ -65,6 +65,7 @@ func setProfilePIN(p *familyProfile, pin string) error {
 	p.Salt, p.Hash = c.Salt, c.Hash
 	required := true
 	p.PINRequired = &required
+	p.UnprotectedAdmin = false
 	return nil
 }
 
@@ -103,7 +104,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Could not open profile editor.", 503)
 			return
 		}
-		profileReply(w, map[string]any{"profile": publicProfile(p)})
+		profileReply(w, map[string]any{"profile": publicProfile(p, db)})
 		logEvent("profile", "%s opened personal profile information", p.Nickname)
 		return
 	}
@@ -119,7 +120,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		profileReply(w, map[string]any{"profile": publicProfile(p), "changeOnly": session.ChangeOnly})
+		profileReply(w, map[string]any{"profile": publicProfile(p, db), "changeOnly": session.ChangeOnly})
 		return
 	}
 	if r.Method != "PUT" {
@@ -141,7 +142,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 	record := oldRecord
 	if value.NewPIN != "" {
 		if value.NewPIN != value.ConfirmPIN || !validPIN(value.NewPIN) {
-			http.Error(w, "Enter the same four-digit PIN twice.", 400)
+			http.Error(w, "Enter the same 4-digit PIN twice.", 400)
 			return
 		}
 		if profilePINMatches(p, value.NewPIN) {
@@ -177,7 +178,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), 400)
 				return
 			}
-			if avatar == "builtin:ember-knight" && !containsProfileID(p.Roles, "administrator") {
+			if avatar == "builtin:ember-knight" && !containsProfileID(effectiveProfileRoles(db, p), "administrator") {
 				http.Error(w, "Choose a portrait for this role.", 400)
 				return
 			}
@@ -221,5 +222,5 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 		return ""
 	}())
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"saved": true, "profile": publicProfile(p), "changeOnly": session.ChangeOnly})
+	json.NewEncoder(w).Encode(map[string]any{"saved": true, "profile": publicProfile(p, db), "changeOnly": session.ChangeOnly})
 }

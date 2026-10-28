@@ -72,3 +72,59 @@
 :root #health-dialog:not([style*="top"]){top:50%;transform:translateY(-50%);}
 
 #family-pin-dialog .gs-auto-guardian{padding-inline:0!important;}
+
+/* Open controls retain the same joined outline regardless of later field rules. */
+:root dialog select.gs-select-open{border:1px solid var(--accent)!important;border-bottom:0!important;border-radius:var(--radius-sm) var(--radius-sm) 0 0!important;outline:0!important;box-shadow:none!important;}
+:root dialog select.gs-select-open.gs-select-above{border:1px solid var(--accent)!important;border-top:0!important;border-radius:0 0 var(--radius-sm) var(--radius-sm)!important;}
+:root dialog select.gs-select-closing{border:1px solid var(--accent)!important;border-radius:var(--radius-sm)!important;}
+.gs-profile-scroll label:has(input[type="checkbox"]),.gs-family-remembrance label:has(input[type="checkbox"]){display:flex;align-items:center;gap:10px;line-height:1.4;cursor:pointer;}
+.gs-profile-scroll input[type="checkbox"],.gs-family-remembrance input[type="checkbox"]{margin:0;vertical-align:middle;flex-shrink:0;align-self:center;}
+.gs-settings-dialog [data-tooltip]:not(button):not(input):not(select):not(a){cursor:help;}
+.gs-settings-dialog label[data-tooltip]:has(input[type="checkbox"]){cursor:pointer;}
+.gs-profile-choice span[data-tooltip]::after,.gs-family-remembrance label[data-tooltip]::after{content:'?';display:inline-grid;place-items:center;width:13px;height:13px;border:1px solid currentColor;border-radius:50%;font-size:9px;line-height:1;opacity:.6;margin-left:6px;vertical-align:middle;}
+:root #profile-editor-dialog .gs-profile-identity{align-items:stretch;grid-template-columns:150px minmax(0,1fr);}
+:root #profile-photo{height:100%;width:150px;min-height:150px;}
+#profile-editor-dialog .gs-profile-identity>div{gap:8px;}
+#profile-editor-dialog .gs-profile-identity .gs-server-field{gap:4px;}
+#profile-options{padding-block:12px;}
+#profile-options>.gs-profile-choice{margin:10px 0;}
+#profile-options>.gs-profile-choice:first-of-type{margin-top:0;}
+#profile-pin-fields{margin-left:24px;}
+#profile-pin-fields .gs-family-pin-fields{gap:12px;}
+#profile-pin-fields .gs-server-field{margin:0 0 8px;}
+#profile-pin-fields label{font-size:.78rem;}
+#profile-role-choices label,#profile-group-choices label{min-width:0;}
+.gs-role-badge,#roles-list strong,#groups-list strong{display:block;max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+:root #roles-list,:root #groups-list{grid-template-columns:repeat(3,minmax(0,1fr));}
+#roles-list>article,#groups-list>article{min-width:0;overflow:hidden;}
+#profile-multiple-option{margin:12px 0 0;font-size:.78rem;}
+#profile-group-choices:empty,#groups-list:empty{display:none;}
+#profile-group-choices{margin-top:10px;}
+.gs-reset-role{margin-right:auto;}
+:root .gs-danger-icon:hover,:root .gs-danger-icon:active,:root .gs-danger-icon:focus-visible{color:#ff575f!important;filter:drop-shadow(0 0 5px #ff575f80)!important;}
+#resume-setup-option.gs-setup-pending{margin:8px 10px;padding:12px;border-color:#ffb329!important;animation:gs-setup-nudge 2.8s ease-in-out infinite;}
+body.gs-setup-unfinished #build-info{animation:gs-setup-cog 2.8s ease-in-out infinite;}
+@keyframes gs-setup-nudge{0%,100%{box-shadow:0 0 0 transparent;}50%{box-shadow:0 0 10px #ffb32945;}}
+@keyframes gs-setup-cog{0%,100%{color:var(--text-muted);filter:none;}50%{color:#ffb329;filter:drop-shadow(0 0 5px #ffb32980);}}
+body.gs-no-animations #resume-setup-option,body.gs-no-animations #build-info{animation:none;}
+@media(max-width:600px){:root #profile-editor-dialog .gs-profile-identity{grid-template-columns:100px minmax(0,1fr);}:root #profile-photo{width:100px;min-height:130px;}#profile-pin-fields{margin-left:20px;}#profile-role-choices{grid-template-columns:repeat(3,minmax(0,1fr));}#profile-role-choices .gs-role-badge{font-size:.7rem;}}
+
+#family-pin-dialog{padding:15px!important;}
+#family-pin-dialog .gs-settings-header{margin-bottom:10px;}
+#family-pin-dialog .gs-server-field{margin-bottom:7px;font-size:.78rem;}
+#family-pin-dialog .gs-server-field input{height:34px;min-height:34px;}
+#family-pin-dialog .gs-family-remembrance{margin-bottom:6px;}
+#family-pin-dialog .gs-export-actions{margin-top:10px;}
+#guardian-unlink-dialog .gs-export-actions{flex-wrap:wrap;}
+
+#profile-options>.gs-profile-choice{margin:8px 0;padding:4px 0;}
+#profile-pin-fields .gs-family-pin-fields{margin-top:0;}
+:root .gs-settings-dialog label:has(>input[type="checkbox"]){align-items:center;}
+:root #profile-editor-dialog .gs-profile-identity{--identity-size:150px;align-items:end;}
+:root #profile-photo{width:var(--identity-size);height:var(--identity-size);min-height:0;}
+#profile-editor-dialog .gs-profile-identity>div{display:flex;flex-direction:column;justify-content:space-between;height:calc(var(--identity-size) + 23px);gap:0;}
+#profile-editor-dialog .gs-profile-identity .gs-server-field{line-height:1.4;}
+#profile-role-section .gs-profile-choice:has(input:disabled){opacity:.55;cursor:help;}
+@media(max-width:600px){:root #profile-editor-dialog .gs-profile-identity{--identity-size:100px;}}
+
+:root .gs-settings-dialog :is(.gs-danger-icon,.gs-source-remove):is(:hover,:active,:focus-visible){color:#ff575f!important;filter:drop-shadow(0 0 5px #ff575f80)!important;}

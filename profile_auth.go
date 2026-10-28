@@ -13,7 +13,7 @@ func profileRequiresPIN(p familyProfile) bool { return p.PINRequired == nil || *
 func profileHasAdministrativeActions(db *profileDatabase, p familyProfile) bool {
 	rules := mergedProfileRules(db, p)
 	for _, action := range profileAdministrativeActions {
-		if rules[action].Mode != "disable" {
+		if action != "wipe" && (rules[action].Mode == "allow" || rules[action].Mode == "pin") {
 			return true
 		}
 	}

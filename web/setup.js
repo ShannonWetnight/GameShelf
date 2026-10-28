@@ -160,7 +160,7 @@
     const progress = setInterval(readStatus, 1200);
     try {
       const result = await jsonRequest('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) });
-      serverSettings = result.settings || value; drafts.setup = []; $('setup-roots').value = ''; current.required = false;
+      serverSettings = {...(result.settings || value),setupCompleted:true,setupStatus:'complete'}; if(typeof syncSetupResume==='function')syncSetupResume(); drafts.setup = []; $('setup-roots').value = ''; current.required = false;
       if(window.GameShelfProfiles&&!await GameShelfProfiles.initialize()){if(tour)localStorage.setItem('gameshelf:pending-tour','true');return;}
       if(tour)window.GameShelfTour?.prepare();$('setup-page').hidden = true; document.body.classList.remove('gs-needs-setup'); syncSetupHeader(false);await loadGames(); showNotification('Your shelf is ready. Welcome to GameShelf!'); watchScan();
       if (tour) window.GameShelfTour?.offer();
