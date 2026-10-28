@@ -176,3 +176,6 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [x] Built-in role reset, editable Guardian nicknames, linked-profile migration, and safe last-Guardian removal with a replacement option.
 
 - [x] Guided Guardian creation with an optional second PIN, consistent setup/dropdown/help geometry, and live server-enforced Backup Passphrase complexity for new encrypted exports (legacy restores preserved).
+
+- [x] Separate Roles and Groups managers, photo-based group membership choices, and conditional administrative permission warnings.
+- [x] Theme-aware nickname dice, neutral photo-free profiles, consistent profile help controls, and role/group-aware Guardian migration confirmations.
