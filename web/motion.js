@@ -30,13 +30,13 @@
  function reset(){for(const element of tracked){const state=states.get(element);state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');element.style.removeProperty('top');element.style.removeProperty('margin-block');element.style.removeProperty('bottom');state.previous=ready(element)?measure(element):null;}}
  for(const type of ['pointerdown','keydown'])document.addEventListener(type,()=>{for(const element of tracked){const state=states.get(element);if(ready(element)&&!state.animation)state.previous=measure(element);}},true);
 
- const detailsState=new WeakMap();
+ const detailsState=new WeakMap();for(const details of document.querySelectorAll('details'))details.classList.toggle('gs-details-expanded',details.open);
  document.addEventListener('click',event=>{
   const summary=event.target.closest?.('summary');if(!summary||summary.parentElement?.tagName!=='DETAILS')return;event.preventDefault();
   const details=summary.parentElement,old=detailsState.get(details);let body=[...details.children].find(node=>node.classList.contains('gs-details-body'));
   if(!body){body=document.createElement('div');body.className='gs-details-body';for(const node of [...details.childNodes])if(node!==summary)body.append(node);details.append(body);}
   const opening=old?.motion?!old.opening:!details.open,current=details.open?body.getBoundingClientRect().height/(typeof uiScale==='number'?uiScale:1):0,opacity=old?.motion?getComputedStyle(body).opacity:details.open?1:0;
-  old?.motion?.cancel();for(const element of tracked){if(element.contains(details)){const state=states.get(element);state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');}}details.dataset.detailsAnimating='true';details.open=true;
+  old?.motion?.cancel();for(const element of tracked){if(element.contains(details)){const state=states.get(element);state.animation?.cancel();state.animation=null;element.classList.remove('gs-resizing');}}details.dataset.detailsAnimating='true';details.classList.toggle('gs-details-expanded',opening);details.open=true;
   const entry={opening,motion:null};detailsState.set(details,entry);
   const finish=()=>{if(detailsState.get(details)!==entry)return;if(!opening)details.open=false;entry.motion?.cancel();entry.motion=null;delete details.dataset.detailsAnimating;for(const element of tracked){const state=states.get(element);if(ready(element)&&!state.animation)state.previous=measure(element);}};
   if(!enabled()||!body.animate){finish();return;}

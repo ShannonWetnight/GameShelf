@@ -15,6 +15,11 @@
 
 ## Changes
 
+- Setup forms center within the screen; Guardian creation explains its purpose and offers a second PIN after the first, with no premature selector or interrupted profile draft.
+- Joined dropdown outlines, animated expansion carets, shared help icons, tighter checkbox click regions, and compact backup wording improve consistency across themes.
+- New encrypted profile exports require an 8-character Backup Passphrase with uppercase, lowercase, a number, and a symbol; live checks and inline Show/Hide assist entry while legacy archives remain restorable.
+- Opening or closing a new profile inherits the current theme without a redundant full-screen redraw.
+
 - Settings descriptions move into themed hover hints with compact, aligned rows.
 - UI Scale commits on release with a soft transition; manual control is available when dynamic scaling is disabled.
 - PIN creation and remembrance settings have their own submenu; the unlock prompt is reduced to PIN Required.

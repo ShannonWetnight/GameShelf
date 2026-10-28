@@ -69,6 +69,9 @@
     for(const id of ['gs-home-trigger','gs-refresh-trigger'])$(id).disabled=required;
     $('gs-logo-text').textContent='GAMESHELF';$('build-info').setAttribute('aria-label',required?'Setup options':'Open settings');$('build-info').dataset.tooltip=required?'Setup options':'Settings';
   }
+  let centerFrame;
+  function centerSetup(){cancelAnimationFrame(centerFrame);centerFrame=requestAnimationFrame(()=>{const page=$('setup-page');if(page.hidden||!document.body.classList.contains('gs-needs-setup'))return;const scale=typeof uiScale==='number'?uiScale:1,header=document.querySelector('.gs-header').getBoundingClientRect(),pageRect=page.getBoundingClientRect(),form=$('setup-form').getBoundingClientRect(),currentOffset=parseFloat(page.style.getPropertyValue('--setup-stage-offset'))*scale||0,target=(header.bottom+innerHeight)/2,cap=Math.max(180,(innerHeight-header.bottom-24-2*(form.top-pageRect.top))/scale);if(Math.abs((parseFloat($('setup-form').style.maxHeight)||0)-cap)>1){$('setup-form').style.maxHeight=cap+'px';centerSetup();return;}const offset=Math.min(0,Math.max(header.bottom+12-pageRect.top+currentOffset,target-(form.top+form.bottom)/2+currentOffset));page.style.setProperty('--setup-stage-offset',offset/scale+'px');});}
+  const stageObserver=new ResizeObserver(centerSetup);stageObserver.observe($('setup-form'));stageObserver.observe(document.querySelector('.gs-header'));addEventListener('resize',centerSetup);new MutationObserver(centerSetup).observe($('setup-page'),{attributes:true,attributeFilter:['hidden']});
   const setupTheme=$('setup-theme');setupTheme.replaceChildren(...[...$('theme-select').options].map(option=>option.cloneNode(true)));
   setupTheme.addEventListener('change',()=>{$('theme-select').value=setupTheme.value;$('theme-select').dispatchEvent(new Event('change'));});
   function openOptions(){$('setup-options-status').textContent='';openModal($('setup-options-dialog'));}
@@ -275,7 +278,7 @@
   $('source-alert-manage').addEventListener('click',async()=>{if(await window.GameShelfLibraryManager?.open())$('open-server-settings').click();});
   function beginSaveProgress() { readStatus(); const timer=setInterval(readStatus,1200);return ()=>clearInterval(timer); }
   async function stageForProfiles(){if(!document.body.classList.contains('gs-needs-setup'))return;const paths=roots('setup');const value={...serverSettings,rootDir:paths[0]||'',rootDirs:paths,sources:drafts.setup,dataDir:$('setup-data').value.trim()||'/data'};const result=await jsonRequest('/api/setup?draft=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});serverSettings=result.settings||value;populate('setup',serverSettings);}
-  window.GameShelfSetup = { stageForProfiles, openOptions, beginSaveProgress, boot, initialize: boot, prepareSettings, settingsSources, savedSettings, watchScan };
+  window.GameShelfSetup = { center: centerSetup, stageForProfiles, openOptions, beginSaveProgress, boot, initialize: boot, prepareSettings, settingsSources, savedSettings, watchScan };
 })();
 
 (() => {

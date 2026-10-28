@@ -259,7 +259,7 @@ func TestFamilyProfilesRateLimitAndLogout(t *testing.T) {
 func TestFamilyProfilesEncryptedBackupRoundTripTamperingAndZIP(t *testing.T) {
 	setupFreshServer(t)
 	p := createProfileForTest(t, "Portable", []string{"child"})
-	key := base64.StdEncoding.EncodeToString([]byte("a separate backup passphrase"))
+	key := base64.StdEncoding.EncodeToString([]byte("Aa separate backup passphrase7!"))
 	data, err := encodeProfilesBackup(key)
 	if err != nil {
 		t.Fatal(err)
@@ -367,7 +367,7 @@ func TestFamilyProfilesRestoreRequiresKeyAndFreshImportDoesNotEnableAuthority(t 
 	copy.Enabled = true
 	saveProfileDBLocked(copy, true)
 	profileMu.Unlock()
-	key := base64.StdEncoding.EncodeToString([]byte("long family backup passphrase"))
+	key := base64.StdEncoding.EncodeToString([]byte("Along family backup passphrase7!"))
 	exported := httptest.NewRecorder()
 	request := httptest.NewRequest("GET", "/api/library-backup?select=1&profiles=1", nil)
 	request.Header.Set("X-GameShelf-Backup-Key", key)

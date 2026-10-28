@@ -43,7 +43,7 @@ func TestProfileOptionalPINRestrictedShelfAndProtectedBackup(t *testing.T) {
 	if blocked.Code != 403 {
 		t.Fatal("open shelf bypassed restrictions", blocked.Code)
 	}
-	key := base64.StdEncoding.EncodeToString([]byte("optional profile backup secret"))
+	key := base64.StdEncoding.EncodeToString([]byte("Optional profile backup secret7!"))
 	data, err := encodeProfilesBackup(key)
 	if err != nil {
 		t.Fatal(err)

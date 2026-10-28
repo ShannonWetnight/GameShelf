@@ -81,7 +81,6 @@
 .gs-profile-scroll input[type="checkbox"],.gs-family-remembrance input[type="checkbox"]{margin:0;vertical-align:middle;flex-shrink:0;align-self:center;}
 .gs-settings-dialog [data-tooltip]:not(button):not(input):not(select):not(a){cursor:help;}
 .gs-settings-dialog label[data-tooltip]:has(input[type="checkbox"]){cursor:pointer;}
-.gs-profile-choice span[data-tooltip]::after,.gs-family-remembrance label[data-tooltip]::after{content:'?';display:inline-grid;place-items:center;width:13px;height:13px;border:1px solid currentColor;border-radius:50%;font-size:9px;line-height:1;opacity:.6;margin-left:6px;vertical-align:middle;}
 :root #profile-editor-dialog .gs-profile-identity{align-items:stretch;grid-template-columns:150px minmax(0,1fr);}
 :root #profile-photo{height:100%;width:150px;min-height:150px;}
 #profile-editor-dialog .gs-profile-identity>div{gap:8px;}
@@ -128,3 +127,44 @@ body.gs-no-animations #resume-setup-option,body.gs-no-animations #build-info{ani
 @media(max-width:600px){:root #profile-editor-dialog .gs-profile-identity{--identity-size:100px;}}
 
 :root .gs-settings-dialog :is(.gs-danger-icon,.gs-source-remove):is(:hover,:active,:focus-visible){color:#ff575f!important;filter:drop-shadow(0 0 5px #ff575f80)!important;}
+
+/* The same joined outline wins over field, theme, and focus rules everywhere. */
+:root body select.gs-select-open{border:1px solid var(--accent)!important;border-bottom:0!important;border-radius:var(--radius-sm) var(--radius-sm) 0 0!important;outline:0!important;box-shadow:none!important;}
+:root body select.gs-select-open.gs-select-above{border:1px solid var(--accent)!important;border-top:0!important;border-radius:0 0 var(--radius-sm) var(--radius-sm)!important;}
+:root body select.gs-select-closing{border:1px solid var(--accent)!important;border-radius:var(--radius-sm)!important;}
+:root body .gs-select-menu{padding:0!important;scroll-padding:0;overscroll-behavior:contain;}
+.gs-select-menu [role="option"]{box-sizing:border-box;}
+#profile-editor-dialog .gs-profile-scroll{padding-right:12px;scrollbar-gutter:stable;}
+.gs-help-mark{display:inline-flex;align-items:center;justify-content:center;flex:none;width:14px;height:14px;margin-left:5px;vertical-align:middle;opacity:.68;cursor:help;}
+.gs-help-mark svg{display:block;width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+.gs-settings-dialog label:has(>input[type="checkbox"]){gap:9px;line-height:1.4;}
+#profile-options>.gs-profile-choice,.gs-family-remembrance label:has(input[type="checkbox"]),#family-auto-profile-option{width:fit-content;max-width:100%;}
+#family-pin-dialog .gs-auto-guardian{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:0!important;margin:6px 0!important;}
+#family-pin-dialog .gs-auto-guardian input{margin:0;}
+#family-pin-intro{font-size:.78rem;line-height:1.5;margin:0 0 12px;color:var(--text-muted);}
+#family-pin-dialog .gs-family-remembrance{align-items:center;}
+#family-pin-dialog label:has(input[type="checkbox"]){width:fit-content;max-width:100%;}
+#reset-settings-dialog .gs-save-point{padding:8px 14px 14px;}
+#reset-settings-dialog .gs-save-point p{margin:8px 0 14px;}
+.gs-passphrase-input{position:relative;display:flex;align-items:center;}
+.gs-passphrase-input input{width:100%;box-sizing:border-box;padding-right:44px!important;}
+.gs-passphrase-input #backup-key-show{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:38px;height:38px;}
+#backup-key-show svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.gs-passphrase-requirements{list-style:none;padding:0;margin:4px 0 0;display:flex;flex-wrap:wrap;gap:5px 12px;font-size:.72rem;}
+.gs-passphrase-requirements li{color:var(--danger,#e66b70);display:flex;align-items:center;gap:5px;transition:color .18s ease;}
+.gs-passphrase-requirements li::before{content:'×';font:700 1rem/1 var(--font-sans);width:12px;text-align:center;}
+.gs-passphrase-requirements li.is-met{color:var(--success,#62bb84);}
+.gs-passphrase-requirements li.is-met::before{content:'✓';font-size:.8rem;}
+.gs-profile-game-toolbar{padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border-subtle);align-items:center;}
+.gs-profile-game-toolbar label{display:inline-flex;align-items:center;gap:9px;margin:0;}
+.gs-needs-setup .gs-setup-page{position:relative;top:var(--setup-stage-offset,0px);}
+
+summary{list-style:none;cursor:pointer;}
+summary::-webkit-details-marker{display:none;}
+summary::before{content:'';display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:baseline;background:currentColor;clip-path:polygon(25% 10%,85% 50%,25% 90%);transform:rotate(0);transition:transform .2s cubic-bezier(.2,.7,.2,1);}
+details[open]:not([data-details-animating])>summary::before,details[open].gs-details-expanded>summary::before{transform:rotate(90deg);}
+@media(prefers-reduced-motion:reduce){summary::before{transition:none;}}
+body.gs-no-animations summary::before{transition:none;}
+
+.gs-export-section>legend{text-transform:capitalize;}
+#backup-key-show:not(:disabled):hover{transform:translateY(-50%) scale(1.08);}

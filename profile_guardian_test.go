@@ -66,7 +66,7 @@ func TestAssociatedGuardianUsesCurrentPrivatePINWithoutCopyingVerifier(t *testin
 	if err != nil || p.Hash != "" || p.Salt != "" || !p.UsesGuardianPIN {
 		t.Fatal("copied private verifier", err)
 	}
-	header := base64.StdEncoding.EncodeToString([]byte("a safe family backup passphrase"))
+	header := base64.StdEncoding.EncodeToString([]byte("Aa safe family backup passphrase7!"))
 	backup, err := encodeProfilesBackup(header)
 	if err != nil {
 		t.Fatal(err)
