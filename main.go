@@ -165,7 +165,7 @@ func newGameShelfHTTPServer(addr string, handler http.Handler) *http.Server {
 		Handler: handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout: 2 * time.Minute,
-		MaxHeaderBytes: 64 << 10,
+		MaxHeaderBytes: http.DefaultMaxHeaderBytes,
 		// Keep body and response deadlines unset for large backup uploads and
 		// streaming ZIP downloads. Handlers retain their existing size limits.
 	}

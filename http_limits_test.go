@@ -71,6 +71,27 @@ func TestHTTPConnectionLimitsRejectIncompleteAndOversizedHeaders(t *testing.T) {
 	}
 }
 
+func TestHTTPConnectionLimitsPreserveLargeExportSelectionQuery(t *testing.T) {
+	query := "select=1&" + strings.Repeat("cover=long-game-identifier&", 5000)
+	s := limitedHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery != query {
+			http.Error(w, "selection was truncated", 400)
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	client := s.Client()
+	client.Timeout = 3 * time.Second
+	response, err := client.Get(s.URL + "/api/library-backup?" + query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != 204 {
+		t.Fatal("existing export selection rejected", response.StatusCode)
+	}
+}
+
 func TestHTTPIdleLimitClosesUnusedKeepAliveConnection(t *testing.T) {
 	s := limitedHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "ok") }))
 	conn := rawHTTPConnection(t, s)

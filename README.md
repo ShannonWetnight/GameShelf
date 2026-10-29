@@ -295,7 +295,7 @@ The data volume must stay writable. For a host folder requiring another identity
 
 ### HTTP connection limits
 
-GameShelf allows 10 seconds to receive request headers, configures a 64 KiB header limit, and closes unused keep-alive connections after two minutes. These limits do not set a fixed duration for request bodies or responses, so large backup uploads and streamed ZIP downloads keep their existing behavior. Endpoint size checks still apply.
+GameShelf allows 10 seconds to receive request headers, retains Go's existing 1 MiB header limit, and closes unused keep-alive connections after two minutes. These limits do not set a fixed duration for request bodies or responses, so large backup uploads and streamed ZIP downloads keep their existing behavior. Endpoint size checks still apply. The existing header-size bound accommodates long cover-selection export URLs.
 
 ### Reverse proxy and access control
 
