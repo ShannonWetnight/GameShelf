@@ -53,7 +53,7 @@ func TestAssociatedGuardianUsesCurrentPrivatePINWithoutCopyingVerifier(t *testin
 	familyUnlock(t, "7392", []string{"admin"}, cookie)
 	required := true
 	p := familyProfile{Nickname: "Owner", Roles: []string{"administrator"}, PINRequired: &required, UsesGuardianPIN: true, AllLibraries: true, AllGames: true, TourPending: true}
-	saved := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": p}, cookie)
+	saved := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "linkGuardian", "profile": p}, cookie)
 	if saved.Code != 200 {
 		t.Fatal(saved.Code, saved.Body.String())
 	}

@@ -38,12 +38,12 @@ func TestTwoGuardiansUniqueAssociationsAndProfileBoundApproval(t *testing.T) {
 	c = secondGuardianForTest(t, c)
 	familyUnlock(t, "7392", []string{"admin"}, c)
 	p := familyProfile{Nickname: "First Guardian", Roles: []string{"administrator"}, UsesGuardianPIN: true, GuardianID: "guardian-1", AllLibraries: true, AllGames: true}
-	w := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": p}, c)
+	w := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "linkGuardian", "profile": p}, c)
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	p.Nickname = "Duplicate"
-	if w := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": p}, c); w.Code != 400 {
+	if w := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "linkGuardian", "profile": p}, c); w.Code != 400 {
 		t.Fatal("duplicate association accepted", w.Code)
 	}
 	profileMu.Lock()
@@ -263,7 +263,7 @@ func TestHiddenGuardianRemainsManageableAndProfileLogsDefaultOn(t *testing.T) {
 	c := familyCreate(t, nil)
 	familyUnlock(t, "7392", []string{"admin"}, c)
 	p := familyProfile{Nickname: "Hidden Guardian", Hidden: true, Roles: []string{"administrator"}, UsesGuardianPIN: true, GuardianID: "guardian-1", AllLibraries: true, AllGames: true}
-	saved := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "profile", "profile": p}, c)
+	saved := familyCall(t, handleProfiles, "POST", "/api/profiles", map[string]any{"operation": "linkGuardian", "profile": p}, c)
 	if saved.Code != 200 {
 		t.Fatal(saved.Code, saved.Body.String())
 	}

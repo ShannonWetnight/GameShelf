@@ -57,8 +57,9 @@ func TestGuardianRemovalCanMigrateLinkedProfileToCustomGroup(t *testing.T) {
 	db, err := readProfileDBLocked()
 	if err == nil {
 		db.Groups = map[string]familyGroup{
-			"readers":   {ID: "readers", Name: "Readers", Roles: []string{"child"}},
-			"guardians": {ID: "guardians", Name: "Guardians", Roles: []string{"administrator"}},
+			"g-guardians": defaultProfileGroups()["g-guardians"],
+			"readers":     {ID: "readers", Name: "Readers", Roles: []string{"child"}},
+			"guardians":   {ID: "guardians", Name: "Guardians", Roles: []string{"administrator"}},
 		}
 		err = saveProfileDBLocked(db, true)
 	}
