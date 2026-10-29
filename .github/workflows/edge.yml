@@ -26,10 +26,38 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: edge-${{ inputs.request_id || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  group: edge-${{ inputs.publish && 'publication' || inputs.request_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  verified-package:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.verified.outputs.version }}
+      run_id: ${{ steps.verified.outputs.run_id }}
+      artifact_id: ${{ steps.verified.outputs.artifact_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Reuse the exact successful Edge verification
+        id: verified
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          STABLE_VERSION: ${{ inputs.stable_version }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          PROMOTE_VERSION: ${{ inputs.promote_version }}
+        run: |
+          [[ "$GITHUB_REF" == refs/heads/edge ]]
+          [[ -z "$SOURCE_SHA$STABLE_VERSION$REQUEST_ID$PROMOTE_VERSION" ]]
+          python3 scripts/verified-edge.py select
   test:
+    if: github.event_name != 'workflow_dispatch' || !inputs.publish
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -97,8 +125,8 @@ jobs:
           git -C candidate archive "$SOURCE_SHA" | tar -x -C "$VERIFY_WORKSPACE"
           cp tooling/main_test.go "$VERIFY_WORKSPACE/main_test.go"
           mkdir -p "$VERIFY_WORKSPACE/tests" "$VERIFY_WORKSPACE/scripts"
-          cp tooling/tests/frontend.test.cjs tooling/tests/header-layout.test.cjs tooling/tests/card-layout.test.cjs tooling/tests/spotlight-layout.test.cjs "$VERIFY_WORKSPACE/tests/"
-          cp tooling/scripts/docker-smoke.py tooling/scripts/scan.sh "$VERIFY_WORKSPACE/scripts/"
+          cp tooling/tests/*.test.cjs tooling/tests/browser-fixture.cjs tooling/tests/browser-pool.cjs tooling/tests/live-browser.cjs "$VERIFY_WORKSPACE/tests/"
+          cp tooling/scripts/docker-smoke.py tooling/scripts/scan.sh tooling/scripts/verify.py tooling/scripts/verify-lane.sh "$VERIFY_WORKSPACE/scripts/"
       - uses: ./tooling/.github/actions/verify
       - name: Package the verified image and pristine source
         working-directory: candidate
@@ -111,7 +139,7 @@ jobs:
           retention-days: 14
   publish:
     if: github.event_name == 'workflow_dispatch' && inputs.publish && !inputs.source_sha && github.ref == 'refs/heads/edge'
-    needs: test
+    needs: verified-package
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -123,16 +151,19 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Download this run's test package
+      - name: Validate and download the verified push package
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.test.outputs.version }}
-        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "gameshelf-$VERSION" --dir dist
+          VERSION: ${{ needs.verified-package.outputs.version }}
+          VERIFIED_EDGE_RUN_ID: ${{ needs.verified-package.outputs.run_id }}
+          VERIFIED_EDGE_ARTIFACT_ID: ${{ needs.verified-package.outputs.artifact_id }}
+        run: python3 scripts/verified-edge.py download
       - name: Update Edge Docker image
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANNEL: edge
-          VERSION: ${{ needs.test.outputs.version }}
+          VERSION: ${{ needs.verified-package.outputs.version }}
+          VERIFIED_EDGE_RUN_ID: ${{ needs.verified-package.outputs.run_id }}
         run: bash scripts/publish-edge.sh
 
   promote:

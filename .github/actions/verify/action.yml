@@ -1,71 +1,56 @@
 name: Verify GameShelf
-description: Test and scan the image that will be packaged and published
+description: Test and scan the exact image with trusted caches and bounded parallel checks
 runs:
   using: composite
   steps:
-    - name: Build runtime and builder
+    - name: Configure isolated build and compiler caches
+      shell: bash
+      run: |
+        echo "CI_CACHE_ROOT=$RUNNER_TEMP/gameshelf-cache" >> "$GITHUB_ENV"
+        echo "CI_CACHE_DATE=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+        echo "CI_DEPENDENCY_KEY=$(sha256sum "$VERIFY_WORKSPACE/Dockerfile" "$VERIFY_WORKSPACE/go.mod" "$VERIFY_WORKSPACE/connectors/rclone/go.mod" "$VERIFY_WORKSPACE/connectors/rclone/go.sum" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_ENV"
+    - name: Restore trusted build cache
+      id: cache
+      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: ${{ runner.temp }}/gameshelf-cache
+        key: gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-${{ env.CI_CACHE_DATE }}-${{ github.sha }}
+        restore-keys: |
+          gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-${{ env.CI_CACHE_DATE }}-
+          gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-
+    - name: Set up Buildx
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+    - name: Use Node 24 for isolated browser sessions
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      with:
+        node-version: '24'
+    - name: Build runtime and matching builder
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}
       run: |
-        mkdir -p reports
-        docker build --pull --platform linux/amd64 --build-arg "GAMESHELF_BUILD_VERSION=$VERSION" --build-arg "GAMESHELF_BUILD_CHANNEL=$CHANNEL" --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=${SOURCE_SHA:-$GITHUB_SHA}" --tag gameshelf:candidate .
-        docker build --platform linux/amd64 --target build --tag gameshelf:builder .
+        mkdir -p reports "$CI_CACHE_ROOT/go/build" "$CI_CACHE_ROOT/go/mod"
+        chmod -R a+rwX "$CI_CACHE_ROOT/go"
+        args=(--platform linux/amd64 --load --build-arg "GAMESHELF_BUILD_VERSION=$VERSION"
+          --build-arg "GAMESHELF_BUILD_CHANNEL=$CHANNEL" --build-arg "GAMESHELF_SECURITY_EPOCH=$CI_CACHE_DATE")
+        if [[ -f "$CI_CACHE_ROOT/docker/index.json" ]]; then args+=(--cache-from "type=local,src=$CI_CACHE_ROOT/docker"); fi
+        docker buildx build --pull "${args[@]}" --cache-to "type=local,dest=$RUNNER_TEMP/gameshelf-buildcache-next,mode=max" \
+          --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+          --label "org.opencontainers.image.revision=${SOURCE_SHA:-$GITHUB_SHA}" --tag gameshelf:candidate .
+        docker buildx build "${args[@]}" --target build --tag gameshelf:builder .
+        rm -rf "$CI_CACHE_ROOT/docker"
+        mv "$RUNNER_TEMP/gameshelf-buildcache-next" "$CI_CACHE_ROOT/docker"
         docker image inspect gameshelf:candidate > reports/runtime-image.json
         docker image inspect gameshelf:builder > reports/builder-image.json
-    - name: Test writable SMB security boundary
+    - name: Run all verification lanes (two at a time)
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}
-      run: |
-        set -o pipefail
-        python3 scripts/smb-write-smoke.py gameshelf:candidate | tee reports/smb-write-smoke.log
-    - name: Go and frontend checks
-      shell: bash
-      working-directory: ${{ env.VERIFY_WORKSPACE }}
-      run: |
-        docker run --rm --user 10002:10003 --env HOME=/tmp --env GOCACHE=/tmp/go-build --mount "type=bind,src=$PWD,dst=/src,readonly" --workdir /src \
-          --entrypoint sh gameshelf:builder -ec 'go vet ./...; go test -v ./...'
-        docker run --rm --env HOME=/tmp --env GOCACHE=/tmp/go-build --mount "type=bind,src=$PWD/connectors/rclone,dst=/src,readonly" --workdir /src \
-          --entrypoint sh golang:1.27.3-alpine3.24 -ec 'go vet ./...; go test -v ./...'
-        docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp --env GOCACHE=/tmp/go-build --env CGO_ENABLED=0 --mount "type=bind,src=$PWD,dst=/src" --workdir /src \
-          --entrypoint sh gameshelf:builder -ec 'go test -c -o reports/gameshelf-tests'
-        GAMESHELF_LIVE_PROFILES=1 ./reports/gameshelf-tests -test.run '^TestFamilyProfilesLiveBrowser$' -test.v
-        rm reports/gameshelf-tests
-        node --check web/app.js
-        node --check web/setup.js
-        node --check web/tour.js
-        node --check web/access.js
-        node --check web/health.js
-        node --check web/motion.js
-        node --check web/selects.js
-        node --check web/tooltips.js
-        node --check web/profiles.js
-        node --check web/avatars.js
-        node --check web/sections.js
-        node --check tests/profiles-live.cjs
-        node --check web/settings-ui.js
-        node --test tests/frontend.test.cjs
-        node --test tests/header-layout.test.cjs
-        node --test tests/card-layout.test.cjs
-        node --test tests/spotlight-layout.test.cjs
-        node --test tests/family-health.test.cjs
-        node --test tests/profiles.test.cjs
-        node --test tests/profile-polish.test.cjs
-        node --test tests/family-experience.test.cjs
-        bash "$GITHUB_WORKSPACE/tooling/tests/test-publish-edge.sh"
-        PUBLIC_RELEASE_SCRIPT="$GITHUB_WORKSPACE/candidate/.github/scripts/release.py" python3 -m unittest discover -s "$GITHUB_WORKSPACE/tooling/tests" -p 'test_*.py' -v
-    - name: Test Docker behavior and non-root restrictions
-      shell: bash
-      working-directory: ${{ env.VERIFY_WORKSPACE }}
-      run: |
-        set -o pipefail
-        python3 scripts/docker-smoke.py gameshelf:candidate | tee reports/docker-smoke.log
-        python3 scripts/network-smoke.py gameshelf:candidate | tee reports/network-smoke.log
-        python3 scripts/network-containment.py gameshelf:candidate --report reports/network-containment.json | tee reports/network-containment.log
-    - name: Scan builder and runtime
-      if: ${{ !cancelled() }}
-      shell: bash
-      working-directory: ${{ env.VERIFY_WORKSPACE }}
-      run: bash scripts/scan.sh
+      run: python3 scripts/verify.py
+    - name: Save cache only from successful trusted Edge pushes
+      if: success() && github.event_name == 'push' && github.ref == 'refs/heads/edge' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+      with:
+        path: ${{ runner.temp }}/gameshelf-cache
+        key: ${{ steps.cache.outputs.cache-primary-key }}
     - name: Preserve verification results
       if: always()
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

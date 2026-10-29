@@ -135,6 +135,12 @@ def publication_guard():
         require(STABLE.fullmatch(version), "Invalid stable tag")
     else:
         require(re.fullmatch(r"edge-[0-9]{8}-[0-9]+\.[0-9]+-[0-9a-f]{12}", version), "Invalid Edge tag")
+    if channel == 'edge' and os.environ.get('VERIFIED_EDGE_RUN_ID'):
+        proof = data.get('verification', {})
+        require(proof.get('run_id') == os.environ['VERIFIED_EDGE_RUN_ID'] and proof.get('event') == 'push'
+                and proof.get('ref') == 'refs/heads/edge', 'Missing successful Edge push provenance')
+        require(gh('api', f"repos/{os.environ['GITHUB_REPOSITORY']}/git/ref/heads/edge", '--jq', '.object.sha') == sha,
+                'Edge moved after verification; start a new publication for its current commit')
     check_tag(version, sha)
     check_release(version)
 

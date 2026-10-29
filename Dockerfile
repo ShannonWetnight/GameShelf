@@ -1,6 +1,7 @@
 # Build only the connector backends and commands GameShelf uses. Keep test
 # servers in a separate binary so they are never shipped in the runtime.
 FROM golang:1.27.3-alpine3.24 AS connector-build
+ARG GAMESHELF_SECURITY_EPOCH=development
 RUN apk upgrade --no-cache
 WORKDIR /connector
 COPY connectors/rclone/go.mod connectors/rclone/go.sum ./
@@ -13,6 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-X github
 
 # Build stage
 FROM golang:1.27.3-alpine3.24 AS build
+ARG GAMESHELF_SECURITY_EPOCH=development
 RUN apk upgrade --no-cache && apk add --no-cache openssh-client
 COPY --from=connector-build /out/rclone-test /usr/local/bin/rclone
 
@@ -33,6 +35,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 # Userspace NFS adapter; the app never mounts filesystems or needs extra capabilities.
 FROM alpine:3.24.3 AS network-build
+ARG GAMESHELF_SECURITY_EPOCH=development
 RUN apk upgrade --no-cache && apk add --no-cache build-base libnfs-dev
 COPY native/network-nfs.c /src/network-nfs.c
 RUN cc -O2 -Wall -Wextra -Werror -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie \
@@ -40,6 +43,7 @@ RUN cc -O2 -Wall -Wextra -Werror -fstack-protector-strong -D_FORTIFY_SOURCE=2 -f
 
 # Runtime stage
 FROM alpine:3.24.3
+ARG GAMESHELF_SECURITY_EPOCH=development
 # Apply security fixes published since the base image was built.
 RUN apk upgrade --no-cache && apk add --no-cache libnfs openssh-client ca-certificates
 WORKDIR /app

@@ -37,6 +37,7 @@ python3 scripts/release.py guard
 login ghcr.io --username tester --password-stdin
 push ghcr.io/shannonwetnight/gameshelf:edge-test
 image inspect --format {{index .RepoDigests 0}} ghcr.io/shannonwetnight/gameshelf:edge-test
+python3 scripts/release.py guard
 tag ghcr.io/shannonwetnight/gameshelf:edge-test ghcr.io/shannonwetnight/gameshelf:edge
 push ghcr.io/shannonwetnight/gameshelf:edge
 EOF
