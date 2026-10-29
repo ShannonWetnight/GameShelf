@@ -99,6 +99,18 @@ func TestFamilyProfilesLoginIsolationRevocationAndSecretRedaction(t *testing.T) 
 	if len(first.Salt) < 20 || first.Hash == "2468" {
 		t.Fatal("weak verifier")
 	}
+	// Public identities can contain PIN digits without exposing credentials.
+	profileMu.Lock()
+	db, _ := readProfileDBLocked()
+	copy := cloneProfileDB(db)
+	delete(copy.Profiles, first.ID)
+	first.ID = "p-2468"
+	copy.Profiles[first.ID] = first
+	saveErr := saveProfileDBLocked(copy, true)
+	profileMu.Unlock()
+	if saveErr != nil {
+		t.Fatal(saveErr)
+	}
 	guardian := familyCreate(t, nil)
 	familyUnlock(t, "7392", []string{"admin"}, guardian)
 	enableProfilesForTest(t)
@@ -107,11 +119,37 @@ func TestFamilyProfilesLoginIsolationRevocationAndSecretRedaction(t *testing.T) 
 		t.Fatal("Guardian unlock survived identity switch")
 	}
 	public := familyCall(t, handleProfiles, "GET", "/api/profiles", nil, firstCookie).Body.String()
-	for _, secret := range []string{first.Salt, first.Hash, second.Salt, second.Hash, "2468"} {
+	for _, secret := range []string{first.Salt, first.Hash, second.Salt, second.Hash} {
 		if strings.Contains(public, secret) {
 			t.Fatal("private profile verifier exposed")
 		}
 	}
+	var payload any
+	if err := json.Unmarshal([]byte(public), &payload); err != nil {
+		t.Fatal(err)
+	}
+	var checkCredentials func(any)
+	checkCredentials = func(value any) {
+		switch item := value.(type) {
+		case map[string]any:
+			for key, child := range item {
+				switch key {
+				case "salt", "hash", "pin", "confirmPIN":
+					t.Fatal("private credential field exposed")
+				}
+				checkCredentials(child)
+			}
+		case []any:
+			for _, child := range item {
+				checkCredentials(child)
+			}
+		case string:
+			if item == "2468" {
+				t.Fatal("plaintext profile PIN exposed")
+			}
+		}
+	}
+	checkCredentials(payload)
 	if !strings.Contains(public, "First") {
 		t.Fatal(public)
 	}
