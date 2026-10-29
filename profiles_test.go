@@ -209,7 +209,7 @@ func TestFamilyProfilesCatalogDirectRoutesAndPersonalState(t *testing.T) {
 
 func TestFamilyProfileRolesGrantUnionAndFailClosedStorage(t *testing.T) {
 	setupFreshServer(t)
-	p := createProfileForTest(t, "Combined", []string{"administrator", "child"})
+	p := createProfileForTest(t, "Combined", []string{"adult", "child"})
 	profileMu.Lock()
 	db, _ := readProfileDBLocked()
 	rules := mergedProfileRules(db, p)
@@ -234,7 +234,7 @@ func TestFamilyProfileRolesGrantUnionAndFailClosedStorage(t *testing.T) {
 func TestFamilyProfilesRateLimitAndLogout(t *testing.T) {
 	setupFreshServer(t)
 	profileAttempts = map[string]pinBudget{}
-	p := createProfileForTest(t, "Rate test", []string{"administrator"})
+	p := createProfileForTest(t, "Rate test", []string{"adult"})
 	cookie := profileLoginTest(t, p.ID, nil)
 	if r := familyCall(t, handleProfileLogout, "POST", "/api/profiles/logout", nil, cookie); r.Code != 204 {
 		t.Fatal(r.Code)
@@ -360,7 +360,7 @@ func TestFamilyMenuLeaseAvoidsRepeatedSettingsPINButPreservesActionRestrictions(
 func TestFamilyProfilesRestoreRequiresKeyAndFreshImportDoesNotEnableAuthority(t *testing.T) {
 	setupFreshServer(t)
 	profileAttempts = map[string]pinBudget{}
-	p := createProfileForTest(t, "Exported", []string{"administrator"})
+	p := createProfileForTest(t, "Exported", []string{"adult"})
 	profileMu.Lock()
 	db, _ := readProfileDBLocked()
 	copy := cloneProfileDB(db)

@@ -224,3 +224,53 @@ body.gs-no-animations summary::before{transition:none;}
 .gs-group-admin-reveal.is-expanded{grid-template-rows:1fr;opacity:1;}
 body.gs-no-animations .gs-group-admin-reveal{transition:none;}
 @media(prefers-reduced-motion:reduce){.gs-group-admin-reveal{transition:none;}}
+
+/* Shared profile management and compact, aligned field actions. */
+:root #setup-form{box-sizing:border-box;}
+:root #setup-form:not(.gs-setup-scrollable){overflow-y:hidden;}
+:root #roles-manager-dialog,:root #groups-manager-dialog{width:min(700px,calc((100dvw - 24px)/var(--ui-scale)));}
+:root #role-editor-dialog{width:min(680px,calc((100dvw - 24px)/var(--ui-scale)));}
+#profile-role-choices,#group-role-choices{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+#group-role-choices .gs-profile-choice{position:relative;justify-content:center;text-align:center;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:12px 8px;margin:0;cursor:pointer;}
+#group-role-choices .gs-profile-choice:has(input:checked){border-color:var(--accent);background:var(--accent-soft);}
+#group-role-choices input{position:absolute;opacity:0;width:1px;height:1px;}
+#group-role-choices .gs-profile-choice:focus-within{outline:2px solid var(--accent);outline-offset:2px;}
+#avatar-options,#source-browser-folders{border-top:1px solid var(--border-subtle);padding-top:12px;}
+:root #profile-picker{box-sizing:content-box;width:450px;}
+:root #profile-picker-list{max-height:none;min-height:0;overflow:auto;}
+:root #groups-list .gs-profile-row{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;min-height:112px;padding:14px 8px;}
+#groups-list strong[data-role]{color:var(--role-color,var(--text));text-shadow:0 0 8px color-mix(in srgb,var(--role-color,transparent) 45%,transparent);}
+:root #group-editor-dialog{width:min(660px,calc((100dvw - 24px)/var(--ui-scale)));}
+#group-member-choices{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:330px;overflow-y:auto;}
+#group-member-choices .gs-help-mark{display:none!important;}
+.gs-group-member:has(input:disabled){opacity:.5;cursor:help;}
+.gs-guardian-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
+:root #guardians-dialog{width:min(560px,calc((100dvw - 24px)/var(--ui-scale)));}
+#guardians-profiles{display:flex;justify-content:center;min-height:0;overflow-y:auto;}
+:root .gs-guardian-profile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;max-width:230px;padding:12px;}
+.gs-guardian-profile>img{width:150px;height:150px;object-fit:cover;border-radius:var(--radius-sm);}
+.gs-guardian-profile>.gs-profile-placeholder{position:relative;width:150px;height:150px;}
+.gs-role-settings{display:flex;flex-direction:column;min-height:0;flex:1;margin-bottom:0!important;padding:6px!important;}
+:root #role-rules{border:0;margin:0;min-height:0;max-height:48vh;overflow:auto;}
+#role-editor-dialog>.gs-server-field{flex:none;}
+.gs-default-reset{max-width:0;opacity:0;overflow:hidden;white-space:nowrap;padding-inline:0!important;border-width:0!important;pointer-events:none;transition:max-width .2s ease,opacity .2s ease,padding .2s ease;}
+.gs-default-reset.is-visible{max-width:220px;opacity:1;padding-inline:.8rem!important;border-width:1px!important;pointer-events:auto;}
+#group-reset{margin-right:auto;}
+#family-auto-profile-option:has(input:disabled),#profile-guardian-pin-option:has(input:disabled){opacity:.55;cursor:help;}
+:root body .gs-passphrase-input input{padding-right:120px!important;}
+.gs-passphrase-tools{position:absolute;inset:0 2px 0 auto;display:flex;align-items:center;gap:0;}
+:root body .gs-passphrase-tools button{position:static!important;transform:none!important;width:36px;height:36px;flex:none;}
+.gs-passphrase-tools svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;}
+:root .gs-passphrase-requirements{display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,auto);grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 16px;margin-top:9px;}
+.gs-passphrase-requirements li{display:grid;grid-template-columns:12px minmax(0,1fr);align-items:center;}
+:root body .gs-profile-game-toolbar{margin:0 0 10px;padding:12px 0;min-height:46px;align-items:center;}
+#profile-library-choices{border-top:1px solid var(--border-subtle);padding-top:12px;margin-top:12px;}
+#group-member-choices{border-top:1px solid var(--border-subtle);padding-top:12px;margin-top:8px;}
+:root body label:has(>input[type="checkbox"]){align-items:center;}
+:root body label>input[type="checkbox"]{vertical-align:middle;flex-shrink:0;margin-block:0;}
+:root body .gs-select-menu{will-change:transform,opacity;scroll-snap-type:none;contain:layout paint;transform-origin:top center;}
+:root body .gs-select-menu.gs-select-above{transform-origin:bottom center;}
+:root body select.gs-select-closing{border-color:var(--border-subtle)!important;transition:border-color .15s ease!important;outline:0!important;box-shadow:none!important;}
+:root body select.gs-select-changed:not(:focus-visible){border-color:var(--border-subtle)!important;transition:none!important;}
+@media(prefers-reduced-motion:reduce){.gs-default-reset{transition:none;}}
+body.gs-no-animations .gs-default-reset{transition:none;}

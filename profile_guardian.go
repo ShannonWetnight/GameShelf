@@ -78,6 +78,7 @@ func autoGuardianProfile(id string) error {
 	p := standaloneGuardian()
 	p.ID = "p-" + id
 	p.GuardianID = id
+	p.Groups = []string{"g-guardians"}
 	p.Nickname = "GameShelf " + strings.Replace(id, "guardian-", "Guardian ", 1)
 	copy.Profiles[p.ID] = p
 	return saveProfileDBLocked(copy, true)

@@ -13,7 +13,8 @@
   // it again double-counts that movement, especially while collapsing.
   if(element.tagName!=='DIALOG'&&element.id!=='setup-form'){frames[0].transform='translateY('+(before.top-next.top)+'px)';frames[1].transform='translateY(0)';}
   if(element.tagName==='DIALOG'){
-   top=Math.max(16,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-next.height-16));element.style.marginBlock='0';element.style.bottom='auto';element.style.top=top+'px';
+   const viewport=innerHeight/(typeof uiScale==='number'?uiScale:1);
+   top=element.id==='profile-picker'?Math.max(12,(viewport-next.height)/2):Math.max(16,Math.min(before.top,viewport-next.height-16));element.style.marginBlock='0';element.style.bottom='auto';element.style.top=top+'px';
    frames[0].top=Math.max(12,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-Math.min(before.height,limit)-12))+'px';frames[1].top=top+'px';
   }
   element.classList.add('gs-resizing');const duration=typeof motionDuration==='function'?motionDuration(240):240;
