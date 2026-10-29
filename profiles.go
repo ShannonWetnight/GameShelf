@@ -233,8 +233,18 @@ func validateProfileDB(value *profileDatabase) error {
 	}
 	linked := map[string]string{}
 	for id, profile := range value.Profiles {
-		if id != profile.ID || !validProfileID(id) || !validProfileName(profile.Nickname) || len(profile.Roles)+len(profile.Groups) == 0 {
-			return errors.New("Choose a nickname and at least one role")
+		if id != profile.ID || !validProfileID(id) {
+			return errors.New("Invalid profile identity")
+		}
+		missingName, missingRole := !validProfileName(profile.Nickname), len(profile.Roles)+len(profile.Groups) == 0
+		if missingName && missingRole {
+			return errors.New("Choose a nickname and at least one role or group")
+		}
+		if missingName {
+			return errors.New("Choose a nickname")
+		}
+		if missingRole {
+			return errors.New("Choose at least one role or group")
 		}
 		for _, group := range profile.Groups {
 			if _, ok := value.Groups[group]; !ok {

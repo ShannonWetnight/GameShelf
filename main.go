@@ -148,7 +148,7 @@ func main() {
 	}
 
 	fileServer := http.FileServer(http.FS(sub))
-	mux.Handle("/", fileServer)
+	mux.Handle("/", frontendAssets(fileServer))
 
 	addr := ":8080"
 
@@ -156,6 +156,16 @@ func main() {
 	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(profileGate(accessGate(mux))))); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// Revalidate the app shell and code after updates; artwork keeps its normal cache policy.
+func frontendAssets(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".js") || strings.HasSuffix(r.URL.Path, ".css") {
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // embedSubFS gets a subdirectory from an embed.FS

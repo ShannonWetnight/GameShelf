@@ -24,7 +24,14 @@ func removeGuardianCredential(w http.ResponseWriter, r *http.Request, record *pi
 	if roleID == "" {
 		roleID = "adult"
 	}
-	if _, ok := db.Roles[roleID]; !ok || roleID == "administrator" {
+	groupID := r.URL.Query().Get("group")
+	if groupID != "" {
+		group, ok := db.Groups[groupID]
+		if !ok || containsProfileID(group.Roles, "administrator") {
+			http.Error(w, "Choose a replacement group without the Guardian role.", 400)
+			return
+		}
+	} else if _, ok := db.Roles[roleID]; !ok || roleID == "administrator" {
 		http.Error(w, "Choose a replacement role other than Guardian.", 400)
 		return
 	}
@@ -51,6 +58,10 @@ func removeGuardianCredential(w http.ResponseWriter, r *http.Request, record *pi
 			p.GuardianID = ""
 			p.Roles = []string{roleID}
 			p.Groups = nil
+			if groupID != "" {
+				p.Roles = nil
+				p.Groups = []string{groupID}
+			}
 			p.AllowMultipleRoles = false
 			p.Salt = ""
 			p.Hash = ""
@@ -100,6 +111,10 @@ func removeGuardianCredential(w http.ResponseWriter, r *http.Request, record *pi
 	accessSessions = map[string]*pinSession{}
 	accessMu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: "gameshelf-family", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
-	logEvent("profile", "%s removed; linked profiles moved to role %s", id, roleID)
+	assignment := roleID
+	if groupID != "" {
+		assignment = "group " + groupID
+	}
+	logEvent("profile", "%s removed; linked profiles moved to %s", id, assignment)
 	profileReply(w, map[string]any{"saved": true, "profilesDisabled": last})
 }
