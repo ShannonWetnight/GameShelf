@@ -155,8 +155,21 @@ func main() {
 	addr := ":8080"
 
 	logEvent("system", "GameShelf serving %s on %s", rootDir, addr)
-	if err := http.ListenAndServe(addr, loggingMiddleware(setupGate(profileGate(accessGate(mux))))); err != nil {
+	httpServer := newGameShelfHTTPServer(addr, loggingMiddleware(setupGate(profileGate(accessGate(mux)))))
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
+	}
+}
+
+func newGameShelfHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr: addr,
+		Handler: handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout: 2 * time.Minute,
+		MaxHeaderBytes: http.DefaultMaxHeaderBytes,
+		// Keep body and response deadlines unset for large backup uploads and
+		// streaming ZIP downloads. Handlers retain their existing size limits.
 	}
 }
 
