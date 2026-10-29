@@ -101,12 +101,12 @@ func TestFamilyProfilesLoginIsolationRevocationAndSecretRedaction(t *testing.T) 
 	}
 	// Public identities can contain PIN digits without exposing credentials.
 	profileMu.Lock()
-	db, _ := readProfileDBLocked()
-	copy := cloneProfileDB(db)
-	delete(copy.Profiles, first.ID)
+	redactionDB, _ := readProfileDBLocked()
+	redactionCopy := cloneProfileDB(redactionDB)
+	delete(redactionCopy.Profiles, first.ID)
 	first.ID = "p-2468"
-	copy.Profiles[first.ID] = first
-	saveErr := saveProfileDBLocked(copy, true)
+	redactionCopy.Profiles[first.ID] = first
+	saveErr := saveProfileDBLocked(redactionCopy, true)
 	profileMu.Unlock()
 	if saveErr != nil {
 		t.Fatal(saveErr)
