@@ -15,7 +15,8 @@ const {spawn}=require('node:child_process'),fs=require('node:fs'),os=require('no
   const {targetId}=await command('Target.createTarget',{url:'about:blank',browserContextId:context});const {sessionId}=await command('Target.attachToTarget',{targetId,flatten:true});
   await command('Emulation.setDeviceMetricsOverride',{width:Number(width),height:Number(width)<600?844:Number(height),deviceScaleFactor:1,mobile:Number(width)<600},sessionId);
   await command('Page.navigate',{url},sessionId);
-  let report;for(let attempt=0;attempt<160;attempt++){await delay(25);const value=await command('Runtime.evaluate',{expression:"document.querySelector('#family-report')?.outerHTML||''",returnByValue:true},sessionId);report=value.result.value;if(report)break;}
+  // Multi-scale animation probes intentionally spend over four seconds in UI waits.
+  let report;for(let attempt=0;attempt<320;attempt++){await delay(25);const value=await command('Runtime.evaluate',{expression:"document.querySelector('#family-report')?.outerHTML||''",returnByValue:true},sessionId);report=value.result.value;if(report)break;}
   if(!report)throw new Error('Browser did not finish the probe');
   if(output){await command('Runtime.evaluate',{expression:"document.querySelector('#family-report').style.display='none'",returnByValue:true},sessionId);const {data}=await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false},sessionId);fs.writeFileSync(output,Buffer.from(data,'base64'));}
   process.stdout.write(report);
