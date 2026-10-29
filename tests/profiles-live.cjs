@@ -58,6 +58,8 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   assert.equal(await evaluate(signIn),200);
   assert.deepEqual(await evaluate("fetch('/api/games').then(r=>r.json())"),[]);
   assert.equal(await evaluate("fetch('/download/allowed').then(r=>r.status)"),404);
+  // Signing in clears prior Guardian approvals; approve management again.
+  assert.equal(await evaluate("fetch('/api/access/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:'7392',actions:['admin'],remember:true})}).then(r=>r.status)"),200);
   await evaluate("[...document.querySelectorAll('#groups-list article')].find(row=>row.textContent.includes('Family Library')).querySelector('button').click()");
   await waitFor("document.querySelector('#group-editor-dialog').open");
   await evaluate("{const input=document.querySelector('#group-library-choices input');input.checked=true;input.dispatchEvent(new Event('change'));document.querySelector('#group-editor-save').click()}");
