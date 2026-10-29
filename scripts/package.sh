@@ -16,6 +16,8 @@ path = pathlib.Path('dist/release.json')
 data = json.loads(path.read_text())
 data['image_id'] = subprocess.check_output(
     ['docker', 'image', 'inspect', '--format', '{{.Id}}', data['image']], text=True).strip()
+data['verification'] = {'run_id': os.environ['GITHUB_RUN_ID'], 'attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                        'event': os.environ['GITHUB_EVENT_NAME'], 'ref': os.environ['GITHUB_REF']}
 path.write_text(json.dumps(data, indent=2) + '\n')
 pathlib.Path('dist/docker-compose.yml').write_text('''services:
   gameshelf:

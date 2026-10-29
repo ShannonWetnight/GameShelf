@@ -14,6 +14,33 @@ SHA = 'a' * 40
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_reused_edge_package_rejects_missing_provenance_stale_branch_and_wrong_image(self):
+        version = 'edge-20261029-123.2-' + SHA[:12]
+        metadata = {'source_commit': SHA, 'version': version, 'channel': 'edge',
+                    'image': release.IMAGE + ':' + version, 'image_id': 'sha256:' + 'c'*64,
+                    'verification': {'run_id': '123', 'attempt': '2', 'event': 'push', 'ref': 'refs/heads/edge'}}
+        env = dict(GITHUB_REPOSITORY='owner/repo', GITHUB_SHA=SHA, GITHUB_REF='refs/heads/edge',
+                   VERSION=version, CHANNEL='edge', VERIFIED_EDGE_RUN_ID='123')
+        with tempfile.TemporaryDirectory() as directory:
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                Path('dist').mkdir()
+                for changes, current, image, expected in [({}, SHA, metadata['image_id'], None),
+                        ({'verification': {}}, SHA, metadata['image_id'], 'provenance'),
+                        ({}, 'b'*40, metadata['image_id'], 'Edge moved'), ({}, SHA, 'other image', 'differs')]:
+                    Path('dist/release.json').write_text(json.dumps({**metadata, **changes}))
+                    with self.subTest(expected=expected), patch.dict(os.environ, env), \
+                            patch.object(release, 'run', return_value=image), patch.object(release, 'gh', return_value=current), \
+                            patch.object(release, 'check_tag'), patch.object(release, 'check_release'):
+                        if expected:
+                            with self.assertRaisesRegex(ValueError, expected):
+                                release.publication_guard()
+                        else:
+                            release.publication_guard()
+            finally:
+                os.chdir(previous)
+
     def test_moved_tag_is_rejected(self):
         with patch.object(release, 'run', return_value=f"{'b' * 40}\trefs/tags/v1.2.3"):
             with self.assertRaisesRegex(ValueError, 'must not move'):
