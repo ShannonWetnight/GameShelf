@@ -28,11 +28,17 @@ func TestFamilyProfilesLiveBrowser(t *testing.T) {
 	profileMu.Lock()
 	db, _ := readProfileDBLocked()
 	copy := cloneProfileDB(db)
-	p.AllGames = false
-	p.Games = []string{"allowed"}
+	p.InheritLibraries = true
+	p.Groups = []string{"g-live"}
+	p.Roles = nil
+	p.AllGames = true
+	copy.Groups["g-live"] = familyGroup{ID: "g-live", Name: "Family Library", Roles: []string{"child"}, LibraryPolicy: "selected", Libraries: []string{localLibraryID(root)}}
 	copy.Profiles[p.ID] = p
 	saveProfileDBLocked(copy, true)
 	profileMu.Unlock()
+	gamesMu.Lock()
+	gamesMap["hidden"].NetworkID = "restricted-library"
+	gamesMu.Unlock()
 	familyCreate(t, nil)
 	enableProfilesForTest(t)
 	mux := http.NewServeMux()

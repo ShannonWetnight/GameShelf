@@ -48,6 +48,24 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open"),false,'save repeated Guardian PIN prompt');
   assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.needsProfile)"),true,'profile edit failed to revoke login');
   assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.profiles.find(p=>p.nickname==='Jamie Updated').avatar)"),'builtin:cosmic-fox');
-  process.stdout.write('Live profile login, personal favorite, restricted direct routes, Guardian recovery, edit, and revocation passed.\n');
+  // Change shared library grants through the real group editor and exercise fresh sessions.
+  await evaluate("document.querySelector('#profile-editor-dialog').close();[...document.querySelectorAll('#groups-list article')].find(row=>row.textContent.includes('Family Library')).querySelector('button').click()");
+  await waitFor("document.querySelector('#group-editor-dialog').open");
+  assert.equal(await evaluate("document.querySelector('#group-library-policy').value"),'selected');
+  await evaluate("{const input=document.querySelector('#group-library-choices input');input.checked=false;input.dispatchEvent(new Event('change'));document.querySelector('#group-editor-save').click()}");
+  await waitFor("!document.querySelector('#group-editor-dialog').open");
+  const signIn="fetch('/api/profiles?manage=1').then(r=>r.json()).then(data=>fetch('/api/profiles/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:data.profiles.find(p=>p.nickname==='Jamie Updated').id,pin:'2468'})})).then(r=>r.status)";
+  assert.equal(await evaluate(signIn),200);
+  assert.deepEqual(await evaluate("fetch('/api/games').then(r=>r.json())"),[]);
+  assert.equal(await evaluate("fetch('/download/allowed').then(r=>r.status)"),404);
+  await evaluate("[...document.querySelectorAll('#groups-list article')].find(row=>row.textContent.includes('Family Library')).querySelector('button').click()");
+  await waitFor("document.querySelector('#group-editor-dialog').open");
+  await evaluate("{const input=document.querySelector('#group-library-choices input');input.checked=true;input.dispatchEvent(new Event('change'));document.querySelector('#group-editor-save').click()}");
+  await waitFor("!document.querySelector('#group-editor-dialog').open");
+  assert.equal(await evaluate("fetch('/api/profiles').then(r=>r.json()).then(r=>r.needsProfile)"),true,'group edit failed to revoke login');
+  assert.equal(await evaluate(signIn),200);
+  assert.deepEqual(await evaluate("fetch('/api/games').then(r=>r.json()).then(games=>games.map(g=>g.name))"),['Allowed']);
+  assert.equal(await evaluate("fetch('/download/hidden').then(r=>r.status)"),404);
+  process.stdout.write('Live profile login, shared library edits, restricted routes, Guardian recovery, and session revocation passed.\n');
  }finally{clearTimeout(deadline);command('Browser.close').catch(()=>{});await pause(100);browser.kill();await pause(150);const resolved=path.resolve(profile);if(resolved.startsWith(path.resolve(os.tmpdir())+path.sep)&&path.basename(resolved).startsWith('gs-profile-live-')){try{fs.rmSync(resolved,{recursive:true,force:true});}catch{}}}
 })().catch(error=>{process.stderr.write(error.stack);process.exitCode=1;});

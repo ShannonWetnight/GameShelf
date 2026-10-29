@@ -29,9 +29,11 @@ type familyRole struct {
 	Rules    map[string]accessRule `json:"rules"`
 }
 type familyGroup struct {
-	ID    string   `json:"id"`
-	Name  string   `json:"name"`
-	Roles []string `json:"roles"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Roles         []string `json:"roles"`
+	LibraryPolicy string   `json:"libraryPolicy,omitempty"`
+	Libraries     []string `json:"libraries,omitempty"`
 }
 type familyProfile struct {
 	ID                 string            `json:"id"`
@@ -50,6 +52,7 @@ type familyProfile struct {
 	UnprotectedAdmin   bool              `json:"unprotectedAdmin,omitempty"`
 	HasSavedPIN        bool              `json:"hasSavedPIN,omitempty"`
 	AllLibraries       bool              `json:"allLibraries"`
+	InheritLibraries   bool              `json:"inheritLibraries,omitempty"`
 	Libraries          []string          `json:"libraries"`
 	AllGames           bool              `json:"allGames"`
 	Games              []string          `json:"games"`
@@ -231,6 +234,17 @@ func validateProfileDB(value *profileDatabase) error {
 		}
 	}
 	for id, group := range value.Groups {
+		if group.LibraryPolicy != "" && group.LibraryPolicy != "selected" && group.LibraryPolicy != "all" {
+			return errors.New("Invalid group library policy")
+		}
+		if group.ID == "g-guardians" && (group.LibraryPolicy != "" || len(group.Libraries) != 0) {
+			return errors.New("Guardian profiles retain access to all libraries")
+		}
+		for _, library := range group.Libraries {
+			if library == "" || len(library) > 512 || strings.ContainsAny(library, "\x00\r\n") {
+				return errors.New("Invalid group library selection")
+			}
+		}
 		if id != group.ID || !validProfileID(id) || !validProfileName(group.Name) || len(group.Roles) == 0 {
 			return errors.New("Choose a group name and at least one role")
 		}
@@ -469,7 +483,7 @@ func profileGate(next http.Handler) http.Handler {
 		var view *profileContext
 		if ok {
 			if profile, exists := sessionProfile(db, session); exists {
-				view = &profileContext{profile, mergedProfileRules(db, profile), db.Epoch}
+				view = &profileContext{effectiveProfileLibraries(db, profile), mergedProfileRules(db, profile), db.Epoch}
 			}
 		}
 		profileMu.Unlock()
@@ -723,6 +737,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			p.Groups = []string{"g-guardians"}
 			p.AllowMultipleRoles = false
 			p.AllLibraries = true
+			p.InheritLibraries = false
 			p.AllGames = true
 			p.Libraries = nil
 			p.Games = nil
