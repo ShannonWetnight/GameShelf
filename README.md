@@ -293,6 +293,10 @@ The data volume must stay writable. For a host folder requiring another identity
 
 `GAMESHELF_ADDR` is no longer used; the internal port is always 8080. Configure refresh in the app. Legacy `GAMESHELF_REFRESH_INTERVAL` is read only as an initial compatibility setting.
 
+### HTTP connection limits
+
+GameShelf allows 10 seconds to receive request headers, configures a 64 KiB header limit, and closes unused keep-alive connections after two minutes. These limits do not set a fixed duration for request bodies or responses, so large backup uploads and streamed ZIP downloads keep their existing behavior. Endpoint size checks still apply.
+
 ### Reverse proxy and access control
 
 Traefik or another proxy can serve GameShelf. On a shared Docker network, use **http://gameshelf:8080** as the backend regardless of the published host port. This minimal Traefik file-provider example assumes an existing `https` entry point and TLS setup:
