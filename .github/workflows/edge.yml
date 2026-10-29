@@ -165,6 +165,14 @@ jobs:
           VERSION: ${{ needs.verified-package.outputs.version }}
           VERIFIED_EDGE_RUN_ID: ${{ needs.verified-package.outputs.run_id }}
         run: bash scripts/publish-edge.sh
+      - name: Retain the fresh publication scan
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: publication-scan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 30
 
   promote:
     if: github.event_name == 'workflow_dispatch' && inputs.promote_version != '' && !inputs.source_sha && !inputs.publish && github.ref == 'refs/heads/edge'

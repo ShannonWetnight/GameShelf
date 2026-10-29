@@ -14,9 +14,8 @@ runs:
       uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
       with:
         path: ${{ runner.temp }}/gameshelf-cache
-        key: gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-${{ env.CI_CACHE_DATE }}-${{ github.sha }}
+        key: gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-${{ env.CI_CACHE_DATE }}
         restore-keys: |
-          gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-${{ env.CI_CACHE_DATE }}-
           gameshelf-ci-v1-${{ runner.os }}-${{ env.CI_DEPENDENCY_KEY }}-
     - name: Set up Buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
@@ -27,18 +26,26 @@ runs:
     - name: Build runtime and matching builder
       shell: bash
       working-directory: ${{ env.VERIFY_WORKSPACE }}
+      env:
+        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
       run: |
         mkdir -p reports "$CI_CACHE_ROOT/go/build" "$CI_CACHE_ROOT/go/mod"
         chmod -R a+rwX "$CI_CACHE_ROOT/go"
         args=(--platform linux/amd64 --load --build-arg "GAMESHELF_BUILD_VERSION=$VERSION"
           --build-arg "GAMESHELF_BUILD_CHANNEL=$CHANNEL" --build-arg "GAMESHELF_SECURITY_EPOCH=$CI_CACHE_DATE")
         if [[ -f "$CI_CACHE_ROOT/docker/index.json" ]]; then args+=(--cache-from "type=local,src=$CI_CACHE_ROOT/docker"); fi
-        docker buildx build --pull "${args[@]}" --cache-to "type=local,dest=$RUNNER_TEMP/gameshelf-buildcache-next,mode=max" \
+        export_args=()
+        if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/edge && "$CACHE_HIT" != true ]]; then
+          export_args+=(--cache-to "type=local,dest=$RUNNER_TEMP/gameshelf-buildcache-next,mode=max")
+        fi
+        docker buildx build --pull "${args[@]}" "${export_args[@]}" \
           --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
           --label "org.opencontainers.image.revision=${SOURCE_SHA:-$GITHUB_SHA}" --tag gameshelf:candidate .
         docker buildx build "${args[@]}" --target build --tag gameshelf:builder .
-        rm -rf "$CI_CACHE_ROOT/docker"
-        mv "$RUNNER_TEMP/gameshelf-buildcache-next" "$CI_CACHE_ROOT/docker"
+        if [[ -d "$RUNNER_TEMP/gameshelf-buildcache-next" ]]; then
+          rm -rf "$CI_CACHE_ROOT/docker"
+          mv "$RUNNER_TEMP/gameshelf-buildcache-next" "$CI_CACHE_ROOT/docker"
+        fi
         docker image inspect gameshelf:candidate > reports/runtime-image.json
         docker image inspect gameshelf:builder > reports/builder-image.json
     - name: Run all verification lanes (two at a time)

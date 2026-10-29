@@ -1,10 +1,12 @@
 """Independent lanes are bounded, retained on failure, and required for success."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('verify', Path(__file__).parents[1] / 'scripts/verify.py')
 verify = importlib.util.module_from_spec(spec)
@@ -12,6 +14,12 @@ spec.loader.exec_module(verify)
 
 
 class VerifyRunnerTests(unittest.TestCase):
+    def setUp(self):
+        # Simulated failures must not appear in the real Actions summary.
+        env = patch.dict(os.environ, GITHUB_STEP_SUMMARY='')
+        env.start()
+        self.addCleanup(env.stop)
+
     def test_failed_lane_does_not_skip_other_gates_and_every_result_is_recorded(self):
         with tempfile.TemporaryDirectory() as directory:
             reports = Path(directory)
