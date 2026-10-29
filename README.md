@@ -368,6 +368,12 @@ In **Family Controls**, enable PIN remembrance and choose 1–60 minutes (defaul
 
 New servers enable all logging sources by default. Customize logging to deselect sources. Existing servers retain their saved logging choices. Retention remains unlimited by days and limited to 10 MB by default.
 
+### Browse one library
+
+When two or more libraries are configured, the Library picker appears above the games. Choose a named library to narrow the grid, list, search, favorites, and random suggestions. The Playlist keeps games selected from different libraries. Select All libraries or click the GameShelf home icon to return to the combined shelf.
+
+The indicator beside the picker shows the latest cached health state; opening or changing the picker does not run a connection check. Offline libraries retain their last-known games. Profiles only receive names, game counts, and health states for libraries their effective assignments allow. Source URLs, credentials, and diagnostic messages remain in the protected management interface. Existing Health permissions also apply to the indicator; it shows Health hidden when approval is required or access is disabled.
+
 ## Family profiles
 
 Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. You can configure profiles and roles before creating a Guardian PIN on a fresh setup. Create one through **Guardian PIN**, or let **Enable family profiles** open the PIN creator. An existing Guardian PIN still protects profile management, including resumed setup. Add the family members, then turn on **Enable family profiles**. Choose **Require PIN** when adding or editing a profile to expand its 4-digit PIN fields. Profiles without administrative permissions can open directly when this is unchecked. A profile with administrative permissions can omit its personal PIN only after an explicit save-time confirmation. Guardian PIN locks, Family Controls, and Wipe remain protected by a Guardian PIN. Existing profiles keep requiring their PIN. The toolbar profile icon switches shelves or signs out.

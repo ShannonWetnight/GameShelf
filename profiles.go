@@ -419,6 +419,7 @@ func profileAllows(r *http.Request, entry *gameEntry) bool {
 }
 func profileGame(r *http.Request, entry *gameEntry) Game {
 	value := entry.Game
+	value.LibraryID = profileLibraryID(entry)
 	if view := profileView(r); view != nil {
 		value.Favorite = view.Profile.Favorites[value.ID]
 	}

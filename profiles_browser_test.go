@@ -54,6 +54,7 @@ func TestFamilyProfilesLiveBrowser(t *testing.T) {
 	mux.HandleFunc("/api/access/leave", handleAccessLeave)
 	mux.HandleFunc("/api/setup", handleSetup)
 	mux.HandleFunc("/api/games", handleGames)
+	mux.HandleFunc("/api/libraries", handleLibraryView)
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
 	mux.HandleFunc("/api/version", handleVersion)
 	mux.HandleFunc("/api/source-status", handleSourceStatus)

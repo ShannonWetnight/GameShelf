@@ -20,6 +20,7 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   await evaluate("document.querySelector('#pin-entry').value='2468';document.querySelector('#pin-form').requestSubmit()");
   await waitFor("document.querySelectorAll('.gs-card').length===1&&!document.body.classList.contains('gs-booting')");
   assert.deepEqual(await evaluate("gamesCache.map(game=>game.name)"),['Allowed']);
+  assert.equal(await evaluate("fetch('/api/libraries').then(r=>r.json()).then(libraries=>libraries.length)"),1);
   assert.equal(await evaluate("fetch('/download/hidden').then(r=>r.status)"),404);
   assert.equal(await evaluate("fetch('/covers/hidden').then(r=>r.status)"),404);
   await evaluate("document.querySelector('.gs-favorite-star').click()");await waitFor("gamesCache[0].favorite===true");
@@ -57,6 +58,7 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   const signIn="fetch('/api/profiles?manage=1').then(r=>r.json()).then(data=>fetch('/api/profiles/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:data.profiles.find(p=>p.nickname==='Jamie Updated').id,pin:'2468'})})).then(r=>r.status)";
   assert.equal(await evaluate(signIn),200);
   assert.deepEqual(await evaluate("fetch('/api/games').then(r=>r.json())"),[]);
+  assert.deepEqual(await evaluate("fetch('/api/libraries').then(r=>r.json())"),[]);
   assert.equal(await evaluate("fetch('/download/allowed').then(r=>r.status)"),404);
   // Signing in clears prior Guardian approvals; approve management again.
   assert.equal(await evaluate("fetch('/api/access/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:'7392',actions:['admin'],remember:true})}).then(r=>r.status)"),200);

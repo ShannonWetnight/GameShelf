@@ -6,7 +6,7 @@ GameShelf is intentionally minimalist: no accounts, no databases, no external se
 
 ### Recommended Next
 * [x] Add a Library Health panel with per-source status, last successful connection check, manual retry, scheduled checks, and exportable history. Keep offline catalogs visible while diagnosing a source.
-* [ ] Add **Library View**: filter by a named library instead of All Sources, with its health indicator beside the source name.
+* [x] Add **Library View**: filter by a named library instead of All Sources, with its health indicator beside the source name.
 * [ ] Add authenticated owner/member access and secure first-owner enrollment for deployments that need identities beyond the shared family PIN.
 * [ ] Prioritize the network read-only safeguards review below, including guidance to use dedicated read-only share accounts.
 * [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
