@@ -554,6 +554,7 @@ function createGameCard(game) {
     if (!card.contains(event.relatedTarget)) card.classList.remove('gs-hover-suppressed');
   });
   card.dataset.id = game.id;
+  card.dataset.library = game.libraryID || '';
   card.dataset.name = game.name.toLowerCase();
   card.dataset.size = game.sizeBytes;
   card.dataset.favorite = String(Boolean(game.favorite));
@@ -1160,6 +1161,7 @@ function applySearchFilter() {
     const match = spotlightId
       ? card.dataset.id === spotlightId
       : fuzzyMatch(card.dataset.name, currentSearch) &&
+        window.GameShelfLibraryView?.allows({libraryID:card.dataset.library})!==false &&
         (currentSort !== 'favorites' || card.dataset.favorite === 'true') &&
         (currentSort !== 'recent' || (Date.parse(card.dataset.added) || 0) >= Date.now() - recentDays * 86400000);
 
@@ -1171,6 +1173,7 @@ function applySearchFilter() {
     }
   });
 
+  if(!isShuffling)document.getElementById('random-game').disabled=isLoading||!gamesCache.some(game=>window.GameShelfLibraryView?.allows(game)!==false);
   const emptyLibrary = gamesCache.length === 0;
   const hasSearch = currentSearch.length > 0;
   title.textContent = emptyLibrary ? 'No games found!' : hasSearch ? 'No matching games!' : currentSort === 'favorites' ? 'No favorites yet' : currentSort === 'recent' ? 'No recently added games' : 'No games in this view';
@@ -1211,9 +1214,11 @@ function clearSuggestion() {
 function suggestRandomGame() {
   for (const card of cardMap.values()) card.classList.remove('gs-tile-fill');
   if (isLoading || isShuffling || gamesCache.length === 0) return;
-  const choices = gamesCache.length > 1
-    ? gamesCache.filter(game => game.id !== suggestedGameId)
-    : gamesCache;
+  const libraryGames=gamesCache.filter(game=>window.GameShelfLibraryView?.allows(game)!==false);
+  if(!libraryGames.length)return;
+  const choices = libraryGames.length > 1
+    ? libraryGames.filter(game => game.id !== suggestedGameId)
+    : libraryGames;
   const game = choices[Math.floor(Math.random() * choices.length)];
   const card = cardMap.get(game.id);
   if (!card) return;
@@ -1353,6 +1358,7 @@ async function loadGames(isRefresh = false) {
     });
     if(refreshingExisting && !disableEffects && !matchMedia('(prefers-reduced-motion: reduce)').matches) container.animate?.([{opacity:.35},{opacity:1}],{duration:motionDuration(220),easing:'ease-out'});
     hasLoadedGames = true;
+    window.GameShelfLibraryView?.refresh();
     applySort();
     syncCart();
     return true;
@@ -1495,6 +1501,7 @@ document.addEventListener('DOMContentLoaded', () => {
   trigger.addEventListener('click', () => runRefresh());
   document.getElementById('gs-home-trigger').addEventListener('click', () => {
     const resetHome = () => {
+      window.GameShelfLibraryView?.reset();
       clearSuggestion();
       clearSearch();
       currentSort = 'all';

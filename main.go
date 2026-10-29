@@ -33,6 +33,7 @@ var webFS embed.FS
 
 type Game struct {
 	ID          string `json:"id"`
+	LibraryID   string `json:"libraryID,omitempty"`
 	IDPersisted bool   `json:"idPersisted"`
 	Name        string `json:"name"`
 	SizeBytes   int64  `json:"sizeBytes"`
@@ -132,6 +133,7 @@ func main() {
 	mux.HandleFunc("/api/setup", handleSetup)
 	mux.HandleFunc("/api/network-test", handleNetworkTest)
 	mux.HandleFunc("/api/source-status", handleSourceStatus)
+	mux.HandleFunc("/api/libraries", handleLibraryView)
 	mux.HandleFunc("/api/library-folders", handleLibraryFolders)
 	mux.HandleFunc("/api/server-settings", handleServerSettings)
 	mux.HandleFunc("/api/server-settings/reset", handleResetServerSettings)
@@ -578,6 +580,9 @@ func refreshGames() error {
 				nextFirstSeen[entry.Game.Path] = entry.Game.AddedAt
 			}
 		}
+	}
+	for _, entry := range nextGames {
+		entry.Game.LibraryID = profileLibraryID(entry)
 	}
 	if stateErr == nil {
 		if len(nextFirstSeen) != len(firstSeen) {

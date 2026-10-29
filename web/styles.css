@@ -2667,3 +2667,17 @@ body.gs-needs-setup{height:calc(100dvh / var(--ui-scale));min-height:0;overflow:
 .gs-profile-pin-collapse.is-expanded{grid-template-rows:1fr;opacity:1;}
 .gs-no-animations .gs-profile-pin-collapse{transition:none;}
 @media(prefers-reduced-motion:reduce){.gs-profile-pin-collapse{transition:none;}}
+
+/* The library picker sits outside the header so search and toolbar keep their layout. */
+.gs-library-view{display:flex;align-items:center;gap:calc(12px * var(--ui-scale));flex-wrap:wrap;margin:0 auto calc(20px * var(--ui-scale));max-width:1600px;padding:0 calc(20px * var(--ui-scale));font-size:calc(14px * var(--ui-scale));}
+.gs-library-view[hidden]{display:none;}
+.gs-library-view>label{font-weight:600;}
+.gs-library-view select{max-width:min(55vw,420px);min-width:180px;padding:9px 36px 9px 14px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--input-background);color:var(--text);font:inherit;}
+.gs-library-view-health{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
+.gs-library-view-health[data-state]::before{content:'';height:8px;width:8px;border-radius:50%;background:#8b929e;}
+.gs-library-view-health[data-state='']::before{display:none;}
+.gs-library-view-health[data-state='healthy']::before{background:#30b982;}
+.gs-library-view-health[data-state='degraded']::before{background:#d99b31;}
+.gs-library-view-health[data-state='critical']::before{background:#e3606d;}
+.gs-library-view-count{opacity:.7;}
+@media(max-width:600px){.gs-library-view{gap:10px;margin-bottom:16px;padding:0 16px;}.gs-library-view select{flex:1;min-width:0;max-width:calc(100% - 60px);}.gs-library-view-health{margin-left:0;}.gs-library-view-count{margin-left:auto;}}
