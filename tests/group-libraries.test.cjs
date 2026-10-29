@@ -22,7 +22,7 @@ test('inherited library previews combine groups and keep individual and game exc
  profileState.libraries.push({id:'secret',name:'Private Games',location:'/private'});
  profileState.profileGroups['g-children'].libraryPolicy='selected';profileState.profileGroups['g-children'].libraries=['library'];
  profileState.profileGroups['g-adults'].libraryPolicy='selected';profileState.profileGroups['g-adults'].libraries=['secret'];
- profileState.profiles=[{id:'p',nickname:'Jamie',roles:[],groups:['g-children','g-adults'],allowMultipleRoles:true,pinRequired:true,allLibraries:false,libraries:['library'],allGames:false,games:['game'],inheritLibraries:true}];
+ profileState.profiles=[{id:'p',nickname:'Jamie',roles:null,groups:['g-children','g-adults'],allowMultipleRoles:true,pinRequired:true,allLibraries:false,libraries:['library'],allGames:false,games:['game'],inheritLibraries:true}];
  await GameShelfProfiles.open();$('profiles-list').querySelector('[aria-label="Edit Jamie"]').click();await pause();
  result.summary=$('profile-library-summary').textContent;result.checked=$('profile-inherit-libraries').checked;
  result.game=$('profile-game-choices').querySelector('input').checked;
