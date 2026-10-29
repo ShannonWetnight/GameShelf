@@ -159,7 +159,7 @@ Security is an ongoing product requirement, including server-enforced access rul
 - [ ] Anonymous public live demo for the GameShelf website: isolated visitor sessions, disposable state, generic sample games, download/network limits, and abuse controls so visitors cannot collide or persist changes globally.
 
 - [x] Compact settings with themed help, menu-scoped PIN approval, a separate PIN configurator, and release-only UI scaling with resolution-aware defaults.
-- [ ] Extend role/group templates with shared library assignments (individual profile assignments are available).
+- [x] Shared library assignments for role-backed groups, with opt-in inheritance and individual library/game limits.
 
 - [x] Optional Guardian profile creation and PIN association, three-column full-photo profiles, role tooltips and colors, and three built-in role choices.
 - [x] Built-in and uploaded profile photo zoom/tilt tools, theme preview, explicit library access choices, and one-time permission-aware profile tours.
