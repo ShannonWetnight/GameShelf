@@ -1,4 +1,4 @@
-/* Resize windows from their current size; keep their upper edge steady when space permits. */
+/* Resize windows from their current size and return dialogs to viewport centering. */
 (() => {
  const states=new WeakMap(),tracked=new Set();
  const measure=element=>{const rect=element.getBoundingClientRect();const scale=typeof uiScale==='number'?uiScale:1;return {height:element.offsetHeight,top:rect.top/scale};};
@@ -14,12 +14,12 @@
   if(element.tagName!=='DIALOG'&&element.id!=='setup-form'){frames[0].transform='translateY('+(before.top-next.top)+'px)';frames[1].transform='translateY(0)';}
   if(element.tagName==='DIALOG'){
    const viewport=innerHeight/(typeof uiScale==='number'?uiScale:1);
-   top=element.id==='profile-picker'?Math.max(12,(viewport-next.height)/2):Math.max(16,Math.min(before.top,viewport-next.height-16));element.style.marginBlock='0';element.style.bottom='auto';element.style.top=top+'px';
+   top=Math.max(12,(viewport-next.height)/2);element.style.marginBlock='0';element.style.bottom='auto';element.style.top=top+'px';
    frames[0].top=Math.max(12,Math.min(before.top,innerHeight/(typeof uiScale==='number'?uiScale:1)-Math.min(before.height,limit)-12))+'px';frames[1].top=top+'px';
   }
   element.classList.add('gs-resizing');const duration=typeof motionDuration==='function'?motionDuration(240):240;
   const animation=element.animate(frames,{duration,easing:'cubic-bezier(.2,.7,.2,1)'});state.animation=animation;animation.id='gs-window-resize';
-  animation.finished.catch(()=>{}).then(()=>{if(state.animation!==animation)return;state.animation=null;element.classList.remove('gs-resizing');state.previous={height:next.height,top};resize(element);});
+  animation.finished.catch(()=>{}).then(()=>{if(state.animation!==animation)return;state.animation=null;element.classList.remove('gs-resizing');if(element.tagName==='DIALOG'){element.style.removeProperty('top');element.style.removeProperty('margin-block');element.style.removeProperty('bottom');}state.previous=measure(element);resize(element);});
  }
  function track(element){
   if(states.has(element))return;tracked.add(element);const state={previous:null,animation:null};states.set(element,state);new ResizeObserver(()=>resize(element)).observe(element);

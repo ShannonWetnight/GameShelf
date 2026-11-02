@@ -23,7 +23,9 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   assert.equal(await evaluate("fetch('/api/libraries').then(r=>r.json()).then(libraries=>libraries.length)"),1);
   assert.equal(await evaluate("fetch('/download/hidden').then(r=>r.status)"),404);
   assert.equal(await evaluate("fetch('/covers/hidden').then(r=>r.status)"),404);
-  await evaluate("document.querySelector('.gs-favorite-star').click()");await waitFor("gamesCache[0].favorite===true");
+  await evaluate("document.querySelector('.gs-favorite-star').click()");await waitFor("gamesCache[0].favorite===true&&document.querySelector('#favorite-order-dialog').open");
+  await evaluate("document.querySelector('#favorite-order-keep').click()");await waitFor("!document.querySelector('#favorite-order-dialog').open");
+  assert.equal(await evaluate("favoritesFirst"),false,'first favorite changed ordering without consent');
   await evaluate("document.querySelector('#profile-switcher').click()");await waitFor("document.querySelector('#profile-picker').open");
   await evaluate("document.querySelector('.gs-profile-edit-dots').click()");await waitFor("document.querySelector('#pin-dialog').open");
   await evaluate("document.querySelector('#pin-entry').value='2468';document.querySelector('#pin-form').requestSubmit()");
@@ -42,7 +44,9 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   await evaluate("document.querySelector('#profiles-list [aria-label=\"Edit Jamie Personal\"]').click()");await waitFor("document.querySelector('#profile-editor-dialog').open");
   await evaluate("document.querySelector('#profile-photo').click()");await waitFor("document.querySelector('#avatar-dialog').open");
   await waitFor("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"] img').naturalWidth===256");
-  await evaluate("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"]').click();document.querySelector('#avatar-select').click()");
+  await evaluate("document.querySelector('[data-avatar=\"builtin:cosmic-fox\"]').click()");
+  await waitFor("!document.querySelector('#avatar-select').disabled");
+  await evaluate("document.querySelector('#avatar-select').click()");
   await waitFor("!document.querySelector('#avatar-dialog').open&&document.querySelector('#profile-photo-image').src.includes('cosmic-fox')");
   await evaluate("document.querySelector('#profile-nickname').value='Jamie Updated';document.querySelector('#profile-editor-save').click()");
   await waitFor("document.querySelector('#profiles-list').textContent.includes('Jamie Updated')");

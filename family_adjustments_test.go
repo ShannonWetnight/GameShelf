@@ -10,6 +10,11 @@ func TestDefaultGroupsMigrateOnceAndPreserveEdits(t *testing.T) {
 	if len(db.Groups) != 3 || db.Groups["g-guardians"].Roles[0] != "administrator" {
 		t.Fatal("missing default groups", db.Groups)
 	}
+	for _, id := range []string{"g-adults", "g-children"} {
+		if db.Groups[id].LibraryPolicy != "all" {
+			t.Fatal("default group should share all libraries", id)
+		}
+	}
 	db.GroupDefaultsVersion = 0
 	db.Groups = map[string]familyGroup{"club": {ID: "club", Name: "Club", Roles: []string{"child"}}}
 	migrateFamilyRoles(db)
@@ -18,9 +23,11 @@ func TestDefaultGroupsMigrateOnceAndPreserveEdits(t *testing.T) {
 	}
 	g := db.Groups["g-adults"]
 	g.Name = "Household"
+	g.LibraryPolicy = "selected"
+	g.Libraries = []string{"chosen-library"}
 	db.Groups[g.ID] = g
 	migrateFamilyRoles(db)
-	if db.Groups[g.ID].Name != "Household" {
+	if db.Groups[g.ID].Name != "Household" || db.Groups[g.ID].LibraryPolicy != "selected" || !reflect.DeepEqual(db.Groups[g.ID].Libraries, []string{"chosen-library"}) {
 		t.Fatal("migration replaced a saved group name")
 	}
 }

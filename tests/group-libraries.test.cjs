@@ -14,7 +14,7 @@ test('group library selection saves, reopens, and resets without changing member
  `,{withProfiles:true,configured:false,live:true});
  assert.equal(r.resetAvailable,true);assert.equal(r.reopened,true);assert.equal(r.policy,'selected');
  assert.equal(r.saved.libraryPolicy,'selected');assert.deepEqual(r.saved.libraries,['library']);
- assert.equal(r.reset.libraryPolicy,undefined);assert.equal(r.resetPolicy,'');
+ assert.equal(r.reset.libraryPolicy,'all');assert.equal(r.resetPolicy,'all');
 });
 
 test('inherited library previews combine groups and keep individual and game exceptions',()=>{

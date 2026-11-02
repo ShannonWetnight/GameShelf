@@ -1,7 +1,7 @@
-const preferenceKeys = ['dynamic-scale','ui-scale','theme','stretch-covers','favorite-stars-only','favorites-first','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
+const preferenceKeys = ['dynamic-scale','ui-scale','theme','stretch-covers','favorite-stars-only','favorites-first','favorites-order-decided','list-image-click','animation-speed','list-opacity','card-depth','animate-tiles','playlist-enabled','show-hover-text','show-game-titles','hover-game-titles','show-placeholder-images','show-list-images','recent-days','recent-days-v2','view','settings-level'];
 const hasSavedPreferences = preferenceKeys.some(key=>localStorage.getItem('gameshelf:'+key)!==null);
 function capturePreferences(){
-  const values = {'dynamic-scale':dynamicScale,'ui-scale':uiScale,theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
+  const values = {'dynamic-scale':dynamicScale,'ui-scale':uiScale,theme:themePreference,'stretch-covers':stretchCovers,'favorite-stars-only':favoriteStarsOnly,'favorites-first':favoritesFirst,'favorites-order-decided':favoritesOrderDecided,'list-image-click':listImageClick,'animation-speed':animationSpeed,'list-opacity':listOpacity,'card-depth':cardDepth,'animate-tiles':animateTiles,'playlist-enabled':playlistEnabled,'show-hover-text':showHoverText,'show-game-titles':showGameTitles,'hover-game-titles':hoverGameTitles,'show-placeholder-images':showPlaceholderImages,'show-list-images':showListImages,'recent-days':recentDays,'recent-days-v2':true,view:currentView,'settings-level':settingsLevel};
   return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,String(value)]));
 }
 function importPreferences(values){for(const key of preferenceKeys)if(typeof values?.[key]==='string')localStorage.setItem('gameshelf:'+key,values[key]);}
@@ -39,7 +39,8 @@ let stretchCovers = localStorage.getItem('gameshelf:stretch-covers') === 'true';
 let favoriteStarsOnly = localStorage.getItem('gameshelf:favorite-stars-only') !== 'false';
 const storedImageClick = localStorage.getItem('gameshelf:list-image-click');
 let listImageClick = ['single', 'double', 'disabled'].includes(storedImageClick) ? storedImageClick : localStorage.getItem('gameshelf:expand-list-image') === 'false' ? 'disabled' : 'single';
-let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') !== 'false';
+let favoritesFirst = localStorage.getItem('gameshelf:favorites-first') === 'true';
+let favoritesOrderDecided = localStorage.getItem('gameshelf:favorites-order-decided') === 'true' || favoritesFirst;
 let favoritePending = null;
 let serverSettings = null;
 let currentSearch = '';
@@ -134,6 +135,7 @@ function openModal(dialog) {
     observedDialogs.add(dialog);
   }
   dialog._cancelMotion?.();
+  if (!dialog.open) {dialog.style.removeProperty('top');dialog.style.removeProperty('margin-block');dialog.style.removeProperty('bottom');dialog.scrollTop=0;}
   dialog.tabIndex = -1;
   dialog.showModal();
   dialog.focus?.({ preventScroll: true });
@@ -293,6 +295,7 @@ async function saveFavorite() {
   try {
     const response = await fetch(`/api/favorite/${encodeURIComponent(game.id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ favorite: !game.favorite }) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const offerOrder=!game.favorite&&!favoritesOrderDecided&&!gamesCache.some(other=>other.favorite);
     game.favorite = !game.favorite;
     const card = cardMap.get(game.id);
     card.dataset.favorite = String(game.favorite);
@@ -311,6 +314,8 @@ async function saveFavorite() {
     applySearchFilter();
     if (document.getElementById('favorite-dialog').open) document.getElementById('favorite-dialog').close();
     showNotification(game.favorite ? 'Added to favorites.' : 'Removed from favorites.');
+    if(!favoritesOrderDecided){favoritesOrderDecided=true;localStorage.setItem('gameshelf:favorites-order-decided','true');recordSettingChange({'favorites-order-decided':'true'});}
+    if(offerOrder&&window.GameShelfAccess?.available('favoritesFirst')!==false)openModal(document.getElementById('favorite-order-dialog'));
   } catch { if (document.getElementById('favorite-dialog').open) document.getElementById('favorite-status').textContent = 'Could not save favorite. Try again.'; else showNotification('Could not save favorite. Try again.'); }
   finally { button.disabled = false; }
 }
@@ -419,7 +424,9 @@ function renderCart() {
     remove.textContent = 'Remove';remove.className='gs-detail-action';
     remove.setAttribute('aria-label', `Remove ${game.name} from Playlist`);
     remove.addEventListener('click', () => toggleCart(game.id));
-    row.append(label, remove);
+    const cover=document.createElement('span'),image=document.createElement('img');cover.className='gs-playlist-cover';cover.setAttribute('aria-hidden','true');image.alt='';image.loading='lazy';
+    const version=coverVersions.get(game.id);setCoverStretch(cover,game);setCoverImage(image,cover,game.hasCover===false?'/placeholder.png':`/covers/${encodeURIComponent(game.id)}${version?'?v='+version:''}`,game.name);cover.append(image);
+    label.className='gs-playlist-game-name';row.append(cover,label, remove);
     list.appendChild(row);
   }
   document.getElementById('cart-total').textContent = selected.length
@@ -1833,10 +1840,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = favoritePending && cardMap.get(favoritePending.id);
     card?.querySelector('.gs-favorite-star')?.blur();
   });
+  const orderDialog=document.getElementById('favorite-order-dialog');
+  for(const id of ['favorite-order-close','favorite-order-keep'])document.getElementById(id).addEventListener('click',()=>orderDialog.close());
+  closeOnBackdropClick(orderDialog);
+  document.getElementById('favorite-order-pin').addEventListener('click',()=>{favoritesFirstInput.checked=true;favoritesFirstInput.dispatchEvent(new Event('change',{bubbles:true}));recordSettingChange({'favorites-first':'true','favorites-order-decided':'true'});orderDialog.close();});
   const favoritesFirstInput = document.getElementById('favorites-first');
   favoritesFirstInput.checked = favoritesFirst;
   favoritesFirstInput.addEventListener('change', () => {
-    favoritesFirst = favoritesFirstInput.checked;
+    favoritesFirst = favoritesFirstInput.checked;favoritesOrderDecided=true;localStorage.setItem('gameshelf:favorites-order-decided','true');recordSettingChange({'favorites-order-decided':'true'});
     localStorage.setItem('gameshelf:favorites-first', String(favoritesFirst));
     applySort();
   });

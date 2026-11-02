@@ -105,3 +105,40 @@
 @media(max-width:600px){:root .gs-profile-add{padding:7px;gap:6px;font-size:.7rem;}.gs-profile-add svg{width:30px;height:30px;}.gs-profile-summary{padding:25px 5px 6px;}.gs-profile-badges{font-size:.65rem;gap:2px;}:root #profiles-list .gs-profile-row-actions{inset:1px 1px auto auto;}:root #profiles-list .gs-profile-row-actions button{width:30px;height:32px;padding:6px!important;}}
 
 :root .gs-settings-dialog .gs-game-over{border-color:var(--danger)!important;}
+
+/* Consistent assignment cards and Guardian identity. */
+.gs-profile-assignment-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+#profile-role-section .gs-profile-assignment-sections>fieldset{margin:0;}
+#profile-group-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;}
+#profile-group-choices .gs-profile-choice{position:relative;display:flex;flex-direction:column;justify-content:center;gap:6px;text-align:center;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:12px 8px;margin:0;cursor:pointer;}
+#profile-group-choices .gs-profile-choice:has(input:checked){border-color:var(--accent);background:var(--accent-soft);}
+#profile-group-choices input{position:absolute;opacity:0;width:1px;height:1px;}
+#profile-group-choices .gs-profile-choice:focus-within{outline:2px solid var(--accent);outline-offset:2px;}
+#profile-role-choices .gs-role-badge,#profile-group-choices .gs-role-badge,#group-role-choices .gs-role-badge{cursor:inherit;user-select:none;}
+#profile-multiple-option{margin-top:14px;}
+#group-available{margin-top:12px;}
+#group-available summary{cursor:pointer;color:var(--text-muted);padding:8px 0;}
+#group-available-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:280px;overflow:auto;gap:12px;padding-top:12px;border-top:1px solid var(--border-subtle);}
+#group-available-choices .gs-help-mark{display:none!important;}
+#group-members-empty{margin-block:8px;}
+#group-member-choices:empty{display:none;}
+:root #profiles-pin{display:inline-flex;align-items:center;gap:9px;color:#ffc34f;text-shadow:0 0 9px #ffc34f55;}
+#profiles-pin svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;filter:drop-shadow(0 0 4px #ffc34f55);}
+:root #profiles-pin:is(:hover,:focus-visible){color:#ffd580!important;border-color:#ffc34f!important;}
+:root #guardians-profiles{flex:none;overflow:visible;padding-top:12px;}
+:root #guardians-profiles .gs-guardian-profile{display:block;box-sizing:border-box;width:190px;max-width:100%;aspect-ratio:1;padding:0;overflow:hidden;flex:none;border-color:#ffc34f;}
+:root #guardians-profiles .gs-guardian-profile>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;}
+:root #guardians-profiles .gs-guardian-profile>.gs-profile-placeholder{position:absolute;inset:0;width:100%;height:100%;}
+.gs-avatar-preview .gs-avatar-crossfade{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
+.gs-playlist-cover{position:relative;display:block;width:42px;height:56px;flex:none;overflow:hidden;border-radius:4px;background:var(--bg-elevated);}
+.gs-playlist-cover img{width:100%;height:100%;object-fit:contain;}
+.gs-playlist-cover[data-cover-fit="stretch"] img{object-fit:fill;}
+.gs-cart-items .gs-playlist-game-name{flex:1;}
+:root #reroll-game{width:40px;height:40px;padding:0;border:0!important;outline:0;background:transparent!important;box-shadow:none!important;display:inline-flex;align-items:center;justify-content:center;}
+:root #reroll-game:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+:root #reroll-game:is(:hover,:focus-visible) svg{transform:scale(1.1);}
+@media(max-width:600px){.gs-profile-assignment-sections{grid-template-columns:1fr;}}
+
+#profile-role-section #profile-role-choices{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));}
+#profile-role-section :is(#profile-role-choices,#profile-group-choices) .gs-profile-choice{box-sizing:border-box;min-height:72px;}
+:root .gs-playlist-cover.gs-cover-unavailable::after{content:none;}
