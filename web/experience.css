@@ -148,7 +148,7 @@ body:not(.gs-needs-setup){height:auto;}
 body:not(.gs-needs-setup)>.gs-header{position:sticky;top:0;z-index:30;background:var(--bg-elevated);box-shadow:0 4px 18px #0002;flex:none;}
 :root #settings-dialog #settings-management{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;}
 #settings-management>.gs-settings-backup{border-top:0!important;}
-:root #settings-dialog .gs-game-over{display:flex;flex-direction:column;justify-content:center;padding:10px 0;margin-block:12px;}
+:root #settings-dialog .gs-game-over{display:flex;flex-direction:column;justify-content:center;padding:6px 0 14px;margin-block:12px;}
 :root #settings-dialog .gs-game-over>.gs-settings-backup{min-height:64px;align-items:center;padding-block:8px;}
 .gs-health-indicator{flex:none;display:inline-flex;align-items:center;justify-content:center;cursor:help;}
 .gs-health-source-heading{justify-content:flex-start;gap:9px;}
