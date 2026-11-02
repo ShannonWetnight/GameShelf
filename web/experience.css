@@ -141,3 +141,4 @@
 
 #profile-role-section #profile-role-choices{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));}
 #profile-role-section :is(#profile-role-choices,#profile-group-choices) .gs-profile-choice{box-sizing:border-box;min-height:72px;}
+:root .gs-playlist-cover.gs-cover-unavailable::after{content:none;}
