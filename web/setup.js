@@ -50,7 +50,7 @@
     drafts[owner].forEach((source, index) => addCard(source.name || source.url, source.url, source.protocol === 'webdav' ? 'WebDAV' : source.protocol.toUpperCase(), networkIcon,
       () => openNetwork(owner, index), () => { drafts[owner].splice(index, 1); render(owner); }, lastStates.find(state => state.id === source.id)?.state));
     $(owner === 'setup' ? 'setup-source-empty' : 'server-source-empty').hidden = sourceCount(owner) > 0;
-    if(owner==='setup'){$('setup-status').textContent='';$('setup-next').disabled=sourceCount(owner)===0;$('setup-next').dataset.tooltip=sourceCount(owner)?'Continue to Your Shelf':'Add at least one folder or network location before continuing.';}
+    if(owner==='setup'){$('setup-status').textContent='';$('setup-next').disabled=sourceCount(owner)===0;delete $('setup-next').dataset.tooltip;}
   }
   function populate(owner, value) {
     rootsInput(owner).value = rootsOf(value).join('\n'); drafts[owner] = (value.sources || []).map(source => ({ ...source })); render(owner);

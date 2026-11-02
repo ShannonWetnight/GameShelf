@@ -135,8 +135,8 @@ func defaultProfileDB() *profileDatabase {
 func defaultProfileGroups() map[string]familyGroup {
 	return map[string]familyGroup{
 		"g-guardians": {ID: "g-guardians", Name: "Guardians", Roles: []string{"administrator"}},
-		"g-adults":    {ID: "g-adults", Name: "Adults", Roles: []string{"adult"}},
-		"g-children":  {ID: "g-children", Name: "Children", Roles: []string{"child"}},
+		"g-adults":    {ID: "g-adults", Name: "Adults", Roles: []string{"adult"}, LibraryPolicy: "all"},
+		"g-children":  {ID: "g-children", Name: "Children", Roles: []string{"child"}, LibraryPolicy: "all"},
 	}
 }
 func cloneProfileDB(value *profileDatabase) *profileDatabase {

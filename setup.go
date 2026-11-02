@@ -333,7 +333,7 @@ func handleLibraryFolders(w http.ResponseWriter, r *http.Request) {
 // Backups may carry only display preferences, never arbitrary browser storage.
 func validatePreferences(values map[string]string) error {
 	bools := map[string]bool{}
-	for _, key := range []string{"dynamic-scale", "favorite-stars-only", "favorites-first", "card-depth", "animate-tiles", "playlist-enabled", "show-hover-text", "show-game-titles", "hover-game-titles", "show-placeholder-images", "show-list-images", "recent-days-v2", "stretch-covers"} {
+	for _, key := range []string{"dynamic-scale", "favorite-stars-only", "favorites-first", "favorites-order-decided", "card-depth", "animate-tiles", "playlist-enabled", "show-hover-text", "show-game-titles", "hover-game-titles", "show-placeholder-images", "show-list-images", "recent-days-v2", "stretch-covers"} {
 		bools[key] = true
 	}
 	for key, value := range values {
