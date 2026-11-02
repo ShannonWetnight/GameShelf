@@ -36,7 +36,7 @@ class Element {
     });
     this.children = [];
     this.dataset = {};
-    this.style = {};
+    this.style = { removeProperty(name) { delete this[name]; } };
     this.attributes = {};
     this.listeners = {};
     this.value = '';
@@ -637,13 +637,16 @@ test('adding favorites saves directly and removing asks for confirmation', async
   assert.equal(alpha.querySelector('.gs-favorite-star').focused, false);
 });
 
-test('favorites-first defaults on and groups favorites within every sort', async () => {
+test('favorites-first defaults off and can group favorites within every sort', async () => {
   const storage = new Map();
   const ui = app(undefined, storage);
   ui.start();
   ui.requests[0].resolve(response([{ ...games[0], favorite: true }, { ...games[1], favorite: false }]));
   await settle();
-  assert.equal(ui.element('favorites-first').checked, true);
+  assert.equal(ui.element('favorites-first').checked, false);
+  assert.deepEqual(ui.cards().map(card => card.dataset.id), ['alpha', 'beta']);
+  ui.element('favorites-first').checked = true;
+  ui.element('favorites-first').emit('change');
   assert.deepEqual(ui.cards().map(card => card.dataset.id), ['beta', 'alpha']);
   ui.element('sort-menu').children.find(button => button.dataset.sort === 'size-asc').emit('click');
   assert.deepEqual(ui.cards().map(card => card.dataset.id), ['beta', 'alpha']);
