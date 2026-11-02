@@ -142,3 +142,52 @@
 #profile-role-section #profile-role-choices{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));}
 #profile-role-section :is(#profile-role-choices,#profile-group-choices) .gs-profile-choice{box-sizing:border-box;min-height:72px;}
 :root .gs-playlist-cover.gs-cover-unavailable::after{content:none;}
+
+/* Keep navigation in sight while letting the page itself own library scrolling. */
+body:not(.gs-needs-setup){height:auto;}
+body:not(.gs-needs-setup)>.gs-header{position:sticky;top:0;z-index:30;background:var(--bg-elevated);box-shadow:0 4px 18px #0002;flex:none;}
+:root #settings-dialog #settings-management{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;}
+#settings-management>.gs-settings-backup{border-top:0!important;}
+:root #settings-dialog .gs-game-over{display:flex;flex-direction:column;justify-content:center;padding:10px 0;margin-block:12px;}
+:root #settings-dialog .gs-game-over>.gs-settings-backup{min-height:64px;align-items:center;padding-block:8px;}
+.gs-health-indicator{flex:none;display:inline-flex;align-items:center;justify-content:center;cursor:help;}
+.gs-health-source-heading{justify-content:flex-start;gap:9px;}
+.gs-health-refresh svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.gs-health-refresh.gs-control-feedback svg{animation:gs-health-refresh-turn .5s ease;}
+@keyframes gs-health-refresh-turn{to{transform:rotate(360deg);}}
+:root #roles-list .gs-assignment-card,:root #groups-list .gs-assignment-card{position:relative;min-height:140px;padding:54px 12px 24px;justify-content:center;}
+:root :is(#roles-list,#groups-list) .gs-profile-row-actions{position:absolute;inset:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:3px;padding:7px 8px;background:var(--icon-background);border-bottom:1px solid var(--border-subtle);}
+:root :is(#roles-list,#groups-list) .gs-profile-row-actions button{display:grid;place-items:center;width:32px;height:32px;padding:0;flex:none;}
+:root :is(#roles-list,#groups-list) .gs-profile-row-actions svg{display:block;width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.gs-assignment-identity{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:12px;align-items:center;flex:none;}
+.gs-assignment-identity>.gs-server-field{margin:0 0 12px;}
+.gs-color-picker{position:relative;display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-muted);}
+.gs-color-picker svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.5;}
+.gs-color-picker input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.gs-color-picker:focus-within{outline:2px solid var(--accent);outline-offset:2px;}
+.gs-color-picker:has(input:disabled){opacity:.5;cursor:help;}
+:root #role-editor-dialog{width:min(920px,calc((100dvw - 24px)/var(--ui-scale)));}
+.gs-role-columns,:root #role-rules .gs-role-rule{display:grid;grid-template-columns:minmax(130px,1.5fr) minmax(110px,1fr) minmax(100px,1fr) 44px;gap:12px;align-items:center;}
+.gs-role-columns{padding:8px 18px;text-align:center;font-size:.8rem;font-weight:650;flex:none;}
+.gs-role-columns>:first-child{text-align:left;}
+:root #role-rules .gs-role-rule>select{width:100%;min-width:0;}
+.gs-role-category-note,.gs-role-visible{justify-self:center;}
+:root #group-member-choices{border-top:0;padding-top:0;margin-top:10px;}
+:root #group-member-choices .gs-group-member{transition:border-color .18s ease,box-shadow .18s ease;}
+:root #group-member-choices .gs-group-member:has(input:checked){border-color:var(--group-color);box-shadow:inset 0 0 0 2px var(--group-color);}
+#group-member-choices input{accent-color:var(--group-color);}
+#group-member-choices .gs-group-member:has(input:checked) .gs-group-member-caption{background:linear-gradient(transparent,color-mix(in srgb,var(--group-color) 30%,#060a12) 65%);}
+@media(max-width:600px){:root #settings-dialog #settings-management{grid-template-columns:1fr;}.gs-role-columns,:root #role-rules .gs-role-rule{grid-template-columns:minmax(95px,1.2fr) minmax(82px,1fr) minmax(78px,1fr) 28px;gap:6px;}.gs-role-columns{padding-inline:8px;font-size:.65rem;}:root #role-rules .gs-role-rule{font-size:.7rem;}:root #role-rules .gs-role-rule>select{font-size:.65rem;padding-inline:4px;}:root #roles-list .gs-assignment-card,:root #groups-list .gs-assignment-card{padding:50px 6px 16px;min-height:130px;}}
+@media(prefers-reduced-motion:reduce){.gs-health-refresh.gs-control-feedback svg{animation:none;}}
+body.gs-no-animations .gs-health-refresh.gs-control-feedback svg{animation:none;}
+@media(max-width:600px){.gs-role-columns,:root #role-rules .gs-role-rule{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px;}.gs-role-columns>:first-child,:root #role-rules .gs-role-rule>span:first-child{grid-column:1 / -1;}.gs-role-columns{row-gap:4px;}:root #role-rules .gs-role-rule{row-gap:8px;}}
+
+.gs-color-picker svg{color:var(--swatch-color,var(--text-muted));}
+:root :is(#roles-list,#groups-list) .gs-assignment-card>:is(strong,.gs-role-badge){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+:root dialog#role-editor-dialog{width:min(920px,calc((100dvw - 24px)/var(--ui-scale)));}
+:root #role-rules .gs-family-group{margin-block:10px;padding:0;}
+:root #role-rules .gs-family-group>legend{margin-left:12px;}
+:root #role-rules>.gs-role-columns{position:sticky;top:0;z-index:2;flex:none;margin:0;padding:8px 13px;background:var(--bg-elevated);border-bottom:1px solid var(--border-subtle);}
+.gs-role-visible{accent-color:var(--accent);}
+:root #settings-dialog[data-settings-level="basic"] #settings-management:not(:has(>.gs-settings-backup:not([data-setting-level="advanced"]):not(.gs-access-hidden))){display:none;}

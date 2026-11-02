@@ -25,12 +25,14 @@ import (
 type familyRole struct {
 	ID       string                `json:"id"`
 	Name     string                `json:"name"`
+	Color    string                `json:"color,omitempty"`
 	Template string                `json:"template,omitempty"`
 	Rules    map[string]accessRule `json:"rules"`
 }
 type familyGroup struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
+	Color         string   `json:"color,omitempty"`
 	Roles         []string `json:"roles"`
 	LibraryPolicy string   `json:"libraryPolicy,omitempty"`
 	Libraries     []string `json:"libraries,omitempty"`
@@ -208,6 +210,18 @@ func validProfileName(value string) bool {
 func validProfileID(value string) bool {
 	return len(value) > 0 && len(value) <= 128 && !strings.ContainsAny(value, "\x00\r\n/\\")
 }
+
+// Colors are presentation-only and never influence permission inheritance.
+func validProfileColor(value string) bool {
+	if value == "" {
+		return true
+	}
+	if len(value) != 7 || value[0] != '#' {
+		return false
+	}
+	_, err := hex.DecodeString(value[1:])
+	return err == nil
+}
 func validateProfileDB(value *profileDatabase) error {
 	if value == nil || value.Version != 1 || value.Roles == nil || value.Profiles == nil {
 		return errors.New("Invalid family profile data")
@@ -218,7 +232,7 @@ func validateProfileDB(value *profileDatabase) error {
 		}
 	}
 	for id, role := range value.Roles {
-		if id != role.ID || !validProfileID(id) || !validProfileName(role.Name) {
+		if id != role.ID || !validProfileID(id) || !validProfileName(role.Name) || !validProfileColor(role.Color) {
 			return errors.New("Choose a valid role name")
 		}
 		for action, rule := range role.Rules {
@@ -234,6 +248,9 @@ func validateProfileDB(value *profileDatabase) error {
 		}
 	}
 	for id, group := range value.Groups {
+		if !validProfileColor(group.Color) {
+			return errors.New("Choose a valid group color")
+		}
 		if group.LibraryPolicy != "" && group.LibraryPolicy != "selected" && group.LibraryPolicy != "all" {
 			return errors.New("Invalid group library policy")
 		}
@@ -367,9 +384,14 @@ func mergedProfileRules(db *profileDatabase, p familyProfile) map[string]accessR
 	if p.UsesGuardianPIN {
 		for action := range result {
 			result[action] = accessRule{Mode: "allow"}
+			if action == "admin" || action == "libraryManager" {
+				result[action] = accessRule{Mode: "allow", Level: "basic"}
+			}
 		}
 	}
-	result["wipe"] = accessRule{Mode: "guardian"}
+	wipe := result["wipe"]
+	wipe.Mode = "guardian"
+	result["wipe"] = wipe
 	return result
 }
 
@@ -605,7 +627,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 			for action := range accessActions {
 				groups[action] = accessGroup(action)
 			}
-			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "profileGroups": db.Groups, "roleDefaults": defaultProfileDB().Roles, "groupDefaults": defaultProfileGroups(), "libraries": profileLibraries(), "actions": accessActions, "groups": groups, "pinProtectedActions": profileAdministrativeActions, "guardians": publicGuardians(), "guardianConfigured": guardianAvailable()})
+			profileReply(w, map[string]any{"enabled": db.Enabled, "profiles": profiles, "roles": db.Roles, "profileGroups": db.Groups, "roleDefaults": defaultProfileDB().Roles, "groupDefaults": defaultProfileGroups(), "libraries": profileLibraries(), "actions": accessActions, "levels": accessDefaultLevels, "groups": groups, "pinProtectedActions": profileAdministrativeActions, "guardians": publicGuardians(), "guardianConfigured": guardianAvailable()})
 			return
 		}
 		roleNames := map[string]string{}
@@ -629,7 +651,13 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if active {
 			current = publicProfile(p, db)
 		}
-		profileReply(w, map[string]any{"enabled": db.Enabled, "needsProfile": db.Enabled && !setupRequired.Load() && !active, "profiles": profiles, "roleNames": roleNames, "active": current, "hasProfileData": func() bool { _, err := os.Stat(profilePath()); return err == nil }()})
+		profileReply(w, map[string]any{"enabled": db.Enabled, "needsProfile": db.Enabled && !setupRequired.Load() && !active, "profiles": profiles, "roleNames": roleNames, "roleColors": func() map[string]string {
+			colors := map[string]string{}
+			for id, role := range db.Roles {
+				colors[id] = role.Color
+			}
+			return colors
+		}(), "active": current, "hasProfileData": func() bool { _, err := os.Stat(profilePath()); return err == nil }()})
 		return
 	}
 	if r.Method != "POST" {
@@ -822,8 +850,11 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if role.ID == "administrator" {
 			role.Rules = defaultProfileDB().Roles["administrator"].Rules
 			role.Template = "administrator"
+			role.Color = ""
 		}
-		role.Rules["wipe"] = accessRule{Mode: "guardian"}
+		wipe := role.Rules["wipe"]
+		wipe.Mode = "guardian"
+		role.Rules["wipe"] = wipe
 		copy.Roles[role.ID] = role
 	case "resetRole":
 		old, ok := copy.Roles[body.Role.ID]
@@ -851,6 +882,7 @@ func handleProfiles(w http.ResponseWriter, r *http.Request) {
 		if group.ID == "g-guardians" {
 			// Membership and permissions belong to the Guardian linking workflow.
 			group.Roles = []string{"administrator"}
+			group.Color = ""
 			if !validProfileName(group.Name) {
 				http.Error(w, "Choose a group name.", 400)
 				return
@@ -1229,6 +1261,7 @@ func migrateFamilyRoles(db *profileDatabase) {
 	}
 	if group, ok := db.Groups["g-guardians"]; ok {
 		group.Roles = []string{"administrator"}
+		group.Color = ""
 		db.Groups[group.ID] = group
 	}
 	if db.SelectionVersion == 0 {
@@ -1242,8 +1275,11 @@ func migrateFamilyRoles(db *profileDatabase) {
 		if role.Rules == nil {
 			role.Rules = map[string]accessRule{}
 		}
-		role.Rules["wipe"] = accessRule{Mode: "guardian"}
+		wipe := role.Rules["wipe"]
+		wipe.Mode = "guardian"
+		role.Rules["wipe"] = wipe
 		if id == "administrator" {
+			role.Color = ""
 			role.Rules = defaultProfileDB().Roles["administrator"].Rules
 		}
 		if role.Template == "" && containsProfileID([]string{"administrator", "adult", "child"}, id) {

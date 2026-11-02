@@ -414,7 +414,8 @@ function toggleCart(id) {
 function renderCart() {
   const list = document.getElementById('cart-items');
   list.replaceChildren();
-  const selected = gamesCache.filter(game => cartGameIds.has(game.id));
+  const byID=new Map(gamesCache.map(game=>[game.id,game]));
+  const selected=[...cartGameIds].map(id=>byID.get(id)).filter(Boolean);
   for (const game of selected) {
     const row = document.createElement('li');
     const label = document.createElement('span');
@@ -1544,7 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
   randomButton.addEventListener('click', suggestRandomGame);
   document.getElementById('reroll-game').addEventListener('click', suggestRandomGame);
   const cartDialog = document.getElementById('cart-dialog');
-  document.getElementById('open-cart').addEventListener('click', event => { animateControl(event.currentTarget); renderCart(); openModal(cartDialog); });
+  document.getElementById('open-cart').addEventListener('click', event => { animateControl(event.currentTarget); renderCart(); openModal(cartDialog);const list=document.getElementById('cart-items');list.scrollTop=list.scrollHeight; });
   document.getElementById('cart-close').addEventListener('click', () => cartDialog.close());
   document.getElementById('cart-clear').addEventListener('click', () => { if (cartGameIds.size) confirmPlaylistChange('clear'); });
   const playlistConfirm = document.getElementById('playlist-confirm-dialog');

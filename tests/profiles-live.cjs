@@ -37,8 +37,8 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
   await evaluate("document.querySelector('#profile-guardian').click()");await waitFor("document.querySelector('#pin-dialog').open");
   assert.equal(await evaluate("document.querySelector('#pin-title').textContent"),'PIN Required');
   await evaluate("document.querySelector('#pin-entry').value='7392';document.querySelector('#pin-form').requestSubmit()");
-  await waitFor("document.querySelector('#family-dialog').open&&!document.querySelector('#pin-dialog').open");
-  await evaluate("document.querySelector('#family-open-profiles').click()");await waitFor("document.querySelector('#profiles-dialog').open&&document.querySelector('#profiles-list').textContent.includes('Jamie Personal')");
+  await waitFor("document.querySelector('#profiles-dialog').open&&!document.querySelector('#pin-dialog').open&&document.querySelector('#profiles-list').textContent.includes('Jamie Personal')");
+  assert.equal(await evaluate("document.querySelector('#family-dialog').open"),false,'enabled profiles opened legacy Family Controls');
   assert.equal(await evaluate("document.querySelector('#pin-dialog').open"),false,'Guardian lease prompted twice');
   assert.equal(await evaluate("fetch('/api/profiles?manage=1').then(r=>r.json()).then(r=>r.profiles[0].favorites.allowed)"),true);
   await evaluate("document.querySelector('#profiles-list [aria-label=\"Edit Jamie Personal\"]').click()");await waitFor("document.querySelector('#profile-editor-dialog').open");

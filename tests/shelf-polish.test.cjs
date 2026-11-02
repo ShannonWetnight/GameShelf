@@ -1,20 +1,20 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {fullUI}=require('./browser-fixture.cjs');
 
-test('group role tiles switch back to Child after Adult approval and show only assigned members',()=>{
+test('group role tiles switch back to Child after Adult approval and keep membership tiles stable while selecting',()=>{
  const r=fullUI(`
  profileState.profiles=[{id:'kid',nickname:'Jamie',roles:[],groups:['g-children'],pinRequired:true}];
  await GameShelfProfiles.open();$('groups-list').querySelectorAll('button')[2].click();await pause(250);
  const clickTile=value=>{const row=$('group-role-choices').querySelector('input[value="'+value+'"]').closest('label'),box=row.getBoundingClientRect();row.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail:1,clientX:box.left+8,clientY:box.top+8}));};
  clickTile('adult');result.prompt=$('group-admin-dialog').open;$('group-admin-confirm').click();await pause(200);clickTile('child');
- result.role=$('group-role-choices').querySelector('input:checked')?.value;result.ack=$('group-admin-ack').checked;result.members=[...$('group-member-choices').querySelectorAll('input')].map(n=>n.value);
+ result.role=$('group-role-choices').querySelector('input:checked')?.value;result.ack=$('group-admin-ack').checked;result.members=[...$('group-member-choices').querySelectorAll('input:checked')].map(n=>n.value);
  $('group-editor-cancel').click();await pause(200);$('groups-list').querySelectorAll('button')[1].click();
- result.adults=$('group-member-choices').children.length;result.available=$('group-available-choices').querySelector('input').value;
- $('group-available-choices').querySelector('input').click();result.added=$('group-member-choices').querySelector('input')?.checked;
- $('group-member-choices').querySelector('input').click();result.removed=$('group-member-choices').children.length;result.original=profileState.profiles[0].groups;
+ result.adults=$('group-member-choices').querySelectorAll('input:checked').length;result.available=$('group-member-choices').querySelector('input').value;const tile=$('group-member-choices').firstElementChild;result.beforeIndex=[...tile.parentElement.children].indexOf(tile);
+ $('group-member-choices').querySelector('input').click();result.added=$('group-member-choices').querySelector('input')?.checked;
+ $('group-member-choices').querySelector('input').click();result.removed=$('group-member-choices').querySelectorAll('input:checked').length;result.afterIndex=[...tile.parentElement.children].indexOf(tile);result.original=profileState.profiles[0].groups;
  `,{withProfiles:true,configured:false,live:true});
  assert.equal(r.prompt,true);assert.equal(r.role,'child');assert.equal(r.ack,false);assert.deepEqual(r.members,['kid']);
- assert.equal(r.adults,0);assert.equal(r.available,'kid');assert.equal(r.added,true);assert.equal(r.removed,0);assert.deepEqual(r.original,['g-children']);
+ assert.equal(r.adults,0);assert.equal(r.available,'kid');assert.equal(r.added,true);assert.equal(r.removed,0);assert.equal(r.beforeIndex,r.afterIndex);assert.deepEqual(r.original,['g-children']);
 });
 
 test('first favorite offers ordering once, keeps the initial order, and remembers accepting or declining',()=>{
