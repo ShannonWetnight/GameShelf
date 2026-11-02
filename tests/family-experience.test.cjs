@@ -49,7 +49,7 @@ test('Profile activity defaults on, can be customized, and has a viewer filter',
  const r=fullUI("$('build-info').click();$('settings-advanced').click();$('configure-logs').click();await pause();result.enabled=$('log-profile').checked;result.locked=$('log-profile').disabled;$('log-verbose').click();result.available=!$('log-profile').disabled;result.filter=$('logs-filter-profile').checked;",{configured:false});
  assert.equal(r.enabled,true);assert.equal(r.locked,true);assert.equal(r.available,true);assert.equal(r.filter,true);
 });
-test('Library Health stays compact and its Check Now feedback uses the notification banner',()=>{
- const r=fullUI("$('build-info').click();$('settings-advanced').click();$('open-library-manager').click();await pause();$('open-library-health').click();await pause(300);const rect=$('health-dialog').getBoundingClientRect(),footer=document.querySelector('.gs-health-footer').getBoundingClientRect();result.padding=rect.bottom-footer.bottom;$('health-check').click();await pause();result.note=$('notification-text').textContent;result.inline=$('health-status').textContent;",{configured:false,live:true});
+test('Library Health stays compact and its header refresh uses the notification banner',()=>{
+ const r=fullUI("$('build-info').click();$('settings-advanced').click();$('open-library-manager').click();await pause();$('open-library-health').click();await pause(300);const rect=$('health-dialog').getBoundingClientRect(),footer=$('health-view-logs').closest('.gs-settings-backup').getBoundingClientRect();result.padding=rect.bottom-footer.bottom;$('health-check').click();await pause();result.note=$('notification-text').textContent;result.inline=$('health-status').textContent;",{configured:false,live:true});
  assert.ok(r.padding<40,JSON.stringify(r));assert.match(r.note,/check started/);assert.equal(r.inline,'');
 });

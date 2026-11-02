@@ -48,7 +48,7 @@
 .gs-backup-key-tools{display:flex;justify-content:flex-end;gap:4px;margin-top:4px;}
 .gs-backup-key-tools svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;}
 #export-unprotected-option{font-size:.76rem;color:var(--text-muted);line-height:1.45;}
-:root #server-settings-dialog,:root #health-dialog{min-height:0;height:auto;}
+:root #server-settings-dialog,:root #health-dialog{min-height:0;height:fit-content;}
 #server-settings-status:empty,#health-status:empty{display:none;}
 #server-settings-dialog .gs-export-actions{margin-top:14px;}
 .gs-health-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:14px;}

@@ -8,11 +8,12 @@
  function rule(action){return state.policy?.rules?.[action]||{mode:'allow',hidden:false};}
  function unlocked(action){return menuLease&&menuLease.gates[action]&&Date.parse(menuLease.expiresAt)>Date.now()||Date.parse(state.grants?.[action]||'')>Date.now()||permit&&permit.actions.includes(action)&&Date.parse(permit.until)>Date.now();}
  function mode(action){if(action==='admin')return state.configured?'guardian':'allow';if(action==='wipe')return rule(action).mode==='disable'?'disable':state.configured?'guardian':'allow';return rule(action).mode||'allow';}
+ function settingCategory(action){return state.guardianProfile&&['admin','libraryManager'].includes(action)?'basic':rule(action).level||state.levels?.[action];}
  function actionsFor(action){
   const actions=action==='wipe'?['wipe','admin','sources','storage','refresh','logging','health','playlistRemove','covers','titles','metadata','favoriteRemove','theme','uiScale','motion','tileAnimation','buttonHints','staticTitles','placeholderArt','cardDepth','playlistFeature','listImages','favoritesFirst','pinnedStars','hoverNames','listOpacity','recentRange','imageExpand','stretchDefault']:[action];
   if(managerTools.has(action))actions.push('libraryManager');
   if(action!=='admin'&&!document.body.classList.contains('gs-needs-setup')&&(state.levels?.[action]||managerTools.has(action)||action==='advanced')){
-   actions.push('settings');const level=rule(action).level||state.levels?.[action];if(action==='advanced'||level==='advanced'||managerTools.has(action)&&(rule('libraryManager').level||state.levels?.libraryManager)==='advanced')actions.push('advanced');
+   actions.push('settings');const level=settingCategory(action);if(action==='advanced'||level==='advanced'||managerTools.has(action)&&settingCategory('libraryManager')==='advanced')actions.push('advanced');
   }
   return [...new Set(actions)];
  }
@@ -66,7 +67,7 @@
   for(const link of document.querySelectorAll('a[href^="/download"],a[href^="/api/game-file/"]'))setAction(link,'downloads');
  }
  function refreshUI(){
-  if(!loaded)return;bindUI();
+  if(!loaded)return;bindUI();const familyName=$('open-family-controls')?.closest('.gs-settings-backup')?.querySelector('strong');if(familyName)familyName.dataset.tooltip=window.GameShelfProfiles?.isEnabled?.()?'Manage profiles, roles, groups, and GameShelf Guardians.':'Choose which actions need a PIN, stay available, or are disabled.';
   for(const element of document.querySelectorAll('[data-access-action],[data-access-setting]')){
    const action=element.dataset.accessAction||element.dataset.accessSetting,blocked=disabled(action),hidden=rule(action).hidden;
    if(blocked)element.dataset.guardianTooltip='This option has been disabled by a GameShelf Guardian.';else delete element.dataset.guardianTooltip;
@@ -83,7 +84,7 @@
     }
    }
   }
-  for(const element of document.querySelectorAll('[data-access-setting],[data-access-level-setting]')){if(!element.closest('#settings-dialog'))continue;const action=element.dataset.accessSetting||element.dataset.accessLevelSetting;const level=rule(action).level||state.levels?.[action];if(level==='advanced')element.dataset.settingLevel='advanced';else if(level==='basic')delete element.dataset.settingLevel;}
+  for(const element of document.querySelectorAll('[data-access-setting],[data-access-level-setting]')){if(!element.closest('#settings-dialog'))continue;const action=element.dataset.accessSetting||element.dataset.accessLevelSetting;const level=settingCategory(action);if(level==='advanced')element.dataset.settingLevel='advanced';else if(level==='basic')delete element.dataset.settingLevel;}
  }
  function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;refreshUI();});}
  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-access-action','data-access-setting','data-favorite']});
@@ -131,7 +132,7 @@
   }
  }
  async function prepareFamily(){if(state.configured&&!await enter('admin'))return false;await refresh(true);const remember=state.policy.remember||{enabled:true,minutes:5};$('family-remember-enabled').checked=remember.enabled;$('family-remember-minutes').value=remember.minutes;$('family-remember-minutes').disabled=!remember.enabled;$('family-new-pin').value='';$('family-confirm-pin').value='';$('family-pin-label').textContent=state.configured?'New PIN':'PIN';$('family-status').textContent='';$('family-remove').hidden=!state.configured;$('family-open-pin').textContent=state.configured?'PIN Settings':'Create 4-digit PIN';policyRows();return true;}
- async function openFamily(){if(await prepareFamily())openModal($('family-dialog'));}
+ async function openFamily(){if(window.GameShelfProfiles?.isEnabled?.())return GameShelfProfiles.open();if(await prepareFamily())openModal($('family-dialog'));}
  async function openPIN(selectedGuardian){if(pinSettingsResolve)return false;if(!$('family-dialog').open&&!await prepareFamily())return false;guardianProfiles=(await (await window.fetch('/api/profiles?manage=1')).json()).profiles||[];$('family-new-pin').value='';$('family-confirm-pin').value='';$('family-pin-title').textContent=state.configured?'Guardian PINs':'Create Guardian PIN';$('family-pin-intro').textContent=state.configured?'Manage the PINs that approve protected actions. GameShelf supports up to two Guardians.':'A Guardian PIN protects shared settings and approves restricted changes. Family Profiles requires at least one Guardian PIN to keep profile management in trusted hands.';$('family-guardian-field').hidden=!state.configured;$('family-guardian-select').value=selectedGuardian||state.guardians?.[0]?.id||'guardian-1';$('family-guardian-select').options[1].textContent=state.guardians?.some(g=>g.id==='guardian-2')?'Guardian 2':'Add Another Guardian PIN';$('family-auto-profile').checked=false;syncGuardianName();$('family-pin-label').textContent=state.configured?'New PIN':'PIN';pinSettingsSaved=false;openModal($('family-pin-dialog'));return new Promise(resolve=>pinSettingsResolve=resolve);}
  for(const id of ['open-family-controls'])$(id).addEventListener('click',()=>openFamily().catch(error=>showNotification(error.message)));
  for(const id of ['family-close','family-cancel'])$(id).addEventListener('click',()=>$('family-dialog').close());

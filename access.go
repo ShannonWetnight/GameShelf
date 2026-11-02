@@ -794,7 +794,7 @@ func handleAccess(w http.ResponseWriter, r *http.Request) {
 		}
 		accessMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"guardians": publicGuardians(), "configured": configured, "policy": policy, "actions": accessActions, "levels": accessDefaultLevels, "groups": func() map[string]string {
+		json.NewEncoder(w).Encode(map[string]any{"guardians": publicGuardians(), "configured": configured, "guardianProfile": func() bool { view := profileView(r); return view != nil && view.Profile.UsesGuardianPIN }(), "policy": policy, "actions": accessActions, "levels": accessDefaultLevels, "groups": func() map[string]string {
 			groups := map[string]string{}
 			for action := range accessActions {
 				groups[action] = accessGroup(action)
