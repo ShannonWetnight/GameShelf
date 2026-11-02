@@ -47,10 +47,11 @@ test('playlist checkout renders covers, placeholders, and text in separate colum
 test('nested menus stay centered after content changes, submenu closure, and reopening at different scales',()=>{
  for(const [width,scale] of [[1280,.75],[1280,1.5],[390,1.25]]){
  const r=fullUI(`uiScale=${scale};applyUIScale();await GameShelfProfiles.open();$('groups-list').querySelectorAll('button')[2].click();await pause(320);
+ const settled=dialog=>Promise.race([Promise.all(dialog.getAnimations().map(animation=>animation.finished.catch(()=>{}))),new Promise((_,reject)=>setTimeout(()=>reject(Error('Menu animation did not finish')),2000))]);
  const centered=()=>{const box=$('group-editor-dialog').getBoundingClientRect();return {offset:Math.abs((box.top+box.bottom)/2-innerHeight/2),top:box.top,bottom:box.bottom};};
- result.before=centered();$('group-library-policy').value='selected';$('group-library-policy').dispatchEvent(new Event('change'));await pause(400);result.resized=centered();
- $('group-role-choices').querySelector('input[value="adult"]').click();await pause(250);const sub=$('group-admin-dialog').getBoundingClientRect();result.sub=Math.abs((sub.top+sub.bottom)/2-innerHeight/2);$('group-admin-confirm').click();await pause(300);result.after=centered();
- $('group-editor-cancel').click();await pause(200);$('groups-list').querySelectorAll('button')[1].click();await pause(320);result.reopened=centered();
+ await settled($('group-editor-dialog'));result.before=centered();$('group-library-policy').value='selected';$('group-library-policy').dispatchEvent(new Event('change'));await pause(400);await settled($('group-editor-dialog'));result.resized=centered();
+ $('group-role-choices').querySelector('input[value="adult"]').click();await pause(250);await settled($('group-admin-dialog'));const sub=$('group-admin-dialog').getBoundingClientRect();result.sub=Math.abs((sub.top+sub.bottom)/2-innerHeight/2);$('group-admin-confirm').click();await pause(300);await settled($('group-editor-dialog'));result.after=centered();
+ $('group-editor-cancel').click();await pause(200);$('groups-list').querySelectorAll('button')[1].click();await pause(320);await settled($('group-editor-dialog'));result.reopened=centered();
  `,{withProfiles:true,configured:false,live:true,width,height:900,motion:1.1});
  for(const value of [r.before,r.resized,r.after,r.reopened]){assert.ok(value.offset<3,JSON.stringify({width,scale,r}));assert.ok(value.top>=0&&value.bottom<=900,JSON.stringify(r));}assert.ok(r.sub<3,JSON.stringify(r));
  }
