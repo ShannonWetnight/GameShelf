@@ -78,7 +78,7 @@ The welcome screen appears when no library or completed setup is saved. It waits
 
 Already have a backup? **Import Data** on the first step previews a GameShelf backup ZIP. Restore server settings, library state, and uploaded covers to bypass the setup steps. Passwords are not backed up: sign in to protected shares again afterward. [See recovery details](#backup-import-and-recovery).
 
-Not ready? The header **settings cog → Set Up Later** opens an empty shelf. Add locations later in **Settings → Advanced → Data and Diagnostics → Library Manager → Library Sources**. This choice survives restarts. **Basic Data and Diagnostics → Finish First-Time Setup** reopens the wizard only when setup was skipped or remains unfinished.
+Not ready? The header **settings cog → Set Up Later** opens an empty shelf. Add locations later in **Settings → Shelf Management → Library Manager → Library Sources**. This choice survives restarts. **Basic Data and Diagnostics → Finish First-Time Setup** reopens the wizard only when setup was skipped or remains unfinished.
 
 The optional tour begins with game controls and the Home logo, then covers search, sorting, views, the dice picker, Playlist, and Settings. **Ignore** skips the invitation. Once started, exiting asks for confirmation. Replay it using **Settings → Appearance → Quick tour**. Motion respects animation settings and the device's reduced-motion preference.
 
@@ -86,7 +86,7 @@ A valid initial `GAMESHELF_ROOT` with its matching mount skips setup. Existing s
 
 ## Choosing library locations
 
-Choose **Folder** if Docker already shares the games with GameShelf. Choose **Network** to connect directly to a file server. Both work together. Add, edit, test, or remove locations later in **Advanced Settings → Library Manager → Library Sources**. Removal requires confirmation and removes only configuration, never the original files. Save the Library Sources menu to apply your choices.
+Choose **Folder** if Docker already shares the games with GameShelf. Choose **Network** to connect directly to a file server. Both work together. Add, edit, test, or remove locations later in **Settings → Shelf Management → Library Manager → Library Sources**. Removal requires confirmation and removes only configuration, never the original files. Save the Library Sources menu to apply your choices.
 
 ### Folder shared with the container
 
@@ -168,7 +168,11 @@ A 600×900 poster is a good starting point. Poster (2:3), portrait (3:4), square
 
 ## Settings and defaults
 
-Open the header cog. **Basic / Advanced** reveals extra controls. Dropdowns share app-themed, joined option lists with keyboard and type-ahead support. Expandable menus resize smoothly in both directions, respecting animation speed and reduced motion. Display preferences are stored in this browser; metadata, sources, schedules, and logging are shared by the server. Immediate changes show a confirmation banner. Configuration menus apply changes with the standard save icon. Family Controls can require a PIN, disable, or hide individual controls.
+Open the header cog. **Basic / Advanced** reveals extra controls.
+
+**Shelf Management** contains **Library Manager** and **Family Controls**. Both are available in **Basic** for Guardian profiles and in **Advanced** by default for other users, subject to category, visibility, and access rules. Paths below omit the Basic/Advanced selector for these controls; use the view where the control is available. Select **Configure** beside the control to open it.
+
+Dropdowns share app-themed, joined option lists with keyboard and type-ahead support. Expandable menus resize smoothly in both directions, respecting animation speed and reduced motion. Display preferences are stored in this browser; metadata, sources, schedules, and logging are shared by the server. Immediate changes show a confirmation banner. Configuration menus apply changes with the standard save icon. Family Controls can require a PIN, disable, or hide individual controls.
 
 | Setting | Default | Location / behavior |
 | --- | --- | --- |
@@ -188,18 +192,22 @@ Open the header cog. **Basic / Advanced** reveals extra controls. Dropdowns shar
 | Click to expand image in list view | Single-click | Advanced Library View; Single-click, Double-click, or Disabled. Requires list images. |
 | List tile opacity | 80% | Advanced Library View; 0–100%, keeping text and controls visible. |
 | Show game names on hover | On | Advanced Library View; temporarily disabled when static titles are on. |
-| Automatic refresh | 168 hours | Advanced Data and Diagnostics → Library Manager → Refresh Interval; 0 for manual only. |
+| Automatic refresh | 168 hours | Settings → Shelf Management → Library Manager → Refresh Interval; 0 for manual only. |
 | Backup selections | All selected | Data and Diagnostics → Export Data. |
 
 **Application Logs** is visible in Basic settings; **Configure** is Advanced. View, filter, copy, or download the process's log snapshot. Without **Customize logging**, system, library, and error events stay enabled. Customization allows individual system, library, error, request, scan, and download categories. Default retention has no age limit and is bounded to 10 MB, with optional age and size overrides. System logging records server and display-setting changes without credential values. Each log download appends its export event as the last line of the downloaded snapshot without resizing the open log window. Logs are kept in process memory and do not survive a restart.
 
 **Reset All Settings → Wipe** asks for confirmation and resets browser preferences and server settings. It does not delete game files, game metadata, or uploaded covers. Restart if resetting changes the saved-data path. Without an initial library, setup is offered again. Family Controls and the PIN are retained; Wipe cannot remove their protection. If setup is skipped afterward, Finish First-Time Setup stays visible in Basic settings.
 
-**Library Manager → Library Sources → Saved data location** selects a writable subdirectory within the original data mount. Changing it does not move existing data: copy metadata and artwork before restarting. Server configuration remains under the original data mount.
+**Settings → Shelf Management → Library Manager → Library Sources → Saved data location** selects a writable subdirectory within the original data mount. Changing it does not move existing data: copy metadata and artwork before restarting. Server configuration remains under the original data mount.
 
 ## Family Controls
 
-Open **Settings → Advanced → Data and Diagnostics → Family Controls → Configure**. Create and confirm a **4-digit PIN**, then choose the access level and visibility of each setting or action:
+Open **Settings → Shelf Management → Family Controls → Configure**. Guardian profiles can reach this in **Basic** settings; otherwise it appears in **Advanced** by default, subject to configured category, visibility, and access rules.
+
+With **Family Profiles enabled**, Family Controls opens the **Family Profiles** manager for profiles, roles, groups, and **Manage Guardians**. Use **Manage Roles** to edit a role's Access, Category, and Show rules.
+
+With **Family Profiles disabled**, Family Controls opens the legacy shared-controls editor. Its **Family Profiles** button opens the profiles manager so you can configure and enable profiles. Create and confirm a **4-digit PIN** to protect shared controls, then choose the access level and visibility of each setting or action:
 
 | Access | Behavior |
 | --- | --- |
@@ -219,13 +227,13 @@ Backups contain the rules, never the PIN secret. Restoring onto an already prote
 
 ## Library Manager
 
-**Advanced Settings → Data and Diagnostics → Library Manager** groups Library Sources, Library Health, and Refresh Interval. Each opens a focused submenu and returns to its parent when closed. Guardians can protect the manager as a whole and keep existing tool-specific rules.
+**Settings → Shelf Management → Library Manager → Configure** groups Library Sources, Library Health, and Refresh Interval. Guardian profiles can open it from **Basic** settings. For other users it appears in **Advanced** by default; category, visibility, and access rules can change its availability. Each opens a focused submenu and returns to its parent when closed. Guardians can protect the manager as a whole and keep existing tool-specific rules.
 
 Manual refresh has a **ten-second server-wide quiet period**, and another manual discovery cannot queue while one is already running. A repeated request receives HTTP 429 with Retry-After; cached library browsing continues normally. Automatic scheduled scans follow their own interval.
 
 ## Library Health
 
-Open **Settings → Advanced → Data and Diagnostics → Library Manager → Library Health → View Status**. Each source shows its last check, last successful connection check, game-folder count, and a status bubble:
+Open **Settings → Shelf Management → Library Manager → Library Health → View Status** (use **Configure** to open Library Manager). Each source shows its last check, last successful connection check, game-folder count, and a status bubble:
 
 - **Green — Healthy:** the location is readable.
 - **Yellow — Degraded:** a previously readable location failed one or two checks, or has not yet been checked.
@@ -266,7 +274,7 @@ To restore on a fresh container:
 1. Attach persistent data storage and start GameShelf.
 2. Select **Import Data** on the welcome screen and choose the ZIP.
 3. Review state, server settings, health history, and uploaded covers; acknowledge replacement of selected app data and restore.
-4. Open **Advanced Settings → Library Manager → Library Sources**, enter protected shares' passwords, and save. Refresh to rebuild the network index.
+4. Open **Settings → Shelf Management → Library Manager → Library Sources**, enter protected shares' passwords, and save. Refresh to rebuild the network index.
 
 Setup imports use this container's current data location, rather than a path on the old server. Local paths from the backup must be mapped at the same container paths. If unavailable, deselect **Server settings**, import state/covers, and add locations manually. Restore network settings when possible to retain source IDs and metadata associations.
 
@@ -380,7 +388,7 @@ The indicator beside the picker shows the latest cached health state; opening or
 
 ## Family profiles
 
-Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Family Controls → Family Profiles**. You can configure profiles and roles before creating a Guardian PIN on a fresh setup. Create one through **Guardian PIN**, or let **Enable family profiles** open the PIN creator. An existing Guardian PIN still protects profile management, including resumed setup. Add the family members, then turn on **Enable family profiles**. Choose **Require PIN** when adding or editing a profile to expand its 4-digit PIN fields. Profiles without administrative permissions can open directly when this is unchecked. A profile with administrative permissions can omit its personal PIN only after an explicit save-time confirmation. Guardian PIN locks, Family Controls, and Wipe remain protected by a Guardian PIN. Existing profiles keep requiring their PIN. The toolbar profile icon switches shelves or signs out.
+Profiles are optional. During setup, open **Your Shelf → Family profiles → Configure**, or later use **Settings → Shelf Management → Family Controls → Configure**. With profiles disabled, select **Family Profiles** in the legacy controls; with profiles enabled, the profiles manager opens directly. You can configure profiles and roles before creating a Guardian PIN on a fresh setup. Create one through **Manage Guardians**, or let **Enable Family Profiles** open the PIN creator. An existing Guardian PIN still protects profile management, including resumed setup. Add the family members, then turn on **Enable family profiles**. Choose **Require PIN** when adding or editing a profile to expand its 4-digit PIN fields. Profiles without administrative permissions can open directly when this is unchecked. A profile with administrative permissions can omit its personal PIN only after an explicit save-time confirmation. Guardian PIN locks, Family Controls, and Wipe remain protected by a Guardian PIN. Existing profiles keep requiring their PIN. The toolbar profile icon switches shelves or signs out.
 
 Profiles use square photo cards. In Add Profile or Edit Profile, click the photo square to pick one of 50 original GameShelf portraits (including 25 playful portraits for younger players), or upload a PNG, JPEG, or WebP up to 8 MB. Drag, zoom, and tilt built-in or uploaded photos to choose a square crop. Photos are stored at 256 × 256 pixels; GameShelf validates and re-encodes uploads to remove image metadata. Save the profile to apply a photo. Selecting a protected profile opens the shared **PIN Required** prompt; cancel returns to the photo cards.
 

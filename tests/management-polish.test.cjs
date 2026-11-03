@@ -4,7 +4,7 @@ const wait=`const until=async(check,label)=>{const end=performance.now()+2500;wh
 
 test('Family Controls routes to profiles when enabled and retains legacy controls when disabled',()=>{
  for(const enabled of [true,false]){
-  const r=fullUI(`${wait}await GameShelfAccess.openFamily();await until(()=>$('${enabled?'profiles':'family'}-dialog').open,'management window');result.profiles=$('profiles-dialog').open;result.legacy=$('family-dialog').open;`,{configured:false,withProfiles:true,profilesEnabled:enabled,live:true});
+  const r=fullUI(`${wait}$('build-info').click();await until(()=>$('settings-dialog').open,'Settings');$('settings-advanced').click();$('open-family-controls').click();await until(()=>$('${enabled?'profiles':'family'}-dialog').open,'management window');result.profiles=$('profiles-dialog').open;result.legacy=$('family-dialog').open;`,{configured:false,withProfiles:true,profilesEnabled:enabled,live:true});
   assert.equal(r.profiles,enabled);assert.equal(r.legacy,!enabled);
  }
 });
@@ -43,5 +43,15 @@ test('banner remains at the top of a long library on desktop and mobile at diffe
  for(const [width,scale] of [[1280,1],[390,1.25]]){
   const r=fullUI(`${wait}uiScale=${scale};applyUIScale();const spacer=document.createElement('div');spacer.style.height='4000px';document.querySelector('.gs-main').append(spacer);window.scrollTo(0,1000);await pause(100);const header=document.querySelector('.gs-header').getBoundingClientRect();result.scrolled=window.scrollY;result.top=header.top;result.bottom=header.bottom;result.search=$('search-input').getBoundingClientRect().top;`,{configured:false,live:true,width,height:900});
   assert.ok(r.scrolled>500,JSON.stringify(r));assert.ok(Math.abs(r.top)<1,JSON.stringify(r));assert.ok(r.bottom<450,JSON.stringify(r));assert.ok(r.search>=0,JSON.stringify(r));
+ }
+});
+
+// Follow the path shown in empty-shelf and recovery messages in both default views.
+test('Shelf Management guidance reaches sources and health from Guardian Basic and default Advanced',()=>{
+ for(const guardian of [true,false]){
+  const r=fullUI(`${wait}accessState.guardianProfile=${guardian};await GameShelfAccess.refresh();$('build-info').click();await until(()=>$('settings-dialog').open,'Settings');$('settings-${guardian?'basic':'advanced'}').click();const manager=$('open-library-manager');result.section=manager.closest('section').querySelector('h3').textContent;result.visible=getComputedStyle(manager.closest('.gs-settings-backup')).display!=='none';result.guidance=$('empty-hint').textContent;manager.click();await until(()=>$('library-manager-dialog').open,'Library Manager');$('open-server-settings').click();await until(()=>$('server-settings-dialog').open,'Library Sources');result.sources=$('server-settings-title').textContent;$('server-settings-close').click();await until(()=>!$('server-settings-dialog').open,'close sources');result.returned=$('library-manager-dialog').open;$('open-library-health').click();await until(()=>$('health-dialog').open,'Library Health');result.health=$('health-dialog').querySelector('h2').textContent;`,{configured:false,live:true});
+  assert.equal(r.section,'Shelf Management');assert.equal(r.visible,true);
+  assert.match(r.guidance,/Settings → Shelf Management → Library Manager → Library Sources/);
+  assert.equal(r.sources,'Library Sources');assert.equal(r.returned,true);assert.equal(r.health,'Library Health');
  }
 });

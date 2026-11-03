@@ -892,7 +892,7 @@ test('export groups GameShelf data separately from cover images', async () => {
   assert.equal(groups[1].querySelectorAll('input').length, 1);
 });
 
-test('restore previews a backup and requires acknowledgment before applying', async () => {
+for (const requiresLogin of [false, true]) test(`restore previews a backup and requires acknowledgment before applying (share login: ${requiresLogin})`, async () => {
   const ui = app();
   ui.start();
   ui.click('build-info');
@@ -914,11 +914,13 @@ test('restore previews a backup and requires acknowledgment before applying', as
   const applying = ui.click('restore-apply');
   const applyRequest = ui.requests.find(item => item.url === '/api/library-restore?apply=1&state=1&covers=1');
   assert.ok(applyRequest);
-  applyRequest.resolve(response({ restored: true, restartRequired: false }));
+  applyRequest.resolve(response({ restored: true, restartRequired: false, requiresLogin }));
   await applying;
   assert.equal(ui.element('restore-dialog').open, false);
   assert.equal(ui.element('settings-dialog').open, true);
-  assert.equal(ui.element('notification-text').textContent, 'Library data restored.');
+  assert.equal(ui.element('notification-text').textContent, requiresLogin
+    ? 'Data restored. Enter share passwords in Settings → Shelf Management → Library Manager → Library Sources.'
+    : 'Library data restored.');
 });
 
 test('refresh feedback returns to the brand when the pointer has left', async () => {
