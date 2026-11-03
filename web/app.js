@@ -1824,7 +1824,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await response.json();
       restoreDialog.close();
       if (restoreChoices[2].checked) importPreferences(result.preferences || restorePreview?.preferences);
-      const message=result.restartRequired?'Library data restored. Restart the container to apply the data location.':result.requiresLogin?'Data restored. Enter share passwords in Advanced Settings → Library Manager → Library Sources.':result.scanWarning||'Library data restored.';
+      const message=result.restartRequired?'Library data restored. Restart the container to apply the data location.':result.requiresLogin?'Data restored. Enter share passwords in Settings → Shelf Management → Library Manager → Library Sources.':result.scanWarning||'Library data restored.';
       if(restoreChoices[4].checked||result.setupComplete || (restoreChoices[2].checked && result.preferences && Object.keys(result.preferences).length)) {
         localStorage.setItem('gameshelf:restore-notice',message);window.location.reload();return;
       }

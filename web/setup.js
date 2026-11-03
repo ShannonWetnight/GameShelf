@@ -80,7 +80,7 @@
   $('setup-import').addEventListener('click',()=>$('open-library-restore').click());
   $('setup-defer').addEventListener('click',async()=>{
     const button=$('setup-defer');if(button.disabled)return;button.disabled=true;$('setup-options-status').textContent='Opening your shelf…';
-    try{await jsonRequest('/api/setup?skip=1',{method:'POST'});$('setup-options-dialog').close();await boot();showNotification('Add your games later in Advanced Settings → Library Manager → Library Sources.');}
+    try{await jsonRequest('/api/setup?skip=1',{method:'POST'});$('setup-options-dialog').close();await boot();showNotification('Add your games later in Settings → Shelf Management → Library Manager → Library Sources.');}
     catch(error){$('setup-options-status').textContent=error.message;}finally{button.disabled=false;}
   });
 
