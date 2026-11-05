@@ -129,7 +129,8 @@ class ProductionContractTests(unittest.TestCase):
                 promote.plan(test.main, test.edge, 'v2.2.0', test.guard)
 
 
-@unittest.skipUnless(os.environ.get('PUBLIC_RELEASE_SCRIPT'), 'Requires main release guard checkout')
+@unittest.skipUnless(Path(os.environ.get('PUBLIC_RELEASE_SCRIPT', '')).is_file(),
+                     'Requires an existing main release guard checkout')
 class ProjectedTreeTests(unittest.TestCase):
     def test_real_candidate_contains_all_production_sources_and_retains_main_tooling(self):
         root = Path(__file__).parents[1]

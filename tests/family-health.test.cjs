@@ -33,7 +33,8 @@ test('health shows themed statuses and saves monitoring separately from viewing 
 });
 test('one themed tooltip replaces native titles, follows changes, and closes on leaving',()=>{
  const r=fullUI(`
- const button=$('random-game');button.title='One shared tooltip';await pause();button.dispatchEvent(new PointerEvent('pointerover',{bubbles:true}));await pause(210);result.native=document.querySelectorAll('[title]').length;result.visible=$('app-tooltip').matches(':popover-open');result.text=$('app-tooltip').textContent;result.legacy=getComputedStyle(button,'::after').content;
+ // Keep application startup updates from overwriting the title under test.
+ const button=$('random-game').cloneNode(true);button.removeAttribute('id');document.body.appendChild(button);button.title='One shared tooltip';await pause();button.dispatchEvent(new PointerEvent('pointerover',{bubbles:true}));await pause(210);result.native=document.querySelectorAll('[title]').length;result.visible=$('app-tooltip').matches(':popover-open');result.text=$('app-tooltip').textContent;result.legacy=getComputedStyle(button,'::after').content;
  button.title='Updated hint';await pause();result.updated=$('app-tooltip').textContent;button.dispatchEvent(new PointerEvent('pointerout',{bubbles:true,relatedTarget:document.body}));result.closed=$('app-tooltip').hidden;result.single=document.querySelectorAll('#app-tooltip').length;
  `);assert.equal(r.native,0);assert.equal(r.visible,true);assert.equal(r.text,'One shared tooltip');assert.equal(r.legacy,'none');assert.equal(r.updated,'Updated hint');assert.equal(r.closed,true);assert.equal(r.single,1);
 });
