@@ -1,0 +1,30 @@
+name: Selective stable source regression
+on:
+  pull_request:
+    branches: [edge]
+  push:
+    branches: [edge]
+permissions:
+  contents: read
+jobs:
+  promoted-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: tooling
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          path: public
+          persist-credentials: false
+      - name: Check main's public contract against the Edge planner
+        env:
+          PUBLIC_RELEASE_SCRIPT: ${{ github.workspace }}/public/.github/scripts/release.py
+        run: python3 -m unittest discover -s tooling/tests -p 'test_p*.py' -v
+      - name: Materialize a pristine selective candidate
+        run: python3 tooling/scripts/check-promotion.py --main public --output projected
+      - name: Build the promoted production tree without the Edge harness
+        run: docker build --tag gameshelf:promotion-check projected

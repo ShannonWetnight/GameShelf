@@ -46,6 +46,9 @@ runs:
           rm -rf "$CI_CACHE_ROOT/docker"
           mv "$RUNNER_TEMP/gameshelf-buildcache-next" "$CI_CACHE_ROOT/docker"
         fi
+        # Build the fixture connector from the Edge harness even for a stable candidate.
+        docker buildx build --load --file "$GITHUB_WORKSPACE/tooling/tests/connector-builder.Dockerfile" \
+          --tag gameshelf:builder "$GITHUB_WORKSPACE/tooling"
         docker image inspect gameshelf:candidate > reports/runtime-image.json
         docker image inspect gameshelf:builder > reports/builder-image.json
     - name: Run all verification lanes (two at a time)
