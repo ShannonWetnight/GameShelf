@@ -137,6 +137,22 @@ def publication_guard():
 
 
 
+def is_application_path(path):
+    """Production code and assets only; fixture servers stay on Edge."""
+    if not path or path.startswith('/') or any(part in {'', '.', '..'} for part in path.split('/')):
+        return False
+    if re.search(r'(^|/)(tests?|fixtures?)(/|[._-])|[._](test|spec)[._]', path, re.I):
+        return False
+    if path in {'Dockerfile', 'go.mod', 'go.sum', 'docker-compose.yml',
+                'connectors/rclone/go.mod', 'connectors/rclone/go.sum',
+                'connectors/rclone/notices/main.go', 'native/network-nfs.c'}:
+        return True
+    if re.fullmatch(r'(connectors/rclone/)?[a-zA-Z][a-zA-Z0-9_]*\.go', path):
+        return path != 'connectors/rclone/servers.go'
+    return bool(path.startswith(('web/', 'images/'))
+                and Path(path).suffix.lower() in {'.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.ico', '.woff', '.woff2'})
+
+
 def is_public_path(path):
     allowed = {
         'Dockerfile', 'LICENSE', 'README.md', 'ROADMAP.md', 'docker-compose.yml',
@@ -146,9 +162,7 @@ def is_public_path(path):
     }
     if path in allowed or re.fullmatch(r'\.github/release-notes/v[0-9]+\.[0-9]+\.[0-9]+\.md', path):
         return True
-    return bool(path.startswith(('web/', 'images/'))
-                and Path(path).suffix.lower() in {'.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.ico', '.woff', '.woff2'}
-                and not re.search(r'(^|/)(tests?|fixtures?)(/|\.)|\.(test|spec)\.', path, re.I))
+    return is_application_path(path)
 
 
 def validate_public_paths(paths):
