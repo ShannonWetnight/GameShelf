@@ -21,11 +21,10 @@ func operationFixture(t *testing.T) (string, string) {
 	}
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	t.Setenv("GAMESHELF_CONNECTOR_TEST_LOG", log)
 	binary := filepath.Join(dir, "connector")
 	// A local stand-in for either backend; never connects to a remote library.
 	script := `#!/bin/sh
-printf 'invoked\n' >> "$GAMESHELF_CONNECTOR_TEST_LOG"
+printf 'invoked\n' >> '` + log + `'
 for arg do
  case "$arg" in
  obscure) printf 'obscured-fixture-password\n'; exit 0 ;;
@@ -148,8 +147,8 @@ func TestNetworkHTTPMutationAttemptsDoNotLaunchConnectors(t *testing.T) {
 	handlers := map[string]http.HandlerFunc{
 		"/api/game-files/game":              handleGameFiles,
 		"/api/game-file/game?path=game.bin": handleGameFileDownload,
-		"/covers/game":                     handleCover,
-		"/download/game":                   handleDownload,
+		"/covers/game":                      handleCover,
+		"/download/game":                    handleDownload,
 		"/download-playlist?game=game":      handleDownloadCart,
 		"/download-cart?game=game":          handleDownloadCart,
 	}
