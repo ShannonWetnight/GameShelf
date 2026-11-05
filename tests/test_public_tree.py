@@ -19,12 +19,14 @@ MARKER = '# Edge launcher only; test implementation lives on edge.'
 @unittest.skipUnless(hasattr(release, 'check_tree'), 'Main-specific checks run against a main source checkout')
 class PublicTreeTests(unittest.TestCase):
     def test_production_files_are_allowed(self):
-        paths = 'main.go\nweb/app.js\nimages/gameshelf_icon.png\n.github/release-notes/v2.2.0.md\n.github/scripts/publish.sh'
+        paths = 'network.go\nprofiles.go\nconnectors/rclone/main.go\nconnectors/rclone/cat.go\nconnectors/rclone/go.mod\nconnectors/rclone/go.sum\nconnectors/rclone/notices/main.go\nnative/network-nfs.c\nmain.go\nweb/app.js\nimages/gameshelf_icon.png\n.github/release-notes/v2.2.0.md\n.github/scripts/publish.sh'
         with patch.object(release, 'run', return_value=paths), patch.object(Path, 'read_text', return_value=MARKER):
             release.check_tree()
 
     def test_development_files_are_rejected(self):
-        for path in ('main_test.go', 'tests/frontend.test.cjs', 'scripts/docker-smoke.py',
+        for path in ('network_test.go', 'connectors/rclone/cat_test.go', 'connectors/rclone/servers.go',
+                     'connectors/rclone/fixtures/main.go', 'connectors/rclone/notices/main_test.go',
+                     'native/network-nfs-test.c', 'native/other.c', 'scripts/helper.go', 'main_test.go', 'tests/frontend.test.cjs', 'scripts/docker-smoke.py',
                      '.github/actions/verify/action.yml', '.github/release-notes/edge.md',
                      'web/app.test.js', 'web/fixtures/example.png', 'reports/scan.json', 'notes.txt', 'docs/RELEASING.md', 'scripts/release.py', 'scripts/publish.sh', '.github/scripts/promote.py'):
             with self.subTest(path=path), patch.object(release, 'run', return_value=path):

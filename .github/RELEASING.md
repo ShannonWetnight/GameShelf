@@ -31,3 +31,11 @@ The generator adds the standard GameShelf cover image, a versioned Changes headi
 Use only `Changes`, `Fixed`, `Added`, `Other`, and `Security` as level-two headings. Omit empty sections and keep bullets to one short sentence where practical. Describe the user-visible result; group related changes. Put patched security issues under `Security`, naming a CVE only when verified. Keep any essential upgrade action to a brief bullet in the relevant section.
 
 Do not append installation instructions, limitations, commit lists, source SHAs, container references, image digests, or build details to the public notes. Installation belongs in README; source and image identity belong in `release.json` and the Action summary. Complete the draft version notes on the main PR branch for each stable release, and update `.github/release-notes/edge.md` for each Edge test release.
+
+### Selective source regression
+
+Main must accept modular application files before promoting current Edge. The production rules include root Go sources, the rclone module and notice generator, and `native/network-nfs.c`. Go tests, the connector fixture server, and development tooling stay on Edge. The production Dockerfile builds without fixture sources; verification adds its fixture connector from the Edge harness separately.
+
+The **Selective stable source regression** check constructs a candidate from main plus the selected Edge files, validates the complete candidate against main's public rules, and builds that candidate's Dockerfile. It does not create a release PR, tag, image publication, or release. A main public-rule change must merge before an Edge change that requires it can pass this check.
+
+To inspect the candidate locally, run `python3 scripts/check-promotion.py --main /path/to/main-checkout --output /tmp/gameshelf-candidate`, then `docker build --tag gameshelf:promotion-check /tmp/gameshelf-candidate`. The output directory must not exist. To run the guard tests against that main checkout, set `PUBLIC_RELEASE_SCRIPT=/path/to/main-checkout/.github/scripts/release.py` when running the Python test suite.

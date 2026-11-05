@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Create a selective main release PR after the Edge checks pass."""
 import importlib.util
+import fnmatch
 import json
 import os
+import re
+import shlex
 from pathlib import Path
 import subprocess
 import tempfile
 
-CORE = {'Dockerfile', 'main.go', 'go.mod', 'go.sum', 'docker-compose.yml'}
 REQUIRED = {'Dockerfile', 'main.go', 'go.mod', 'docker-compose.yml'}
 
 
@@ -24,8 +26,24 @@ def entries(root):
     return result
 
 
+def is_application_path(path):
+    """Production code and assets only; fixture servers stay on Edge."""
+    if not path or path.startswith('/') or any(part in {'', '.', '..'} for part in path.split('/')):
+        return False
+    if re.search(r'(^|/)(tests?|fixtures?)(/|[._-])|[._](test|spec)[._]', path, re.I):
+        return False
+    if path in {'Dockerfile', 'go.mod', 'go.sum', 'docker-compose.yml',
+                'connectors/rclone/go.mod', 'connectors/rclone/go.sum',
+                'connectors/rclone/notices/main.go', 'native/network-nfs.c'}:
+        return True
+    if re.fullmatch(r'(connectors/rclone/)?[a-zA-Z][a-zA-Z0-9_]*\.go', path):
+        return path != 'connectors/rclone/servers.go'
+    return bool(path.startswith(('web/', 'images/'))
+                and Path(path).suffix.lower() in {'.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.ico', '.woff', '.woff2'})
+
+
 def production(path, guard):
-    return (path in CORE or path.startswith(('web/', 'images/'))) and guard.is_public_path(path)
+    return is_application_path(path)
 
 
 def plan(main, edge, version, guard):
@@ -40,9 +58,38 @@ def plan(main, edge, version, guard):
     removed = {path for path in main if production(path, guard) and path not in edge}
     final_paths = (set(main) - removed) | selected | {note}
     guard.validate_public_paths(sorted(final_paths))
+    for path in selected:
+        if edge[path]['type'] != 'blob' or edge[path]['mode'] not in {'100644', '100755'}:
+            raise ValueError(f'Production source must be a regular file: {path}')
     changes = [edge[path] for path in sorted(selected) if main.get(path) != edge[path]]
     changes += [{**main[path], 'sha': None} for path in sorted(removed)]
     return changes
+
+
+def validate_build_inputs(dockerfile, paths):
+    """Check local COPY inputs against the candidate, never the Edge workspace."""
+    paths = set(paths)
+    for line in dockerfile.replace('\\\n', ' ').splitlines():
+        words = shlex.split(line, comments=True)
+        if not words or words[0].upper() != 'COPY' or any(w.startswith('--from=') for w in words):
+            continue
+        for source in words[1:-1]:
+            if source.startswith('--'):
+                raise ValueError('Unsupported COPY option in production preflight: ' + source)
+            source = source.removeprefix('./').rstrip('/')
+            if not any(path == source or path.startswith(source + '/') or fnmatch.fnmatchcase(path, source)
+                       for path in paths):
+                raise ValueError('Promoted tree is missing Docker COPY input: ' + source)
+
+
+def candidate_paths(main, changes):
+    paths = set(main)
+    for change in changes:
+        if change['sha'] is None:
+            paths.discard(change['path'])
+        else:
+            paths.add(change['path'])
+    return paths
 
 
 def api(path, payload):
@@ -72,7 +119,9 @@ def main():
     version, source = os.environ['PROMOTE_VERSION'], os.environ['GITHUB_SHA']
     if git(edge, 'rev-parse', 'HEAD') != source:
         raise ValueError('Promotion source differs from the tested Edge commit.')
-    changes = plan(entries(public), entries(edge), version, guard)
+    public_entries, edge_entries = entries(public), entries(edge)
+    changes = plan(public_entries, edge_entries, version, guard)
+    validate_build_inputs((edge / 'Dockerfile').read_text(), candidate_paths(public_entries, changes))
     repo = os.environ['GITHUB_REPOSITORY']
     note = f'.github/release-notes/{version}.md'
     changes.append(draft_note_change(public, version, repo))
