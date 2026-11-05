@@ -19,12 +19,16 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -186,6 +190,44 @@ func TestWebDAVNetworkLibraryStreamsFilesCoversZIPAndRanges(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	// Check real transfers through custom TLS trust and an HTTP proxy. These
+	// wrappers reach only the disposable local WebDAV fixture above.
+	target, err := url.Parse("http://" + address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("custom CA", func(t *testing.T) {
+		tlsServer := httptest.NewTLSServer(httputil.NewSingleHostReverseProxy(target))
+		defer tlsServer.Close()
+		cert := filepath.Join(t.TempDir(), "fixture-ca.pem")
+		if err := os.WriteFile(cert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: tlsServer.Certificate().Raw}), 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("SSL_CERT_FILE", cert)
+		source := networkSource{Protocol: "webdav", URL: tlsServer.URL, Username: "reader", Password: "test-password"}
+		var out bytes.Buffer
+		if err := copyRemote(ctx, &out, source, "Network Game/game.bin", 0, -1); err != nil || !bytes.Equal(out.Bytes(), payload) {
+			t.Fatalf("custom CA transfer failed: %v", err)
+		}
+	})
+	t.Run("HTTP proxy", func(t *testing.T) {
+		var calls atomic.Int32
+		reverse := httputil.NewSingleHostReverseProxy(target)
+		proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			reverse.ServeHTTP(w, r)
+		}))
+		defer proxy.Close()
+		t.Setenv("HTTP_PROXY", proxy.URL)
+		t.Setenv("http_proxy", proxy.URL)
+		t.Setenv("NO_PROXY", "")
+		t.Setenv("no_proxy", "")
+		source := networkSource{Protocol: "webdav", URL: "http://gameshelf-proxy-fixture.invalid", Username: "reader", Password: "test-password"}
+		var out bytes.Buffer
+		if err := copyRemote(ctx, &out, source, "Network Game/game.bin", 0, -1); err != nil || !bytes.Equal(out.Bytes(), payload) || calls.Load() == 0 {
+			t.Fatalf("proxy transfer failed: %v", err)
+		}
+	})
 	value := serverSettings{DataDir: data, RefreshInterval: "0", Sources: []networkSource{{ID: newSourceID(), URL: "http://" + address, Protocol: "webdav", Password: "test-password", Username: "reader", Name: "WebDAV fixture"}}}
 	if err = saveServerSettings(value); err != nil {
 		t.Fatal(err)

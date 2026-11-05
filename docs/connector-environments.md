@@ -12,7 +12,7 @@ application secrets and unrelated source credentials.
 | All four process paths | `TZ`, `TMPDIR`, `TMP`, `TEMP`, `SYSTEMROOT`, `WINDIR` when set | Runtime time zone, temporary storage and Windows system paths; absent values use platform defaults |
 | rclone transfer | `LOCALDOMAIN`, `RES_OPTIONS`, `HOSTALIASES`; WebDAV/FTPS also receive `SSL_CERT_FILE`, `SSL_CERT_DIR`; WebDAV also receives `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` and their lowercase equivalents | A fresh `RCLONE_CONFIG_GS_*` map from the selected source, with `--config` pointing to the null device |
 | Native NFS helper | `LOCALDOMAIN`, `RES_OPTIONS`, `HOSTALIASES` | Operation, destination, NFS version and UID/GID through arguments; no source password |
-| `rclone obscure -` | No network, certificate, proxy or source configuration | Only the selected password on stdin; obscured output goes to the transfer environment |
+| `rclone obscure -` | No network, certificate, proxy or source configuration | Only the selected password on stdin and a null config file; obscured output goes to the transfer environment |
 | `ssh-keyscan` | `LOCALDOMAIN`, `RES_OPTIONS`, `HOSTALIASES` | Validated host, port, timeout and key types through arguments; no password or agent |
 
 The resolver variables preserve libc resolver configuration where the platform
@@ -43,7 +43,8 @@ No credential values should be logged.
 allowlist, explicit empty values, selected credentials, source-to-source cleanup,
 passwordless agent compatibility and actual subprocess environments. Local shell
 stand-ins verify password-obscuring, transfer/NFS and host-key discovery paths
-without contacting any shares. Existing operation rejection tests retain their
+without contacting any shares. The WebDAV integration test also transfers through
+a local HTTP proxy and a TLS server with a custom fixture CA. Existing operation rejection tests retain their
 process-call checks using a fixture-local log path rather than an inherited
 application variable.
 

@@ -85,6 +85,7 @@ func TestConnectorProcessesReceiveOnlySelectedCredentials(t *testing.T) {
 [ -z "${GAMESHELF_SENTINEL_SECRET+x}${RCLONE_CONFIG_OTHER_PASS+x}${RCLONE_CONFIG_GS_TOKEN+x}" ] || exit 81
 case "$1" in
  obscure)
+  [ "$2" = - ] && [ "$3" = --config ] && [ "$4" = /dev/null ] || exit 86
   [ -z "${RCLONE_CONFIG_GS_PASS+x}${SSH_AUTH_SOCK+x}${HTTPS_PROXY+x}${SSL_CERT_FILE+x}" ] || exit 82
   IFS= read -r password
   [ "$password" = disposable-source-password ] || exit 83

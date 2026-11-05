@@ -489,7 +489,7 @@ func remoteCommand(ctx context.Context, source networkSource, operation, relativ
 		return nil, func() {}, err
 	}
 	if password != "" {
-		obscure := exec.CommandContext(ctx, rcloneBinary, "obscure", "-")
+		obscure := exec.CommandContext(ctx, rcloneBinary, "obscure", "-", "--config", os.DevNull)
 		obscure.Env = connectorEnvironment("")
 		obscure.Stdin = strings.NewReader(password + "\n")
 		out, err := obscure.Output()
