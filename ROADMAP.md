@@ -106,6 +106,7 @@ GameShelf currently limits network library access to read operations, but a netw
 * [x] Expand network smoke and regression tests using isolated SMB credentials that have read/write access. Independently prove write permissions, then verify connection tests, indexing, artwork, file/ZIP downloads and browser Playlist operations preserve remote names, contents and relevant metadata. HTTP and process regression tests reject unsupported mutation operations. Use only disposable fixtures, never a user's library. Verified in [Edge run 40421264038](https://github.com/ShannonWetnight/GameShelf/actions/runs/40421264038).
 * [ ] Review protocol-specific read-only file access and whether SMB can request only the minimum file and directory permissions needed. Evaluate the tradeoffs before replacing the existing limited rclone connector.
 * [ ] Evaluate tighter connector process isolation, including source-specific credentials, approved destinations, least privilege, and a narrow read-only interface.
+  - Partial hardening: [explicit subprocess environments](docs/connector-environments.md) exclude unrelated application/source secrets and restrict agent, CA and proxy configuration by operation. Destination enforcement and OS process boundaries remain open.
 * [ ] Document the security boundary: container read-only filesystems and unprivileged execution do not revoke remote SMB account permissions. Server-side read-only credentials remain the strongest enforcement.
 
 ### Administration, Security & LAN

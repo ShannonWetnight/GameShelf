@@ -376,6 +376,30 @@ func connectionError(stderr string, err error) error {
 	}
 	return errors.New("Could not read this network folder. Check the address, share name, connection type, and server availability")
 }
+
+// connectorEnvironment starts non-nil and copies exact names only. In particular,
+// application secrets, other remotes, loader hooks, HOME-based configuration,
+// and Go debug overrides are not ambient connector configuration.
+func connectorEnvironment(protocol string) []string {
+	names := []string{"TZ", "TMPDIR", "TMP", "TEMP", "SYSTEMROOT", "WINDIR"}
+	if protocol != "" {
+		names = append(names, "LOCALDOMAIN", "RES_OPTIONS", "HOSTALIASES")
+	}
+	if protocol == "webdav" || protocol == "ftps" {
+		names = append(names, "SSL_CERT_FILE", "SSL_CERT_DIR")
+	}
+	if protocol == "webdav" {
+		names = append(names, "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy")
+	}
+	env := make([]string, 0, len(names))
+	for _, name := range names {
+		if value, ok := os.LookupEnv(name); ok {
+			env = append(env, name+"="+value)
+		}
+	}
+	return env
+}
+
 func remoteCommand(ctx context.Context, source networkSource, operation, relative string, recursive bool, offset, count int64) (*exec.Cmd, func(), error) {
 	// Validate before credentials, connector processes (including obscure), or slots.
 	// Do not echo the supplied operation: it may contain sensitive input.
@@ -432,14 +456,11 @@ func remoteCommand(ctx context.Context, source networkSource, operation, relativ
 		u.RawQuery = q.Encode()
 		args := []string{operation, u.String(), relative, strconv.FormatBool(recursive), strconv.FormatInt(offset, 10), strconv.FormatInt(count, 10)}
 		prepared = true
-		return exec.CommandContext(ctx, nfsBinary, args...), release, nil
+		cmd := exec.CommandContext(ctx, nfsBinary, args...)
+		cmd.Env = connectorEnvironment("nfs")
+		return cmd, release, nil
 	}
-	env := make([]string, 0)
-	for _, item := range os.Environ() {
-		if !strings.HasPrefix(item, "RCLONE_") {
-			env = append(env, item)
-		}
-	}
+	env := connectorEnvironment(source.Protocol)
 	config := map[string]string{"TYPE": source.Protocol, "HOST": u.Hostname(), "USER": source.Username, "DOMAIN": source.Domain, "PORT": u.Port()}
 	remoteRoot := u.Path
 	if source.Protocol == "smb" {
@@ -468,13 +489,21 @@ func remoteCommand(ctx context.Context, source networkSource, operation, relativ
 		return nil, func() {}, err
 	}
 	if password != "" {
-		obscure := exec.CommandContext(ctx, rcloneBinary, "obscure", "-")
+		obscure := exec.CommandContext(ctx, rcloneBinary, "obscure", "-", "--config", os.DevNull)
+		obscure.Env = connectorEnvironment("")
 		obscure.Stdin = strings.NewReader(password + "\n")
 		out, err := obscure.Output()
 		if err != nil {
 			return nil, func() {}, errors.New("network connector is unavailable")
 		}
 		config["PASS"] = strings.TrimSpace(string(out))
+	}
+	// Preserve rclone's existing passwordless SFTP agent authentication, but do
+	// not expose the agent to password-authenticated sources or other helpers.
+	if source.Protocol == "sftp" && password == "" {
+		if socket, ok := os.LookupEnv("SSH_AUTH_SOCK"); ok {
+			env = append(env, "SSH_AUTH_SOCK="+socket)
+		}
 	}
 	cleanup := func() {}
 	if source.Protocol == "sftp" {
@@ -650,6 +679,7 @@ func handleNetworkTest(w http.ResponseWriter, r *http.Request) {
 			port = "22"
 		}
 		cmd := exec.CommandContext(ctx, "ssh-keyscan", "-T", "6", "-p", port, "-t", "ed25519,ecdsa,rsa", u.Hostname())
+		cmd.Env = connectorEnvironment("keyscan")
 		output, err := cmd.Output()
 		if err != nil && len(output) == 0 {
 			http.Error(w, "Could not read the SFTP server key. Check the address and port", 400)
@@ -1323,7 +1353,7 @@ func restoreNetworkGame(source networkSource, game networkSnapshotGame, state li
 		entry.Game.Name = title
 	}
 	entry.Game.Favorite = state.Favorites[folder]
- entry.Game.CoverStretch = coverStretchOverride(state,folder)
+	entry.Game.CoverStretch = coverStretchOverride(state, folder)
 	if added := state.FirstSeen[folder]; added != "" {
 		entry.Game.AddedAt = added
 	}
