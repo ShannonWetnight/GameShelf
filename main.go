@@ -156,7 +156,7 @@ func main() {
 
 	logEvent("system", "GameShelf serving %s on %s", rootDir, addr)
 	httpServer := newGameShelfHTTPServer(addr, loggingMiddleware(setupGate(profileGate(accessGate(mux)))))
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := serveShelf(httpServer); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }

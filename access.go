@@ -668,6 +668,10 @@ func handleAccessUnlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, action := range request.Actions {
+		if isShelfMember(r) && action != "downloads" {
+			http.Error(w, "An enrolled owner is required.", http.StatusForbidden)
+			return
+		}
 		if _, ok := accessActions[action]; !ok && action != "admin" {
 			http.Error(w, "unknown action", 400)
 			return

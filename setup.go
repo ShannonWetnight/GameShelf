@@ -174,6 +174,10 @@ func handleSetup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	switch r.Method {
 	case http.MethodGet:
+		if isShelfMember(r) {
+			profileReply(w, map[string]any{"required": setupRequired.Load(), "settings": map[string]any{}, "member": true})
+			return
+		}
 		settingsMu.RLock()
 		value := configuredSettings
 		settingsMu.RUnlock()

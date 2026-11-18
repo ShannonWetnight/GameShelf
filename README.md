@@ -9,7 +9,7 @@
 
 GameShelf turns a DRM-free collection into a read-only game library for your home network. Browse covers, find a game, and download its folder as a ZIP. Original files stay where they are. Display titles, favorites, edited artwork, and settings live separately in application data.
 
-It is designed for a small LAN, typically 1–10 people, without accounts, game launchers, or a database service. GameShelf does not supply games or bypass DRM. Optional Family Controls restrict shared settings and actions with a PIN or disable them entirely. Protect access to the app through your network or an authenticated reverse proxy. Security is a core requirement: server-side enforcement, confined read-only library access, protected secrets, and automated security checks are part of the application.
+It is designed for a small LAN, typically 1–10 people, without mandatory accounts, game launchers, or a database service. GameShelf does not supply games or bypass DRM. Optional Family Controls restrict shared settings and actions with a PIN or disable them entirely. For individual access, enable owner/member certificates or use an authenticated reverse proxy. Security is a core requirement: server-side enforcement, confined read-only library access, protected secrets, and automated security checks are part of the application.
 
 ## Contents
 
@@ -297,6 +297,7 @@ The data volume must stay writable. For a host folder requiring another identity
 | Optional environment variable | Default | Purpose |
 | --- | --- | --- |
 | `GAMESHELF_ROOT` | Unset | Initial mapped library folder; unnecessary for interactive setup. |
+| `GAMESHELF_IDENTITY_DIR` | Unset | Enables certificate-authenticated HTTPS and owner/member access using this mounted directory. |
 | `GAMESHELF_DATA_DIR` | `/data` | Original writable application-data mount. |
 
 `GAMESHELF_ADDR` is no longer used; the internal port is always 8080. Configure refresh in the app. Legacy `GAMESHELF_REFRESH_INTERVAL` is read only as an initial compatibility setting.
@@ -304,6 +305,24 @@ The data volume must stay writable. For a host folder requiring another identity
 ### HTTP connection limits
 
 GameShelf allows 10 seconds to receive request headers, retains Go's existing 1 MiB header limit, and closes unused keep-alive connections after two minutes. These limits do not set a fixed duration for request bodies or responses, so large backup uploads and streamed ZIP downloads keep their existing behavior. Endpoint size checks still apply. The existing header-size bound accommodates long cover-selection export URLs.
+
+### Owner and member access (optional)
+
+Enable this mode when each person or device should prove its identity before opening the shelf. GameShelf serves HTTPS on port 8080 and requests a client certificate. Owners can complete setup and administer the shelf. Members can browse, search, use their family profile, and download permitted games. Existing Family Controls apply to both roles.
+
+1. Prepare a directory outside your game and data mounts. Place the HTTPS certificate chain for your GameShelf hostname in `server.crt` and its matching private key in `server.key`. Client devices must trust the server certificate. Give the container user read access to the key and mount the directory read-only.
+2. Give each owner or member a separate TLS client certificate and private key in their browser or OS certificate store. An existing client certificate or a dedicated self-signed client certificate works. Only the public client certificate goes to the operator.
+3. On the host, create a plain text file named `enrollments` in the same directory. Add one line per client certificate, starting with the first owner. Each line contains the role (`owner` or `member`), a space, and the 64-character SHA-256 fingerprint of the DER certificate. For example, with the public owner certificate in `owner.crt`, this prints a complete enrollment line:
+
+   ```sh
+   openssl x509 -in owner.crt -outform DER -out owner.der &&
+     openssl dgst -sha256 -r owner.der | awk '{print "owner", $1}'
+   ```
+
+4. Add `GAMESHELF_IDENTITY_DIR: /identity` to the Compose service environment and `./identity:/identity:ro` to its volumes. Recreate the container and open `https://your-gameshelf-host:8080`. Select the enrolled owner certificate to finish setup. A missing owner, malformed enrollment file, or unreadable server key prevents startup.
+5. To add, rotate, or revoke access, edit the host enrollment file and restart GameShelf. For owner recovery, enroll a replacement owner certificate on the host. Keep a separate protected backup of the identity directory. Application backups and restores cover shelf data.
+
+Connect directly or use a TCP/TLS passthrough proxy so GameShelf receives each client's certificate. The HTTP backend example below applies to the default shared-shelf mode.
 
 ### Reverse proxy and access control
 
@@ -350,7 +369,7 @@ GameShelf uses Go and static browser assets. Docker includes a restricted [rclon
 
 Source builds need **Go 1.27.3 or later**, `connectors/rclone` built as `rclone`, and `native/network-nfs.c` compiled with libnfs as `/app/gameshelf-nfs`. Docker handles these steps automatically. Tests cover server behavior, browser flows, protocol fixtures, container restrictions, and dependency/image security.
 
-This Edge branch contains development tests and packaging. Use **Edge tests and prerelease** in Actions for test packages and optional prereleases. Promote reviewed application changes and notes to main individually; keep the test harness on Edge. See the [release guide](.github/RELEASING.md) and [roadmap](ROADMAP.md).
+This Edge branch contains development tests and packaging. Pushes to Edge run verification. In **Edge tests and Docker image**, select **publish** to publish the verified Edge image, or enter a **promote_version** with **publish** unchecked to prepare a draft stable PR from selected application files and version notes; keep the test harness on Edge. See the [release guide](.github/RELEASING.md) and [roadmap](ROADMAP.md).
 
 ## Responsible Use & Distribution
 GameShelf is a general-purpose file indexing and download utility. While it is designed to organize and serve locally stored game files, it does not enforce or restrict the type of content being served. As such, it can be used to distribute any files accessible within its configured root directory.

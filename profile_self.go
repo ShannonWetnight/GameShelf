@@ -95,7 +95,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p, ok := db.Profiles[value.ID]
-		if !ok || !profilePINMatches(p, value.PIN) {
+		if !ok || (isShelfMember(r) && p.UsesGuardianPIN) || !profilePINMatches(p, value.PIN) {
 			logEvent("profile", "Profile edit authentication rejected")
 			http.Error(w, "Profile or PIN did not match.", 401)
 			return
@@ -115,7 +115,7 @@ func handleProfileSelf(w http.ResponseWriter, r *http.Request) {
 	}
 	session, ok := profileEdits[cookie.Value]
 	p, exists := db.Profiles[session.Profile]
-	if !ok || !exists || session.Home != settingsHome || session.Epoch != db.Epoch || time.Now().After(session.Until) {
+	if !ok || !exists || (isShelfMember(r) && p.UsesGuardianPIN) || session.Home != settingsHome || session.Epoch != db.Epoch || time.Now().After(session.Until) {
 		http.Error(w, "Profile approval expired. Open the editor again.", 401)
 		return
 	}

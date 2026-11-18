@@ -2681,3 +2681,8 @@ body.gs-needs-setup{height:calc(100dvh / var(--ui-scale));min-height:0;overflow:
 .gs-library-view-health[data-state='critical']::before{background:#e3606d;}
 .gs-library-view-count{opacity:.7;}
 @media(max-width:600px){.gs-library-view{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;margin-bottom:16px;}.gs-library-view select{width:100%;min-width:0;max-width:none;}.gs-library-view-health{margin-left:0;}.gs-library-view-count{justify-self:end;}}
+
+.gs-member :is(#build-info, .gs-favorite-star, #save-game-title, #edit-game-cover,
+  #reset-game-metadata, #game-cover-stretch) {
+  display: none !important;
+}

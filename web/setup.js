@@ -108,12 +108,23 @@
       if(window.GameShelfProfiles&&!await GameShelfProfiles.initialize())return;
       current = await jsonRequest('/api/setup', { cache: 'no-store' });
       if (typeof current.required !== 'boolean' || !current.settings) throw new Error('GameShelf could not read its setup options.');
+      document.body.classList.toggle('gs-member', current.member === true);
+      if (current.member) {
+        $('game-title-input').readOnly = true;
+        if (current.required) {
+          $('boot-message').textContent = 'An owner needs to finish library setup.';
+          $('boot-retry').hidden = false;
+          return;
+        }
+      }
       serverSettings = current.settings;syncSetupResume();
       if(serverSettings.preferences && !hasSavedPreferences){
         importPreferences(serverSettings.preferences);
         if(Object.keys(serverSettings.preferences).length){window.location.reload();return;}
       }
-      syncSetupHeader(current.required);setupTheme.value=themePreference;
+      syncSetupHeader(current.required);
+      if (current.member) $('gs-refresh-trigger').disabled = true;
+      setupTheme.value=themePreference;
       $('setup-page').hidden = !current.required; document.body.classList.toggle('gs-needs-setup', current.required);
       if (current.required) {
         const value = { ...serverSettings };
@@ -125,7 +136,7 @@
         syncRefresh(); setStep(1, false); $('setup-status').textContent = '';
       }
       document.body.classList.remove('gs-booting');
-      if (!current.required) { await loadGames(); watchScan();window.GameShelfProfiles?.offerTour();if(localStorage.getItem('gameshelf:pending-tour')==='true'){localStorage.removeItem('gameshelf:pending-tour');window.GameShelfTour?.prepare();window.GameShelfTour?.offer();}const notice=localStorage.getItem('gameshelf:restore-notice');if(notice){localStorage.removeItem('gameshelf:restore-notice');showNotification(notice);} }
+      if (!current.required) { await loadGames(); if(!current.member)watchScan();window.GameShelfProfiles?.offerTour();if(localStorage.getItem('gameshelf:pending-tour')==='true'){localStorage.removeItem('gameshelf:pending-tour');window.GameShelfTour?.prepare();window.GameShelfTour?.offer();}const notice=localStorage.getItem('gameshelf:restore-notice');if(notice){localStorage.removeItem('gameshelf:restore-notice');showNotification(notice);} }
     } catch {
       $('boot-message').textContent = 'Could not connect to GameShelf. Try again when the server is ready.'; $('boot-retry').hidden = false;
     }

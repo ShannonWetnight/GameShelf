@@ -1,5 +1,7 @@
 ## Added
 
+- Optional owner and member certificates protect the shelf, with host-controlled enrollment before first setup.
+
 - Role-backed groups, personal versus Guardian PIN approvals, editable Guardian nicknames, and confirmed Guardian-to-role migration with a safe last-Guardian choice.
 - Profile option groups, single/multiple role selection, role defaults reset, joined dropdown outlines, saved-PIN controls, and unfinished-setup attention cues.
 

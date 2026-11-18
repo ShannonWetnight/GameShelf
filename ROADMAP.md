@@ -1,13 +1,13 @@
 # GameShelf Roadmap
 
-GameShelf is intentionally minimalist: no accounts, no databases, no external services required for local libraries. This roadmap outlines the planned evolution of the project while preserving its **offline-friendly, no-nonsense, LAN-focused** design. Please note that these goals are subject to change and are merely ideas. Not all features will be implemented.
+GameShelf is intentionally minimalist: no required accounts, no databases, no external services required for local libraries. This roadmap outlines the planned evolution of the project while preserving its **offline-friendly, no-nonsense, LAN-focused** design. Please note that these goals are subject to change and are merely ideas. Not all features will be implemented.
 
 ---
 
 ### Recommended Next
 * [x] Add a Library Health panel with per-source status, last successful connection check, manual retry, scheduled checks, and exportable history. Keep offline catalogs visible while diagnosing a source.
 * [x] Add **Library View**: filter by a named library instead of All Sources, with its health indicator beside the source name.
-* [ ] Add authenticated owner/member access and secure first-owner enrollment for deployments that need identities beyond the shared family PIN.
+* [x] Add optional authenticated owner/member access with operator-enrolled client certificates. Owners complete setup and manage the shelf. Members browse and download under the existing Family Controls and profile rules.
 * [ ] Prioritize the network read-only safeguards review below, including guidance to use dedicated read-only share accounts.
 * [x] Add a validated restore flow for exported library backups, with a preview and selection before replacing saved data; keep the mounted game library read-only.
 * [x] Add an optional download Playlist for choosing several games, reviewing their estimated size, and creating one ZIP.
