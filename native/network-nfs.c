@@ -1,5 +1,6 @@
 /* Read-only userspace NFS adapter. No mounts, root privileges, or FUSE required. */
 #define _POSIX_C_SOURCE 200809L
+#include <sys/time.h>
 #include <nfsc/libnfs.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -51,10 +52,38 @@ static int list(struct nfs_context *nfs, const char *directory, int recursive, u
 }
 static int cat(struct nfs_context *nfs, const char *relative, uint64_t offset, int64_t count) {
     char *copy=strdup(relative);if(!copy)return -1;
-    char checked[8192]="";char *save=NULL;char *part=strtok_r(copy,"/",&save);
-    while(part){if(!safe_name(part)||strlen(checked)+strlen(part)+2>=sizeof(checked)){free(copy);return -1;}strcat(checked,"/");strcat(checked,part);struct nfs_stat_64 st;if(nfs_lstat64(nfs,checked,&st)<0||S_ISLNK(st.nfs_mode)){free(copy);return -1;}part=strtok_r(NULL,"/",&save);if(part&&!S_ISDIR(st.nfs_mode)){free(copy);return -1;}if(!part&&!S_ISREG(st.nfs_mode)){free(copy);return -1;}}
-    free(copy);if(!*checked)return -1;
-    struct nfsfh *file=NULL;if(nfs_open(nfs,checked,O_RDONLY|O_NOFOLLOW,&file)<0)return -1;
+    char checked[8192] = "";
+    char *save = NULL;
+    char *part = strtok_r(copy, "/", &save);
+    struct nfs_stat_64 expected;
+    while (part) {
+        if (!safe_name(part) || strlen(checked) + strlen(part) + 2 >= sizeof(checked)) {
+            free(copy);
+            return -1;
+        }
+        strcat(checked, "/");
+        strcat(checked, part);
+        part = strtok_r(NULL, "/", &save);
+        if (nfs_lstat64(nfs, checked, &expected) < 0 ||
+            (part ? !S_ISDIR(expected.nfs_mode) : !S_ISREG(expected.nfs_mode))) {
+            free(copy);
+            return -1;
+        }
+    }
+    free(copy);
+    if (!*checked) return -1;
+
+    struct nfsfh *file = NULL;
+    if (nfs_open(nfs, checked, O_RDONLY | O_NOFOLLOW, &file) < 0) return -1;
+    // Check the opened object, before output. This catches an identity change
+    // after the last lstat; earlier path lookups are still separate operations.
+    struct nfs_stat_64 opened;
+    if (nfs_fstat64(nfs, file, &opened) < 0 ||
+        !S_ISREG(opened.nfs_mode) || opened.nfs_dev != expected.nfs_dev ||
+        opened.nfs_ino != expected.nfs_ino) {
+        nfs_close(nfs, file);
+        return -1;
+    }
     unsigned char buffer[65536];int result=0;
     while(count!=0){size_t amount=(count<0||count>(int64_t)sizeof(buffer))?sizeof(buffer):(size_t)count;
 #ifdef LIBNFS_API_V2

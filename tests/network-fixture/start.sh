@@ -17,6 +17,7 @@ disable netbios = yes
 smb ports = 445
 log level = 0
 follow symlinks = no
+wide links = no
 [games]
 path = /fixture
 read only = yes
