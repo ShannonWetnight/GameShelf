@@ -49,6 +49,7 @@ def main(image):
         cover = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM2kAAAAASUVORK5CYII=")
         (game / "cover.png").write_bytes(cover)
         (library / "Escape").symlink_to("/private.txt")
+        (library / "Linked Game").symlink_to(game.name, target_is_directory=True)
         for path in [library, game]:
             path.chmod(0o755)
         for path in game.iterdir():
@@ -121,6 +122,16 @@ def main(image):
                         time.sleep(.3)
                 # Test replies intentionally contain no password; retain the test input.
                 source["password"] = "" if protocol == "nfs" else "fixture-password"
+                if protocol == "smb":
+                    ordinary = dict(source, url=url + "/" + urllib.parse.quote(game.name))
+                    assert request("/api/network-test", ordinary)["connected"], ordinary["url"]
+                    alias = dict(source, url=url + "/" + urllib.parse.quote("Linked Game"))
+                    try:
+                        request("/api/network-test", alias)
+                    except urllib.error.HTTPError as error:
+                        assert error.code == 400, error.code
+                    else:
+                        raise AssertionError("restricted SMB share accepted a linked source directory")
                 settings = dict(setup["settings"], rootDir="", rootDirs=[], sources=[source], refreshInterval="0")
                 saved = request("/api/server-settings" if configured else "/api/setup", settings, "PUT" if configured else "POST")
                 configured = True
